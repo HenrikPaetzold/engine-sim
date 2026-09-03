@@ -104,6 +104,9 @@ bool Simulator::simulateStep() {
     }
 
     const double timestep = getTimestep();
+
+    m_powertrain.update(timestep);
+
     m_system->process(timestep, 1);
 
     m_engine->update(timestep);

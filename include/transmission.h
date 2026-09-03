@@ -26,13 +26,21 @@ class Transmission {
             Engine *engine);
         void changeGear(int newGear);
         inline int getGear() const { return m_gear; }
+        inline int getGearCount() const { return m_gearCount; }
+        double getGearRatio(int gear) const;
         inline void setClutchPressure(double pressure) { m_clutchPressure = pressure; }
         inline double getClutchPressure() const { return m_clutchPressure; }
+
+        double getInputSpeed() const;
+        double getOutputSpeed() const;
+        double getClutchSlipSpeed() const;
+        inline atg_scs::RigidBody *getRotatingMass() const { return m_rotatingMass; }
 
     protected:
         atg_scs::ClutchConstraint m_clutchConstraint;
         atg_scs::RigidBody *m_rotatingMass;
         Vehicle *m_vehicle;
+        Engine *m_engine;
 
         int m_gear;
         int m_newGear;

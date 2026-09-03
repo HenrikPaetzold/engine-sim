@@ -57,6 +57,14 @@ set_property(TARGET gtest_main PROPERTY FOLDER "gtest")
 
 add_library(engine-sim STATIC
     # Source files
+    src/config/parameter_registry.cpp
+    src/control/map_2d.cpp
+    src/control/pid_controller.cpp
+    src/powertrain/passthrough_controller.cpp
+    src/powertrain/powertrain_controller.cpp
+    src/external_throttle.cpp
+    src/powertrain_system.cpp
+
     src/audio_buffer.cpp
     src/camshaft.cpp
     src/crankshaft.cpp
@@ -100,6 +108,20 @@ add_library(engine-sim STATIC
     src/vtec_valvetrain.cpp
 
     # Include files
+    include/config/parameter_registry.h
+    include/control/hysteresis.h
+    include/control/map_2d.h
+    include/control/pid_controller.h
+    include/control/rate_limiter.h
+    include/powertrain/actuator_commands.h
+    include/powertrain/driver_inputs.h
+    include/powertrain/passthrough_controller.h
+    include/powertrain/powertrain_bus.h
+    include/powertrain/powertrain_controller.h
+    include/powertrain/powertrain_state.h
+    include/external_throttle.h
+    include/powertrain_system.h
+
     include/audio_buffer.h
     include/application_settings.h
     include/camshaft.h
@@ -329,6 +351,9 @@ add_executable(engine-sim-test
     test/gas_system_tests.cpp
     test/function_test.cpp
     test/synthesizer_tests.cpp
+    test/control_tests.cpp
+    test/parameter_registry_tests.cpp
+    test/powertrain_tests.cpp
 )
 
 target_link_libraries(engine-sim-test

@@ -58,6 +58,8 @@ class Engine : public Part {
         virtual Crankshaft *getOutputCrankshaft() const;
         virtual void setSpeedControl(double s);
         virtual double getSpeedControl();
+        Throttle *getThrottleController() const { return m_throttle; }
+        Throttle *replaceThrottleController(Throttle *throttle);
         virtual void setThrottle(double throttle);
         virtual double getThrottle() const;
         virtual double getThrottlePlateAngle() const;

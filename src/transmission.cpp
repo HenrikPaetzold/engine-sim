@@ -12,6 +12,7 @@ Transmission::Transmission() {
     m_maxClutchTorque = units::torque(1000.0, units::ft_lb);
     m_rotatingMass = nullptr;
     m_vehicle = nullptr;
+    m_engine = nullptr;
     m_clutchPressure = 0.0;
 }
 
@@ -49,11 +50,31 @@ void Transmission::addToSystem(
 {
     m_rotatingMass = rotatingMass;
     m_vehicle = vehicle;
+    m_engine = engine;
 
     m_clutchConstraint.setBody1(&engine->getOutputCrankshaft()->m_body);
     m_clutchConstraint.setBody2(m_rotatingMass);
 
     system->addConstraint(&m_clutchConstraint);
+}
+
+double Transmission::getGearRatio(int gear) const {
+    if (gear < 0 || gear >= m_gearCount) return 0.0;
+    return m_gearRatios[gear];
+}
+
+double Transmission::getInputSpeed() const {
+    if (m_engine == nullptr) return 0.0;
+    return m_engine->getOutputCrankshaft()->m_body.v_theta;
+}
+
+double Transmission::getOutputSpeed() const {
+    if (m_rotatingMass == nullptr) return 0.0;
+    return m_rotatingMass->v_theta;
+}
+
+double Transmission::getClutchSlipSpeed() const {
+    return getInputSpeed() - getOutputSpeed();
 }
 
 void Transmission::changeGear(int newGear) {

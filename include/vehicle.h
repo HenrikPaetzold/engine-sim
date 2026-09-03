@@ -28,6 +28,10 @@ class Vehicle {
         inline double getDiffRatio() const { return m_diffRatio; }
         inline double getTireRadius() const { return m_tireRadius; }
         double getSpeed() const;
+        double getSignedSpeed() const;
+        inline double getRotationalSpeed() const {
+            return (m_rotatingMass != nullptr) ? m_rotatingMass->v_theta : 0.0;
+        }
         inline double getTravelledDistance() const { return m_travelledDistance; }
         inline void resetTravelledDistance() { m_travelledDistance = 0; }
         double linearForceToVirtualTorque(double force) const;

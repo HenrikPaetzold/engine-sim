@@ -44,6 +44,13 @@ double Vehicle::getSpeed() const {
     // E_k = 0.5 * m * v^2
 }
 
+double Vehicle::getSignedSpeed() const {
+    const double speed = getSpeed();
+    return (m_rotatingMass != nullptr && m_rotatingMass->v_theta < 0)
+        ? -speed
+        : speed;
+}
+
 double Vehicle::linearForceToVirtualTorque(double force) const {
     const double rotationToKineticRatio =
         std::sqrt(m_rotatingMass->I / m_mass);

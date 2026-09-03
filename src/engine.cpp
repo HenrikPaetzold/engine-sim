@@ -144,6 +144,13 @@ double Engine::getSpeedControl() {
     return m_throttle->getSpeedControl();
 }
 
+Throttle *Engine::replaceThrottleController(Throttle *throttle) {
+    Throttle *previous = m_throttle;
+    m_throttle = throttle;
+
+    return previous;
+}
+
 void Engine::setThrottle(double throttle) {
     for (int i = 0; i < m_intakeCount; ++i) {
         m_intakes[i].m_throttle = throttle;

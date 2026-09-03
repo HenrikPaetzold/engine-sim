@@ -11,6 +11,7 @@
 #include "vehicle_drag_constraint.h"
 #include "delay_filter.h"
 #include "engine.h"
+#include "powertrain_system.h"
 
 #include <chrono>
 
@@ -79,6 +80,7 @@ public:
 
     Dynamometer m_dyno;
     StarterMotor m_starterMotor;
+    PowertrainSystem m_powertrain;
 
 protected:
     void initializeSynthesizer();
