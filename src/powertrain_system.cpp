@@ -15,8 +15,6 @@ PowertrainSystem::PowertrainSystem() {
     m_accumulator = 0.0;
     m_telemetryAccumulator = 0.0;
     m_time = 0.0;
-    m_roadGrade = 0.0;
-    m_ambientTemperature = units::celcius(20.0);
 }
 
 PowertrainSystem::~PowertrainSystem() {
@@ -44,31 +42,34 @@ void PowertrainSystem::setConfigServer(config::ConfigServer *server) {
 void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
     if (registry == nullptr) return;
 
-    config::ParameterDescriptor grade;
-    grade.path = "environment.road_grade";
-    grade.minValue = -0.30;
-    grade.maxValue = 0.30;
-    grade.defaultValue = 0.0;
-    grade.unit = "rad";
-    registry->registerScalar(grade, &m_roadGrade);
+    registry->registerScalar(
+        config::describeScalar(
+            "control.frequency", 20.0, 10000.0, m_params.controlFrequency, "Hz"),
+        &m_params.controlFrequency);
+    registry->registerScalar(
+        config::describeScalar(
+            "control.telemetry_frequency", 1.0, 200.0, m_params.telemetryFrequency, "Hz"),
+        &m_params.telemetryFrequency);
 
-    config::ParameterDescriptor ambient;
-    ambient.path = "environment.ambient_temperature";
-    ambient.minValue = units::celcius(-40.0);
-    ambient.maxValue = units::celcius(60.0);
-    ambient.defaultValue = units::celcius(20.0);
-    ambient.unit = "K";
-    registry->registerScalar(ambient, &m_ambientTemperature);
+    if (m_simulator != nullptr) {
+        Vehicle *vehicle = m_simulator->getVehicle();
+        if (vehicle != nullptr) vehicle->registerParameters(registry, "");
 
-    config::ParameterDescriptor frequency;
-    frequency.path = "control.frequency";
-    frequency.minValue = 20.0;
-    frequency.maxValue = 10000.0;
-    frequency.defaultValue = m_params.controlFrequency;
-    frequency.unit = "Hz";
-    registry->registerScalar(frequency, &m_params.controlFrequency);
+        Engine *engine = m_simulator->getEngine();
+        if (engine != nullptr) engine->getThermalModel().registerParameters(registry, "");
+    }
 
     if (m_controller != nullptr) m_controller->registerParameters(registry, "");
+}
+
+bool PowertrainSystem::selectDriveMode(
+    const std::string &name,
+    config::DriveModeSet *modes,
+    config::ParameterRegistry *registry)
+{
+    if (name.empty() || modes == nullptr || registry == nullptr) return false;
+
+    return modes->select(name, registry);
 }
 
 void PowertrainSystem::attach(Simulator *simulator) {
@@ -194,6 +195,13 @@ void PowertrainSystem::applyCommands() {
             ignition->m_enabled = m_commands.ignitionEnabled;
             ignition->setCutFraction(m_commands.ignitionCutFraction);
             ignition->setTimingOffset(m_commands.timingOffset);
+
+            if (m_commands.revLimit > 0.0) {
+                ignition->setRevLimit(m_commands.revLimit);
+            }
+            if (m_commands.limiterDuration > 0.0) {
+                ignition->setLimiterDuration(m_commands.limiterDuration);
+            }
         }
 
         const double fuelFactor =
@@ -213,14 +221,6 @@ void PowertrainSystem::applyCommands() {
     }
 
     m_simulator->m_starterMotor.m_enabled = m_commands.starterEnabled;
-
-    Vehicle *vehicle = m_simulator->getVehicle();
-    if (vehicle != nullptr) vehicle->setRoadGrade(m_roadGrade);
-
-    if (engine != nullptr) {
-        engine->getThermalModel().getParameters().ambientTemperature =
-            m_ambientTemperature;
-    }
 }
 
 void PowertrainSystem::update(double dt) {

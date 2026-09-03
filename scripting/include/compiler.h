@@ -7,6 +7,7 @@
 #include "piranha.h"
 
 #include <vector>
+#include <string>
 
 namespace es_script {
 
@@ -19,6 +20,7 @@ namespace es_script {
             powertrain::PowertrainUnit *powertrain = nullptr;
             adaptation::AdaptationManager::Parameters adaptation;
             config::DriveModeSet driveModes;
+            std::string defaultMode;
 
             Simulator::Parameters simulatorParameters;
             ApplicationSettings applicationSettings;

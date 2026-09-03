@@ -112,6 +112,10 @@ pre {
             <h2>Learned values</h2>
             <pre id="export">—</pre>
         </div>
+        <div class="group">
+            <h2>Session overrides</h2>
+            <pre id="overrides">—</pre>
+        </div>
     </aside>
 </main>
 
@@ -361,8 +365,13 @@ async function poll() {
 
 async function pollExport() {
     try {
-        const text = await api("/api/export");
-        document.getElementById("export").textContent = text.trim() || "nothing learned yet";
+        const learned = await api("/api/export");
+        document.getElementById("export").textContent =
+            learned.trim() || "nothing learned yet";
+
+        const overrides = await api("/api/overrides");
+        document.getElementById("overrides").textContent =
+            overrides.trim() || "everything is at its script value";
     }
     catch (error) { /* keep the previous contents */ }
 }

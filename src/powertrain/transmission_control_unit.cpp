@@ -458,6 +458,22 @@ void powertrain::TransmissionControlUnit::registerParameters(
         describe(base + "launch.pid.ki", 0.0, 20.0,
             m_params.slipController.ki, ""),
         &m_slipController.getParametersMutable().ki);
+    registry->registerScalar(
+        describe(base + "launch.pid.kd", 0.0, 1.0,
+            m_params.slipController.kd, ""),
+        &m_slipController.getParametersMutable().kd);
+    registry->registerScalar(
+        describe(base + "launch.stall_protect_speed", units::rpm(200.0), units::rpm(3000.0),
+            m_params.stallProtectSpeed, "rad/s"),
+        &m_params.stallProtectSpeed);
+    registry->registerScalar(
+        describe(base + "gearbox.final_drive", 0.5, 12.0,
+            m_params.finalDrive, ""),
+        &m_params.finalDrive);
+    registry->registerScalar(
+        describe(base + "gearbox.tire_radius", 0.05, 1.5,
+            m_params.tireRadius, "m"),
+        &m_params.tireRadius);
 
     config::ParameterDescriptor upshift =
         describe(base + "upshift_map", 0.0, 200.0, 0.0, "m/s");

@@ -29,6 +29,23 @@ namespace {
     }
 }
 
+config::ParameterDescriptor config::describeScalar(
+    const std::string &path,
+    double minValue,
+    double maxValue,
+    double defaultValue,
+    const char *unit)
+{
+    ParameterDescriptor descriptor;
+    descriptor.path = path;
+    descriptor.minValue = minValue;
+    descriptor.maxValue = maxValue;
+    descriptor.defaultValue = defaultValue;
+    descriptor.unit = unit;
+
+    return descriptor;
+}
+
 config::ParameterRegistry::ParameterRegistry() {
     /* void */
 }
@@ -289,9 +306,17 @@ void config::ParameterRegistry::serializeJson(std::ostream &out) const {
     out << "]}";
 }
 
-void config::ParameterRegistry::exportScript(std::ostream &out) const {
+void config::ParameterRegistry::exportScript(std::ostream &out, ExportScope scope) const {
     for (const Entry &entry : m_entries) {
-        if (!entry.descriptor.adaptive) continue;
+        if (scope == ExportScope::Learned) {
+            if (!entry.descriptor.adaptive) continue;
+        }
+        else if (entry.descriptor.type == ParameterType::Map) {
+            if (!entry.descriptor.adaptive) continue;
+        }
+        else if (readValue(entry) == entry.descriptor.defaultValue) {
+            continue;
+        }
 
         if (entry.descriptor.type == ParameterType::Map) {
             const control::Map2d *map = entry.mapTarget;

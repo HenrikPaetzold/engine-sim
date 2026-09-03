@@ -3,6 +3,10 @@
 
 #include "units.h"
 
+namespace config {
+    class ParameterRegistry;
+}
+
 class ThermalModel {
     public:
         struct Parameters {
@@ -23,6 +27,7 @@ class ThermalModel {
         ~ThermalModel();
 
         void initialize(const Parameters &params);
+        void registerParameters(config::ParameterRegistry *registry, const char *prefix);
         void reset();
 
         void addHeat(double energy);

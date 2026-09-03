@@ -188,6 +188,45 @@ TEST_F(ScriptFixture, DriveModesDriveTheRegistry) {
         1e-6);
 }
 
+TEST_F(ScriptFixture, ScriptChoosesTheStartingDriveMode) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    ecu: engine_control_unit(rev_limit: 7000 * units.rpm),\n"
+        "    default_mode: \"comfort\")\n"
+        "add_drive_mode(drive_mode(name: \"sport\")\n"
+        "    .set(\"ecu.limiter.rev_limit\", 9000 * units.rpm))\n"
+        "add_drive_mode(drive_mode(name: \"comfort\")\n"
+        "    .set(\"ecu.limiter.rev_limit\", 5500 * units.rpm))\n"));
+
+    EXPECT_EQ(es_script::Compiler::output()->defaultMode, "comfort");
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    config::ParameterRegistry registry;
+    unit->registerParameters(&registry, "");
+
+    config::DriveModeSet modes = es_script::Compiler::output()->driveModes;
+    ASSERT_TRUE(modes.select(es_script::Compiler::output()->defaultMode, &registry));
+
+    EXPECT_NEAR(
+        unit->getEngineControlUnit().getParameters().revLimit,
+        units::rpm(5500.0),
+        1e-6);
+}
+
+TEST_F(ScriptFixture, NoDefaultModeLeavesTheScriptValues) {
+    ASSERT_TRUE(run(
+        "set_powertrain(ecu: engine_control_unit(rev_limit: 7000 * units.rpm))\n"));
+
+    EXPECT_TRUE(es_script::Compiler::output()->defaultMode.empty());
+    EXPECT_NEAR(
+        es_script::Compiler::output()->powertrain
+            ->getEngineControlUnit().getParameters().revLimit,
+        units::rpm(7000.0),
+        1e-6);
+}
+
 TEST_F(ScriptFixture, MapSamplesBuildAGrid) {
     ASSERT_TRUE(run(
         "set_powertrain(\n"

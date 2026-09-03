@@ -18,6 +18,7 @@ namespace es_script {
             addInput("ecu", &m_ecu, InputTarget::Type::Object);
             addInput("tcu", &m_tcu, InputTarget::Type::Object);
             addInput("adaptation", &m_adaptation, InputTarget::Type::Object);
+            addInput("default_mode", &m_defaultMode);
 
             Node::registerInputs();
         }
@@ -49,11 +50,13 @@ namespace es_script {
 
             delete Compiler::output()->powertrain;
             Compiler::output()->powertrain = unit;
+            Compiler::output()->defaultMode = m_defaultMode;
         }
 
         EngineControlUnitNode *m_ecu = nullptr;
         TransmissionControlUnitNode *m_tcu = nullptr;
         AdaptationNode *m_adaptation = nullptr;
+        std::string m_defaultMode;
     };
 
     class AddGearRatioNode : public Node {

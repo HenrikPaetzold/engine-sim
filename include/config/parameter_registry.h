@@ -32,6 +32,13 @@ namespace config {
         double adaptMax = 0.0;
     };
 
+    ParameterDescriptor describeScalar(
+        const std::string &path,
+        double minValue,
+        double maxValue,
+        double defaultValue,
+        const char *unit = "");
+
     class ParameterRegistry {
         public:
             ParameterRegistry();
@@ -53,8 +60,13 @@ namespace config {
 
             void resetToDefaults();
 
+            enum class ExportScope {
+                Learned,
+                Changed
+            };
+
             void serializeJson(std::ostream &out) const;
-            void exportScript(std::ostream &out) const;
+            void exportScript(std::ostream &out, ExportScope scope = ExportScope::Learned) const;
 
             int getCount() const;
             const ParameterDescriptor &getDescriptor(int index) const;

@@ -30,6 +30,7 @@ namespace powertrain {
                 double revLimit = units::rpm(7000.0);
                 double softLimitBand = units::rpm(300.0);
                 double hardLimitOffset = units::rpm(150.0);
+                double limiterDuration = 0.5 * units::sec;
 
                 double overrunCutSpeed = units::rpm(2000.0);
                 double overrunResumeSpeed = units::rpm(1400.0);

@@ -293,6 +293,8 @@ void powertrain::EngineControlUnit::update(
 
     m_commandedPlate = plate;
     commands->throttlePlate = plate;
+    commands->revLimit = m_params.revLimit + m_params.hardLimitOffset;
+    commands->limiterDuration = m_params.limiterDuration;
     commands->ignitionCutFraction = ignitionCut;
     commands->fuelCutFraction = std::clamp(fuelCut, 0.0, 1.0);
     commands->fuelEnrichment = enrichment * m_fuelTrim;
@@ -368,6 +370,22 @@ void powertrain::EngineControlUnit::registerParameters(
         describe(base + "limiter.soft_band", 0.0, units::rpm(2000.0),
             m_params.softLimitBand, "rad/s"),
         &m_params.softLimitBand);
+    registry->registerScalar(
+        describe(base + "limiter.hard_offset", 0.0, units::rpm(2000.0),
+            m_params.hardLimitOffset, "rad/s"),
+        &m_params.hardLimitOffset);
+    registry->registerScalar(
+        describe(base + "limiter.duration", 0.0, 5.0,
+            m_params.limiterDuration, "s"),
+        &m_params.limiterDuration);
+    registry->registerScalar(
+        describe(base + "cranking_speed", units::rpm(50.0), units::rpm(2000.0),
+            m_params.crankingSpeed, "rad/s"),
+        &m_params.crankingSpeed);
+    registry->registerScalar(
+        describe(base + "torque.pid.kd", 0.0, 1.0,
+            m_params.torqueController.kd, ""),
+        &m_torqueController.getParametersMutable().kd);
 
     registry->registerScalar(
         describe(base + "coldstart.enrichment", 1.0, 3.0,

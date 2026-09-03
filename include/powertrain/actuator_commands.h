@@ -11,6 +11,8 @@ namespace powertrain {
         double fuelCutFraction = 0.0;
         double fuelEnrichment = 1.0;
         double timingOffset = 0.0;
+        double revLimit = 0.0;
+        double limiterDuration = 0.0;
 
         int targetGear = -1;
         int preselectGear = -1;

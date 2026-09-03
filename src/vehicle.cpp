@@ -1,6 +1,8 @@
 #include "../include/vehicle.h"
 
 #include "../include/constants.h"
+#include "../include/config/parameter_registry.h"
+#include "../include/units.h"
 
 #include <cmath>
 
@@ -27,6 +29,34 @@ void Vehicle::initialize(const Parameters &params) {
     m_diffRatio = params.diffRatio;
     m_tireRadius = params.tireRadius;
     m_rollingResistance = params.rollingResistance;
+}
+
+void Vehicle::registerParameters(config::ParameterRegistry *registry, const char *prefix) {
+    if (registry == nullptr) return;
+
+    const std::string base = std::string(prefix) + "vehicle.";
+
+    registry->registerScalar(
+        config::describeScalar(base + "mass", 100.0, 20000.0, m_mass, "kg"),
+        &m_mass);
+    registry->registerScalar(
+        config::describeScalar(base + "drag_coefficient", 0.0, 2.0, m_dragCoefficient, ""),
+        &m_dragCoefficient);
+    registry->registerScalar(
+        config::describeScalar(base + "cross_section_area", 0.1, 20.0, m_crossSectionArea, "m2"),
+        &m_crossSectionArea);
+    registry->registerScalar(
+        config::describeScalar(base + "diff_ratio", 0.5, 12.0, m_diffRatio, ""),
+        &m_diffRatio);
+    registry->registerScalar(
+        config::describeScalar(base + "tire_radius", 0.05, 1.5, m_tireRadius, "m"),
+        &m_tireRadius);
+    registry->registerScalar(
+        config::describeScalar(base + "rolling_resistance", 0.0, 20000.0, m_rollingResistance, "N"),
+        &m_rollingResistance);
+    registry->registerScalar(
+        config::describeScalar(base + "road_grade", -0.30, 0.30, m_roadGrade, "rad"),
+        &m_roadGrade);
 }
 
 void Vehicle::update(double dt) {

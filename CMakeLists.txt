@@ -385,6 +385,7 @@ add_executable(engine-sim-test
     test/adaptation_tests.cpp
     test/drive_mode_tests.cpp
     test/config_server_tests.cpp
+    test/single_source_tests.cpp
 )
 
 target_link_libraries(engine-sim-test

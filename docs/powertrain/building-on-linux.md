@@ -58,3 +58,24 @@ building that commit in a separate worktree:
 
 `SynthesizerTests.SynthesizerSystemTestSingleThread` does not terminate; run
 the suite with `--gtest_filter=-SynthesizerTests.SynthesizerSystemTest*`.
+
+## Which rev limit is the real one
+
+There used to be three numbers that could disagree:
+
+- `ignition_module(rev_limit: ...)` in the engine script, which drove the actual
+  spark cut in `IgnitionModule`
+- `ecu.limiter.rev_limit`, which drove only the ECU's soft ramp and fuel cut
+- `engine(redline: ...)`, a third value
+
+The engine control unit now commands the limiter. It writes `revLimit` and
+`limiterDuration` into `ActuatorCommands`, and `PowertrainSystem::applyCommands`
+pushes them into the ignition module every control tick. `ecu.limiter.rev_limit`
+is therefore the only number that decides where the engine stops pulling, and a
+drive mode or a browser slider that changes it moves the hard cut with it.
+
+The ignition module's own limit is set to `rev_limit + hard_offset`, so the ECU's
+soft ignition cut and hard fuel cut always act before the module's backstop.
+
+`engine(redline: ...)` remains what it always was: the dyno sweep range and the
+gauge marking. It does not limit anything.

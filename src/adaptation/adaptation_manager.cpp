@@ -280,6 +280,10 @@ void adaptation::AdaptationManager::registerParameters(
         describe(base + "lambda.limit", 0.0, 1.0,
             m_params.lambdaTrimLimit, ""),
         &m_params.lambdaTrimLimit);
+    registry->registerScalar(
+        describe(base + "lambda.target", 0.0, 1.0,
+            m_params.lambdaTarget, ""),
+        &m_params.lambdaTarget);
 
     registry->registerBoolean(
         describe(base + "shift.enabled", 0.0, 1.0,

@@ -159,11 +159,16 @@ void config::ConfigServer::refreshState(const TelemetrySample &sample) {
         << "}}";
 
     std::ostringstream exported;
-    if (m_registry != nullptr) m_registry->exportScript(exported);
+    std::ostringstream overridden;
+    if (m_registry != nullptr) {
+        m_registry->exportScript(exported, ParameterRegistry::ExportScope::Learned);
+        m_registry->exportScript(overridden, ParameterRegistry::ExportScope::Changed);
+    }
 
     std::lock_guard<std::mutex> lock(m_mutex);
     m_state = out.str();
     m_export = exported.str();
+    m_overrides = overridden.str();
 }
 
 void config::ConfigServer::publish(const TelemetrySample &sample) {
@@ -183,6 +188,11 @@ std::string config::ConfigServer::stateJson() const {
 std::string config::ConfigServer::exportScript() const {
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_export;
+}
+
+std::string config::ConfigServer::exportOverrides() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_overrides;
 }
 
 bool config::ConfigServer::queueCommand(const ParameterCommand &command) {
@@ -243,6 +253,10 @@ bool config::ConfigServer::start() {
 
     server->Get("/api/export", [this](const httplib::Request &, httplib::Response &res) {
         res.set_content(exportScript(), "text/plain");
+    });
+
+    server->Get("/api/overrides", [this](const httplib::Request &, httplib::Response &res) {
+        res.set_content(exportOverrides(), "text/plain");
     });
 
     server->Post("/api/set", [this](const httplib::Request &req, httplib::Response &res) {

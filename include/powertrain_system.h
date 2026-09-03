@@ -6,6 +6,9 @@
 #include "config/parameter_registry.h"
 #include "config/config_server.h"
 #include "adaptation/adaptation_manager.h"
+#include "config/drive_mode.h"
+
+#include <string>
 
 class Engine;
 class Transmission;
@@ -31,6 +34,10 @@ class PowertrainSystem {
         void setAdaptationManager(adaptation::AdaptationManager *manager);
         void setConfigServer(config::ConfigServer *server);
         void registerParameters(config::ParameterRegistry *registry);
+        bool selectDriveMode(
+            const std::string &name,
+            config::DriveModeSet *modes,
+            config::ParameterRegistry *registry);
         inline powertrain::PowertrainController *getController() const { return m_controller; }
 
         inline bool isActive() const { return m_controller != nullptr && m_simulator != nullptr; }
@@ -61,9 +68,6 @@ class PowertrainSystem {
         powertrain::ActuatorCommands m_commands;
 
         Parameters m_params;
-
-        double m_roadGrade;
-        double m_ambientTemperature;
 
         void publishTelemetry();
 

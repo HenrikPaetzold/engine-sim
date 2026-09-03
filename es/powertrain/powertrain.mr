@@ -167,4 +167,5 @@ public node set_powertrain => __engine_sim__set_powertrain {
     input ecu [ecu_channel]: engine_control_unit();
     input tcu [tcu_channel]: transmission_control_unit();
     input adaptation [adaptation_channel]: adaptation();
+    input default_mode [string]: "";
 }

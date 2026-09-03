@@ -3,6 +3,10 @@
 
 #include "scs.h"
 
+namespace config {
+    class ParameterRegistry;
+}
+
 class Vehicle {
     public:
         struct Parameters {
@@ -19,6 +23,7 @@ class Vehicle {
         ~Vehicle();
 
         void initialize(const Parameters &params);
+        void registerParameters(config::ParameterRegistry *registry, const char *prefix);
         void update(double dt);
         void addToSystem(atg_scs::RigidBodySystem *system, atg_scs::RigidBody *rotatingMass);
         inline double getMass() const { return m_mass; }

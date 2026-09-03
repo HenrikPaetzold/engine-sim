@@ -79,6 +79,7 @@ namespace config {
             std::string schemaJson() const;
             std::string stateJson() const;
             std::string exportScript() const;
+            std::string exportOverrides() const;
 
             bool queueCommand(const ParameterCommand &command);
 
@@ -94,6 +95,7 @@ namespace config {
             std::string m_schema;
             std::string m_state;
             std::string m_export;
+            std::string m_overrides;
 
             std::vector<ParameterCommand> m_commands;
 
