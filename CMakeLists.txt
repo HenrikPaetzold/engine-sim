@@ -64,10 +64,14 @@ add_library(engine-sim STATIC
     src/config/parameter_registry.cpp
     src/control/iterative_learning.cpp
     src/control/map_2d.cpp
+    src/control/signal_table.cpp
+    src/control/control_block.cpp
+    src/control/control_program.cpp
     src/control/pid_controller.cpp
     src/powertrain/engine_control_unit.cpp
     src/powertrain/passthrough_controller.cpp
     src/powertrain/powertrain_unit.cpp
+    src/powertrain/scripted_control_unit.cpp
     src/powertrain/transmission_control_unit.cpp
     src/powertrain/powertrain_controller.cpp
     src/external_throttle.cpp
@@ -127,6 +131,9 @@ add_library(engine-sim STATIC
     include/control/hysteresis.h
     include/control/iterative_learning.h
     include/control/map_2d.h
+    include/control/signal_table.h
+    include/control/control_block.h
+    include/control/control_program.h
     include/control/pid_controller.h
     include/control/rate_limiter.h
     include/powertrain/actuator_commands.h
@@ -138,6 +145,7 @@ add_library(engine-sim STATIC
     include/powertrain/powertrain_controller.h
     include/powertrain/powertrain_state.h
     include/powertrain/powertrain_unit.h
+    include/powertrain/scripted_control_unit.h
     include/powertrain/transmission_control_unit.h
     include/external_throttle.h
     include/powertrain_system.h
@@ -243,6 +251,7 @@ if (PIRANHA_ENABLED)
         scripting/include/control_nodes.h
         scripting/include/powertrain_actions.h
         scripting/include/powertrain_nodes.h
+    scripting/include/control_program_nodes.h
         scripting/include/transmission_node.h
         scripting/include/valvetrain_node.h
         scripting/include/vtec_valvetrain_node.h
@@ -388,6 +397,7 @@ add_executable(engine-sim-test
     test/ecu_tests.cpp
     test/tcu_tests.cpp
     test/driveline_tests.cpp
+    test/control_program_tests.cpp
     test/adaptation_tests.cpp
     test/drive_mode_tests.cpp
     test/config_server_tests.cpp

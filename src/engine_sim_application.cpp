@@ -60,6 +60,7 @@ EngineSimApplication::EngineSimApplication() {
 
     m_simulator = nullptr;
     m_powertrainUnit = nullptr;
+    m_controlProgram = nullptr;
     m_driveModeIndex = -1;
     m_reportedGear = -2;
     m_engineView = nullptr;
@@ -628,6 +629,7 @@ void EngineSimApplication::loadScript() {
     releasePowertrain();
 
     powertrain::PowertrainUnit *scriptedPowertrain = nullptr;
+    powertrain::ScriptedControlUnit *scriptedProgram = nullptr;
     adaptation::AdaptationManager::Parameters adaptationParams;
     config::DriveModeSet driveModes;
     std::string defaultMode;
@@ -645,6 +647,7 @@ void EngineSimApplication::loadScript() {
         transmission = output.transmission;
 
         scriptedPowertrain = output.powertrain;
+        scriptedProgram = output.controlProgram;
         adaptationParams = output.adaptation;
         driveModes = output.driveModes;
         defaultMode = output.defaultMode;
@@ -682,8 +685,9 @@ void EngineSimApplication::loadScript() {
 
     loadEngine(engine, vehicle, transmission);
 
-    if (scriptedPowertrain != nullptr) {
-        installPowertrain(scriptedPowertrain, adaptationParams, driveModes, defaultMode);
+    if (scriptedPowertrain != nullptr || scriptedProgram != nullptr) {
+        installPowertrain(
+            scriptedPowertrain, scriptedProgram, adaptationParams, driveModes, defaultMode);
     }
 
     refreshUserInterface();
@@ -696,7 +700,7 @@ void EngineSimApplication::loadScript() {
 }
 
 bool EngineSimApplication::powertrainActive() const {
-    return m_powertrainUnit != nullptr;
+    return m_powertrainUnit != nullptr || m_controlProgram != nullptr;
 }
 
 void EngineSimApplication::releasePowertrain() {
@@ -712,26 +716,39 @@ void EngineSimApplication::releasePowertrain() {
 
     delete m_powertrainUnit;
     m_powertrainUnit = nullptr;
+
+    delete m_controlProgram;
+    m_controlProgram = nullptr;
 }
 
 void EngineSimApplication::installPowertrain(
     powertrain::PowertrainUnit *unit,
+    powertrain::ScriptedControlUnit *program,
     const adaptation::AdaptationManager::Parameters &adaptationParams,
     const config::DriveModeSet &modes,
     const std::string &defaultMode)
 {
     m_powertrainUnit = unit;
+    m_controlProgram = program;
     m_driveModes = modes;
 
-    m_adaptation.initialize(adaptationParams);
-    m_adaptation.attach(
-        &m_powertrainUnit->getEngineControlUnit(),
-        &m_powertrainUnit->getTransmissionControlUnit());
+    powertrain::PowertrainController *controller = (m_controlProgram != nullptr)
+        ? static_cast<powertrain::PowertrainController *>(m_controlProgram)
+        : static_cast<powertrain::PowertrainController *>(m_powertrainUnit);
 
     PowertrainSystem &system = m_simulator->m_powertrain;
     system.initialize(PowertrainSystem::Parameters());
-    system.setController(m_powertrainUnit);
-    system.setAdaptationManager(&m_adaptation);
+    system.setController(controller);
+
+    if (controller == m_powertrainUnit && m_powertrainUnit != nullptr) {
+        m_adaptation.initialize(adaptationParams);
+        m_adaptation.attach(
+            &m_powertrainUnit->getEngineControlUnit(),
+            &m_powertrainUnit->getTransmissionControlUnit());
+
+        system.setAdaptationManager(&m_adaptation);
+    }
+
     system.attach(m_simulator);
     system.registerParameters(&m_registry);
 

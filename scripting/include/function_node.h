@@ -27,6 +27,17 @@ namespace es_script {
             m_filterRadius = filterRadius;
         }
 
+        Function *createFunction() const {
+            Function *function = new Function;
+            function->initialize((int)m_samples.size(), m_filterRadius);
+
+            for (const Sample &sample : m_samples) {
+                function->addSample(sample.x, sample.y);
+            }
+
+            return function;
+        }
+
         virtual Function *generate(EngineContext *context) {
             Function *existingFunction = context->getFunction(this);
             if (existingFunction != nullptr) {

@@ -23,6 +23,7 @@
 #include "application_settings.h"
 #include "transmission.h"
 #include "powertrain/powertrain_unit.h"
+#include "powertrain/scripted_control_unit.h"
 #include "adaptation/adaptation_manager.h"
 #include "config/parameter_registry.h"
 #include "config/drive_mode.h"
@@ -98,6 +99,7 @@ class EngineSimApplication {
         void releasePowertrain();
         void installPowertrain(
             powertrain::PowertrainUnit *unit,
+            powertrain::ScriptedControlUnit *program,
             const adaptation::AdaptationManager::Parameters &adaptationParams,
             const config::DriveModeSet &modes,
             const std::string &defaultMode);
@@ -149,6 +151,7 @@ class EngineSimApplication {
         Simulator *m_simulator;
 
         powertrain::PowertrainUnit *m_powertrainUnit;
+        powertrain::ScriptedControlUnit *m_controlProgram;
         adaptation::AdaptationManager m_adaptation;
         config::ParameterRegistry m_registry;
         config::DriveModeSet m_driveModes;

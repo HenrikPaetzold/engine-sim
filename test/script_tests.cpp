@@ -2,6 +2,7 @@
 
 #include "../scripting/include/compiler.h"
 
+#include "../include/powertrain/scripted_control_unit.h"
 #include "../include/transmission.h"
 #include "../include/config/parameter_registry.h"
 #include "../include/units.h"
@@ -29,6 +30,7 @@ namespace {
         protected:
             void SetUp() override {
                 delete es_script::Compiler::output()->powertrain;
+                delete es_script::Compiler::output()->controlProgram;
                 *es_script::Compiler::output() = es_script::Compiler::Output();
             }
 
@@ -339,6 +341,7 @@ TEST_F(ScriptFixture, TheGearboxLibraryBuildsEveryKind) {
 
     for (const Case &c : cases) {
         delete es_script::Compiler::output()->powertrain;
+        delete es_script::Compiler::output()->controlProgram;
         *es_script::Compiler::output() = es_script::Compiler::Output();
 
         const std::string body =
@@ -350,4 +353,178 @@ TEST_F(ScriptFixture, TheGearboxLibraryBuildsEveryKind) {
         EXPECT_EQ(transmission->getType(), c.type) << c.node;
         EXPECT_EQ(transmission->getGearCount(), 2) << c.node;
     }
+}
+
+namespace {
+    void runProgram(
+        powertrain::ScriptedControlUnit *unit,
+        const powertrain::PowertrainState &state,
+        const powertrain::DriverInputs &inputs,
+        powertrain::ActuatorCommands *commands,
+        int steps = 1)
+    {
+        for (int i = 0; i < steps; ++i) {
+            unit->update(1e-3, state, inputs, commands);
+        }
+    }
+}
+
+TEST_F(ScriptFixture, AScriptedProgramDrivesTheThrottleFromThePedal) {
+    ASSERT_TRUE(run(
+        "set_control_program(\n"
+        "    control_program()\n"
+        "        .add_output(\n"
+        "            actuator(\n"
+        "                channel: \"throttle_plate\",\n"
+        "                a: gain(a: signal(channel: \"accelerator\"), gain: 0.5))))\n"));
+
+    powertrain::ScriptedControlUnit *unit =
+        es_script::Compiler::output()->controlProgram;
+    ASSERT_NE(unit, nullptr);
+
+    powertrain::PowertrainState state;
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.accelerator = 0.8;
+    runProgram(unit, state, inputs, &commands);
+
+    EXPECT_NEAR(commands.throttlePlate, 0.4, 1e-9);
+}
+
+TEST_F(ScriptFixture, AScriptedRevLimiterCutsIgnitionAboveTheLimit) {
+    ASSERT_TRUE(run(
+        "set_control_program(\n"
+        "    control_program()\n"
+        "        .add_output(\n"
+        "            actuator(\n"
+        "                channel: \"ignition_cut\",\n"
+        "                a: greater_than(\n"
+        "                    a: signal(channel: \"engine_rpm\"),\n"
+        "                    b: constant(7000),\n"
+        "                    band: 50)))\n"
+        "        .add_output(\n"
+        "            actuator(\n"
+        "                channel: \"throttle_plate\",\n"
+        "                a: signal(channel: \"accelerator\"))))\n"));
+
+    powertrain::ScriptedControlUnit *unit =
+        es_script::Compiler::output()->controlProgram;
+    ASSERT_NE(unit, nullptr);
+
+    powertrain::PowertrainState state;
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.accelerator = 1.0;
+
+    state.engineRpm = 6000.0;
+    runProgram(unit, state, inputs, &commands);
+    EXPECT_NEAR(commands.ignitionCutFraction, 0.0, 1e-12);
+    EXPECT_NEAR(commands.throttlePlate, 1.0, 1e-12);
+
+    state.engineRpm = 7100.0;
+    runProgram(unit, state, inputs, &commands);
+    EXPECT_NEAR(commands.ignitionCutFraction, 1.0, 1e-12);
+
+    state.engineRpm = 6980.0;
+    runProgram(unit, state, inputs, &commands);
+    EXPECT_NEAR(commands.ignitionCutFraction, 1.0, 1e-12);
+
+    state.engineRpm = 6900.0;
+    runProgram(unit, state, inputs, &commands);
+    EXPECT_NEAR(commands.ignitionCutFraction, 0.0, 1e-12);
+}
+
+TEST_F(ScriptFixture, AScriptedIdleControllerClosesTheLoop) {
+    ASSERT_TRUE(run(
+        "set_control_program(\n"
+        "    control_program()\n"
+        "        .add_output(\n"
+        "            actuator(\n"
+        "                channel: \"throttle_plate\",\n"
+        "                a: pid(\n"
+        "                    setpoint: constant(800),\n"
+        "                    measurement: signal(channel: \"engine_rpm\"),\n"
+        "                    controller: pid_controller(\n"
+        "                        kp: 0.001, ki: 0.01, min: 0.0, max: 1.0)))))\n"));
+
+    powertrain::ScriptedControlUnit *unit =
+        es_script::Compiler::output()->controlProgram;
+    ASSERT_NE(unit, nullptr);
+
+    powertrain::PowertrainState state;
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    state.engineRpm = 600.0;
+    runProgram(unit, state, inputs, &commands, 200);
+    const double belowTarget = commands.throttlePlate;
+
+    unit->reset();
+
+    state.engineRpm = 1000.0;
+    runProgram(unit, state, inputs, &commands, 200);
+    const double aboveTarget = commands.throttlePlate;
+
+    EXPECT_GT(belowTarget, aboveTarget);
+    EXPECT_GT(belowTarget, 0.0);
+    EXPECT_NEAR(aboveTarget, 0.0, 1e-12);
+}
+
+TEST_F(ScriptFixture, AnUndrivenActuatorKeepsItsSafeDefault) {
+    ASSERT_TRUE(run(
+        "set_control_program(\n"
+        "    control_program()\n"
+        "        .add_output(\n"
+        "            actuator(channel: \"throttle_plate\", a: constant(0.25))))\n"));
+
+    powertrain::ScriptedControlUnit *unit =
+        es_script::Compiler::output()->controlProgram;
+    ASSERT_NE(unit, nullptr);
+
+    powertrain::PowertrainState state;
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    state.gear = 2;
+    runProgram(unit, state, inputs, &commands);
+
+    EXPECT_NEAR(commands.throttlePlate, 0.25, 1e-12);
+    EXPECT_TRUE(commands.ignitionEnabled);
+    EXPECT_FALSE(commands.starterEnabled);
+    EXPECT_NEAR(commands.fuelEnrichment, 1.0, 1e-12);
+    EXPECT_EQ(commands.targetGear, 2);
+}
+
+TEST_F(ScriptFixture, ScriptedBlockParametersReachTheRegistry) {
+    ASSERT_TRUE(run(
+        "set_control_program(\n"
+        "    control_program()\n"
+        "        .add_output(\n"
+        "            actuator(\n"
+        "                channel: \"throttle_plate\",\n"
+        "                a: gain(\n"
+        "                    name: \"pedal\",\n"
+        "                    a: signal(channel: \"accelerator\"),\n"
+        "                    gain: 0.5))))\n"));
+
+    powertrain::ScriptedControlUnit *unit =
+        es_script::Compiler::output()->controlProgram;
+    ASSERT_NE(unit, nullptr);
+
+    config::ParameterRegistry registry;
+    unit->registerParameters(&registry, "");
+
+    ASSERT_TRUE(registry.contains("program.pedal.gain"));
+    ASSERT_TRUE(registry.set("program.pedal.gain", 0.25));
+
+    powertrain::PowertrainState state;
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.accelerator = 1.0;
+    runProgram(unit, state, inputs, &commands);
+
+    EXPECT_NEAR(commands.throttlePlate, 0.25, 1e-9);
 }

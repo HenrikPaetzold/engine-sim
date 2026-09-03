@@ -18,6 +18,7 @@ namespace es_script {
             Vehicle *vehicle = nullptr;
             Transmission *transmission = nullptr;
             powertrain::PowertrainUnit *powertrain = nullptr;
+            powertrain::ScriptedControlUnit *controlProgram = nullptr;
             adaptation::AdaptationManager::Parameters adaptation;
             config::DriveModeSet driveModes;
             std::string defaultMode;

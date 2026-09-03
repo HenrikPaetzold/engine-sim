@@ -15,6 +15,7 @@
 #include "../include/throttle_nodes.h"
 #include "../include/control_nodes.h"
 #include "../include/powertrain_nodes.h"
+#include "../include/control_program_nodes.h"
 #include "../include/powertrain_actions.h"
 
 es_script::LanguageRules::LanguageRules() {
@@ -89,6 +90,10 @@ void es_script::LanguageRules::registerBuiltinNodeTypes() {
         "__engine_sim__tcu_channel", &es_script::ObjectChannel::TransmissionControlUnitChannel);
     registerBuiltinType<piranha::ChannelNode>(
         "__engine_sim__adaptation_channel", &es_script::ObjectChannel::AdaptationChannel);
+    registerBuiltinType<piranha::ChannelNode>(
+        "__engine_sim__control_block_channel", &es_script::ObjectChannel::ControlBlockChannel);
+    registerBuiltinType<piranha::ChannelNode>(
+        "__engine_sim__control_program_channel", &es_script::ObjectChannel::ControlProgramChannel);
 
     // Literals
     registerBuiltinType<piranha::DefaultLiteralFloatNode>(
@@ -196,6 +201,11 @@ void es_script::LanguageRules::registerBuiltinNodeTypes() {
     registerBuiltinType<EngineControlUnitNode>("__engine_sim__engine_control_unit");
     registerBuiltinType<TransmissionControlUnitNode>("__engine_sim__transmission_control_unit");
     registerBuiltinType<AdaptationNode>("__engine_sim__adaptation");
+    registerBuiltinType<ControlBlockNode>("__engine_sim__control_block");
+    registerBuiltinType<ControlProgramNode>("__engine_sim__control_program");
+    registerBuiltinType<AddControlOperandNode>("__engine_sim__add_control_operand");
+    registerBuiltinType<AddControlOutputNode>("__engine_sim__add_control_output");
+    registerBuiltinType<SetControlProgramNode>("__engine_sim__set_control_program");
 
     // String operations
     registerBuiltinType<piranha::OperationNodeSpecialized<

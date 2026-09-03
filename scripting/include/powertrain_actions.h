@@ -5,6 +5,7 @@
 #include "compiler.h"
 #include "powertrain_nodes.h"
 #include "control_nodes.h"
+#include "control_program_nodes.h"
 
 namespace es_script {
 
@@ -155,6 +156,84 @@ namespace es_script {
         }
 
         DriveModeNode *m_mode = nullptr;
+    };
+
+    class AddControlOperandNode : public Node {
+    public:
+        AddControlOperandNode() { /* void */ }
+        virtual ~AddControlOperandNode() { /* void */ }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("block", &m_block, InputTarget::Type::Object);
+            addInput("source", &m_input, InputTarget::Type::Object);
+
+            Node::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            readAllInputs();
+
+            if (m_block != nullptr) m_block->addOperandNode(m_input);
+        }
+
+        ControlBlockNode *m_block = nullptr;
+        ControlBlockNode *m_input = nullptr;
+    };
+
+    class AddControlOutputNode : public Node {
+    public:
+        AddControlOutputNode() { /* void */ }
+        virtual ~AddControlOutputNode() { /* void */ }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("program", &m_program, InputTarget::Type::Object);
+            addInput("block", &m_block, InputTarget::Type::Object);
+
+            Node::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            readAllInputs();
+
+            if (m_program != nullptr) m_program->addOutput(m_block);
+        }
+
+        ControlProgramNode *m_program = nullptr;
+        ControlBlockNode *m_block = nullptr;
+    };
+
+    class SetControlProgramNode : public Node {
+    public:
+        SetControlProgramNode() { /* void */ }
+        virtual ~SetControlProgramNode() { /* void */ }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("program", &m_program, InputTarget::Type::Object);
+
+            Node::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            readAllInputs();
+
+            if (m_program == nullptr) return;
+
+            powertrain::ScriptedControlUnit *unit =
+                new powertrain::ScriptedControlUnit;
+
+            if (!m_program->generate(unit)) {
+                delete unit;
+                return;
+            }
+
+            delete Compiler::output()->controlProgram;
+            Compiler::output()->controlProgram = unit;
+        }
+
+        ControlProgramNode *m_program = nullptr;
     };
 
 } /* namespace es_script */

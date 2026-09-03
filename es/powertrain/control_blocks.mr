@@ -1,0 +1,294 @@
+module {
+    @name:      "Control Program Blocks"
+}
+
+private import "../types/atomic_types.mr"
+private import "../types/conversions.mr"
+private import "../types/operations.mr"
+private import "../constants/units.mr"
+private import "../objects/objects.mr"
+private import "powertrain.mr"
+
+units units()
+
+public node control_block_channel => __engine_sim__control_block_channel { /* void */ }
+public node control_program_channel => __engine_sim__control_program_channel { /* void */ }
+
+public node control_block => __engine_sim__control_block {
+    input kind [string]: "constant";
+    input name [string]: "";
+    input channel [string]: "";
+
+    input value [float]: 0.0;
+    input scale [float]: 1.0;
+    input gain [float]: 1.0;
+    input offset [float]: 0.0;
+    input min [float]: 0.0;
+    input max [float]: 1.0;
+    input initial [float]: 0.0;
+    input threshold [float]: 0.5;
+    input band [float]: 0.0;
+    input rise [float]: 0.0;
+    input fall [float]: 0.0;
+    input tau [float]: 0.1;
+
+    input curve [function_channel]: function();
+    input map [map_2d_channel]: map_2d();
+    input controller [pid_controller_channel]: pid_controller();
+
+    alias output __out [control_block_channel];
+}
+
+public node control_program => __engine_sim__control_program {
+    alias output __out [control_program_channel];
+}
+
+public node signal {
+    input channel [string];
+    input scale [float]: 1.0;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "signal", channel: channel, scale: scale, name: name);
+}
+
+public node constant {
+    input value [float]: 0.0;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "constant", value: value, name: name);
+}
+
+public node sum {
+    input a [control_block_channel];
+    input b [control_block_channel];
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "sum", name: name)
+            .add_input(a)
+            .add_input(b);
+}
+
+public node product {
+    input a [control_block_channel];
+    input b [control_block_channel];
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "product", name: name)
+            .add_input(a)
+            .add_input(b);
+}
+
+public node minimum {
+    input a [control_block_channel];
+    input b [control_block_channel];
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "min", name: name)
+            .add_input(a)
+            .add_input(b);
+}
+
+public node maximum {
+    input a [control_block_channel];
+    input b [control_block_channel];
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "max", name: name)
+            .add_input(a)
+            .add_input(b);
+}
+
+public node gain {
+    input a [control_block_channel];
+    input gain [float]: 1.0;
+    input offset [float]: 0.0;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "gain", gain: gain, offset: offset, name: name)
+            .add_input(a);
+}
+
+public node clamp {
+    input a [control_block_channel];
+    input min [float]: 0.0;
+    input max [float]: 1.0;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "clamp", min: min, max: max, name: name)
+            .add_input(a);
+}
+
+public node curve {
+    input a [control_block_channel];
+    input curve [function_channel];
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "curve", curve: curve, name: name)
+            .add_input(a);
+}
+
+public node lookup {
+    input x [control_block_channel];
+    input y [control_block_channel];
+    input map [map_2d_channel];
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "map", map: map, name: name)
+            .add_input(x)
+            .add_input(y);
+}
+
+public node pid {
+    input setpoint [control_block_channel];
+    input measurement [control_block_channel];
+    input feedforward [control_block_channel]: constant(0.0);
+    input controller [pid_controller_channel];
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "pid", controller: controller, name: name)
+            .add_input(setpoint)
+            .add_input(measurement)
+            .add_input(feedforward);
+}
+
+public node rate_limit {
+    input a [control_block_channel];
+    input rise [float]: 0.0;
+    input fall [float]: 0.0;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "rate_limit", rise: rise, fall: fall, name: name)
+            .add_input(a);
+}
+
+public node low_pass {
+    input a [control_block_channel];
+    input tau [float]: 0.1;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "low_pass", tau: tau, name: name)
+            .add_input(a);
+}
+
+public node select {
+    input condition [control_block_channel];
+    input if_true [control_block_channel];
+    input if_false [control_block_channel];
+    input threshold [float]: 0.5;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "select", threshold: threshold, name: name)
+            .add_input(condition)
+            .add_input(if_true)
+            .add_input(if_false);
+}
+
+public node greater_than {
+    input a [control_block_channel];
+    input b [control_block_channel];
+    input band [float]: 0.0;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "compare", band: band, name: name)
+            .add_input(a)
+            .add_input(b);
+}
+
+public node latch {
+    input set [control_block_channel];
+    input reset [control_block_channel];
+    input threshold [float]: 0.5;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "latch", threshold: threshold, name: name)
+            .add_input(set)
+            .add_input(reset);
+}
+
+public node integrator {
+    input a [control_block_channel];
+    input min [float]: -1000000;
+    input max [float]: 1000000;
+    input initial [float]: 0.0;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "integrator", min: min, max: max, initial: initial, name: name)
+            .add_input(a);
+}
+
+public node timer {
+    input condition [control_block_channel];
+    input threshold [float]: 0.5;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "timer", threshold: threshold, name: name)
+            .add_input(condition);
+}
+
+public node delay {
+    input a [control_block_channel];
+    input initial [float]: 0.0;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "delay", initial: initial, name: name)
+            .add_input(a);
+}
+
+public node actuator {
+    input channel [string];
+    input a [control_block_channel];
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "actuator", channel: channel, name: name)
+            .add_input(a);
+}
+
+private node _add_control_operand => __engine_sim__add_control_operand {
+    input source [control_block_channel];
+    input block [control_block_channel];
+}
+
+public node add_input {
+    input source;
+    input this;
+    alias output __out: this;
+
+    _add_control_operand(source: source, block: this)
+}
+
+private node _add_control_output => __engine_sim__add_control_output {
+    input block [control_block_channel];
+    input program [control_program_channel];
+}
+
+public node add_output {
+    input block;
+    input this;
+    alias output __out: this;
+
+    _add_control_output(block: block, program: this)
+}
+
+public node set_control_program => __engine_sim__set_control_program {
+    input program [control_program_channel];
+}
