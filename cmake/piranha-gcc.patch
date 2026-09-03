@@ -1,0 +1,42 @@
+diff --git a/include/ir_value_constant.h b/include/ir_value_constant.h
+index 82ebbefe..8262bc26 100644
+--- a/include/ir_value_constant.h
++++ b/include/ir_value_constant.h
+@@ -47,8 +47,7 @@ namespace piranha {
+         template <typename _T>
+         const _T validateData(const _T &data, bool recordErrors = false) { return data; }
+ 
+-        template <>
+-        const piranha::native_string validateData<piranha::native_string>(const piranha::native_string &data, bool recordErrors) {
++        const piranha::native_string validateData(const piranha::native_string &data, bool recordErrors = false) {
+             piranha::native_string res;
+             piranha::native_string::const_iterator it = data.begin();
+             while (it != data.end()) {
+diff --git a/include/language_rules.h b/include/language_rules.h
+index 9437964f..1bd376c7 100644
+--- a/include/language_rules.h
++++ b/include/language_rules.h
+@@ -126,10 +126,6 @@ namespace piranha {
+ 
+         template <typename NativeType>
+         std::string getLiteralBuiltinName() const { return ""; }
+-        template<> std::string getLiteralBuiltinName<piranha::native_bool>() const { return *m_literalRules.lookup(LiteralType::Boolean); }
+-        template<> std::string getLiteralBuiltinName<piranha::native_string>() const  { return *m_literalRules.lookup(LiteralType::String); }
+-        template<> std::string getLiteralBuiltinName<piranha::native_int>() const  { return *m_literalRules.lookup(LiteralType::Integer); }
+-        template<> std::string getLiteralBuiltinName<piranha::native_float>() const { return *m_literalRules.lookup(LiteralType::Float); }
+ 
+         bool checkConversion(const ChannelType *input, const ChannelType *output) const;
+         Node *generateConversion(const ChannelType *input, const ChannelType *output);
+@@ -181,6 +177,12 @@ namespace piranha {
+         NodeAllocator *m_nodeAllocator;
+     };
+ 
++
++    template<> inline std::string LanguageRules::getLiteralBuiltinName<piranha::native_bool>() const { return *m_literalRules.lookup(LiteralType::Boolean); }
++    template<> inline std::string LanguageRules::getLiteralBuiltinName<piranha::native_string>() const { return *m_literalRules.lookup(LiteralType::String); }
++    template<> inline std::string LanguageRules::getLiteralBuiltinName<piranha::native_int>() const { return *m_literalRules.lookup(LiteralType::Integer); }
++    template<> inline std::string LanguageRules::getLiteralBuiltinName<piranha::native_float>() const { return *m_literalRules.lookup(LiteralType::Float); }
++
+ } /* namespace piranha */
+ 
+ #endif /* PIRANHA_LANGUAGE_RULES_H */

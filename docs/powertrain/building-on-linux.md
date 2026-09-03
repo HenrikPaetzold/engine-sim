@@ -24,26 +24,26 @@ transitively.
 ## Two patches piranha needs
 
 The piranha submodule does not compile with GCC or Clang. Both problems are
-MSVC extensions that other compilers reject, and both are in the submodule,
-not in this repository, so they are not carried in this tree.
+MSVC extensions that other compilers reject. They live in the submodule, so
+this repository cannot carry them as source; it carries them as a patch:
 
-`include/language_rules.h` declares four explicit specializations of
-`getLiteralBuiltinName` inside the class body. Move them to namespace scope
-after the class and mark them `inline`:
-
-```cpp
-template<> inline std::string LanguageRules::getLiteralBuiltinName<piranha::native_bool>() const {
-    return *m_literalRules.lookup(LiteralType::Boolean);
-}
+```
+git -C dependencies/submodules/piranha apply ../../../cmake/piranha-gcc.patch
 ```
 
-`include/ir_value_constant.h` specializes the member template `validateData`
-inside a class template, which the language does not allow. Replace the
-specialization with a plain overload taking `const piranha::native_string &`;
-overload resolution then picks it for the string case.
+Revert with `git -C dependencies/submodules/piranha checkout .` to leave the
+submodule clean again.
 
-With those two changes `engine-sim-script-interpreter` builds and the script
-tests run.
+`include/language_rules.h` declares four explicit specializations of
+`getLiteralBuiltinName` inside the class body; the patch moves them to
+namespace scope and marks them `inline`. `include/ir_value_constant.h`
+specializes the member template `validateData` inside a class template, which
+the language does not allow; the patch replaces the specialization with a
+plain overload taking `const piranha::native_string &`, which overload
+resolution picks for the string case.
+
+With the patch applied `engine-sim-script-interpreter` builds and the script
+tests run. Windows and MSVC builds need none of this.
 
 ## Pre-existing test failures
 
