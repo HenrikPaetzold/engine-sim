@@ -13,6 +13,9 @@
 #include "../include/vehicle_node.h"
 #include "../include/transmission_node.h"
 #include "../include/throttle_nodes.h"
+#include "../include/control_nodes.h"
+#include "../include/powertrain_nodes.h"
+#include "../include/powertrain_actions.h"
 
 es_script::LanguageRules::LanguageRules() {
     /* void */
@@ -74,6 +77,18 @@ void es_script::LanguageRules::registerBuiltinNodeTypes() {
         "__engine_sim__transmission_channel", &es_script::ObjectChannel::TransmissionChannel);
     registerBuiltinType<piranha::ChannelNode>(
         "__engine_sim__throttle_channel", &es_script::ObjectChannel::ThrottleChannel);
+    registerBuiltinType<piranha::ChannelNode>(
+        "__engine_sim__pid_controller_channel", &es_script::ObjectChannel::PidControllerChannel);
+    registerBuiltinType<piranha::ChannelNode>(
+        "__engine_sim__map_2d_channel", &es_script::ObjectChannel::Map2dChannel);
+    registerBuiltinType<piranha::ChannelNode>(
+        "__engine_sim__drive_mode_channel", &es_script::ObjectChannel::DriveModeChannel);
+    registerBuiltinType<piranha::ChannelNode>(
+        "__engine_sim__ecu_channel", &es_script::ObjectChannel::EngineControlUnitChannel);
+    registerBuiltinType<piranha::ChannelNode>(
+        "__engine_sim__tcu_channel", &es_script::ObjectChannel::TransmissionControlUnitChannel);
+    registerBuiltinType<piranha::ChannelNode>(
+        "__engine_sim__adaptation_channel", &es_script::ObjectChannel::AdaptationChannel);
 
     // Literals
     registerBuiltinType<piranha::DefaultLiteralFloatNode>(
@@ -147,6 +162,11 @@ void es_script::LanguageRules::registerBuiltinNodeTypes() {
     registerBuiltinType<SetVehicleNode>("__engine_sim__set_vehicle");
     registerBuiltinType<SetTransmissionNode>("__engine_sim__set_transmission");
     registerBuiltinType<AddGearNode>("__engine_sim__add_gear");
+    registerBuiltinType<SetPowertrainNode>("__engine_sim__set_powertrain");
+    registerBuiltinType<AddGearRatioNode>("__engine_sim__add_gear_ratio");
+    registerBuiltinType<AddMapSampleNode>("__engine_sim__add_map_sample");
+    registerBuiltinType<SetDriveModeValueNode>("__engine_sim__set_drive_mode_value");
+    registerBuiltinType<AddDriveModeNode>("__engine_sim__add_drive_mode");
 
     // Objects
     registerBuiltinType<EngineNode>("__engine_sim__engine");
@@ -170,6 +190,12 @@ void es_script::LanguageRules::registerBuiltinNodeTypes() {
     registerBuiltinType<TransmissionNode>("__engine_sim__transmission");
     registerBuiltinType<DirectThrottleLinkageNode>("__engine_sim__direct_throttle_linkage");
     registerBuiltinType<GovernorNode>("__engine_sim__governor");
+    registerBuiltinType<PidControllerNode>("__engine_sim__pid_controller");
+    registerBuiltinType<Map2dNode>("__engine_sim__map_2d");
+    registerBuiltinType<DriveModeNode>("__engine_sim__drive_mode");
+    registerBuiltinType<EngineControlUnitNode>("__engine_sim__engine_control_unit");
+    registerBuiltinType<TransmissionControlUnitNode>("__engine_sim__transmission_control_unit");
+    registerBuiltinType<AdaptationNode>("__engine_sim__adaptation");
 
     // String operations
     registerBuiltinType<piranha::OperationNodeSpecialized<

@@ -3,6 +3,8 @@
 
 #include "piranha.h"
 
+#include <type_traits>
+
 namespace es_script {
 
     struct ObjectChannel {
@@ -25,17 +27,26 @@ namespace es_script {
         static const piranha::ChannelType VehicleChannel;
         static const piranha::ChannelType TransmissionChannel;
         static const piranha::ChannelType ThrottleChannel;
+        static const piranha::ChannelType PidControllerChannel;
+        static const piranha::ChannelType Map2dChannel;
+        static const piranha::ChannelType DriveModeChannel;
+        static const piranha::ChannelType EngineControlUnitChannel;
+        static const piranha::ChannelType TransmissionControlUnitChannel;
+        static const piranha::ChannelType AdaptationChannel;
     };
 
     template <typename Type>
-    extern inline const piranha::ChannelType *LookupChannelType() {
-        static_assert(false, "Invalid type lookup");
+    struct InvalidChannelTypeLookup : std::false_type { /* void */ };
+
+    template <typename Type>
+    inline const piranha::ChannelType *LookupChannelType() {
+        static_assert(InvalidChannelTypeLookup<Type>::value, "Invalid type lookup");
         return nullptr;
     }
 
 #define ASSIGN_CHANNEL_TYPE(type, channel) \
     class type; \
-    template <> extern inline const piranha::ChannelType *LookupChannelType<type>() { \
+    template <> inline const piranha::ChannelType *LookupChannelType<type>() { \
         return &ObjectChannel::channel; \
     }
 
@@ -59,6 +70,12 @@ namespace es_script {
     ASSIGN_CHANNEL_TYPE(VehicleNode, VehicleChannel);
     ASSIGN_CHANNEL_TYPE(TransmissionNode, VehicleChannel);
     ASSIGN_CHANNEL_TYPE(ThrottleNode, ThrottleChannel);
+    ASSIGN_CHANNEL_TYPE(PidControllerNode, PidControllerChannel);
+    ASSIGN_CHANNEL_TYPE(Map2dNode, Map2dChannel);
+    ASSIGN_CHANNEL_TYPE(DriveModeNode, DriveModeChannel);
+    ASSIGN_CHANNEL_TYPE(EngineControlUnitNode, EngineControlUnitChannel);
+    ASSIGN_CHANNEL_TYPE(TransmissionControlUnitNode, TransmissionControlUnitChannel);
+    ASSIGN_CHANNEL_TYPE(AdaptationNode, AdaptationChannel);
 
 } /* namespace es_script */
 

@@ -16,6 +16,10 @@ namespace es_script {
             Engine *engine = nullptr;
             Vehicle *vehicle = nullptr;
             Transmission *transmission = nullptr;
+            powertrain::PowertrainUnit *powertrain = nullptr;
+            adaptation::AdaptationManager::Parameters adaptation;
+            config::DriveModeSet driveModes;
+
             Simulator::Parameters simulatorParameters;
             ApplicationSettings applicationSettings;
 

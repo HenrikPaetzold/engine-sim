@@ -18,5 +18,9 @@
 #include "../../include/throttle.h"
 #include "../../include/direct_throttle_linkage.h"
 #include "../../include/governor.h"
+#include "../../include/powertrain/powertrain_unit.h"
+#include "../../include/adaptation/adaptation_manager.h"
+#include "../../include/config/drive_mode.h"
+#include "../../include/config/parameter_registry.h"
 
 #endif /* ATG_ENGINE_SIM_ENGINE_SIM_H */

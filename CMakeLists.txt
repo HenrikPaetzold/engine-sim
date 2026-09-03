@@ -59,6 +59,7 @@ add_library(engine-sim STATIC
     # Source files
     src/adaptation/adaptation_manager.cpp
     src/adaptation/rls_estimator.cpp
+    src/config/drive_mode.cpp
     src/config/parameter_registry.cpp
     src/control/iterative_learning.cpp
     src/control/map_2d.cpp
@@ -117,6 +118,7 @@ add_library(engine-sim STATIC
     # Include files
     include/adaptation/adaptation_manager.h
     include/adaptation/rls_estimator.h
+    include/config/drive_mode.h
     include/config/parameter_registry.h
     include/control/hysteresis.h
     include/control/iterative_learning.h
@@ -228,6 +230,9 @@ if (PIRANHA_ENABLED)
         scripting/include/piston_node.h
         scripting/include/rod_journal_node.h
         scripting/include/standard_valvetrain_node.h
+        scripting/include/control_nodes.h
+        scripting/include/powertrain_actions.h
+        scripting/include/powertrain_nodes.h
         scripting/include/transmission_node.h
         scripting/include/valvetrain_node.h
         scripting/include/vtec_valvetrain_node.h
@@ -238,6 +243,7 @@ if (PIRANHA_ENABLED)
         PUBLIC dependencies/submodules)
 
     target_link_libraries(engine-sim-script-interpreter
+        engine-sim
         csv-io
         piranha)
 endif (PIRANHA_ENABLED)
@@ -372,12 +378,18 @@ add_executable(engine-sim-test
     test/ecu_tests.cpp
     test/tcu_tests.cpp
     test/adaptation_tests.cpp
+    test/drive_mode_tests.cpp
 )
 
 target_link_libraries(engine-sim-test
     gtest_main
     engine-sim
 )
+
+if (PIRANHA_ENABLED)
+    target_sources(engine-sim-test PRIVATE test/script_tests.cpp)
+    target_link_libraries(engine-sim-test engine-sim-script-interpreter)
+endif (PIRANHA_ENABLED)
 
 include(GoogleTest)
 gtest_discover_tests(engine-sim-test)
