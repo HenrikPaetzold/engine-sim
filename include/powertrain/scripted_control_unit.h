@@ -43,6 +43,9 @@ namespace powertrain {
             ShiftUp,
             ShiftDown,
             ManualMode,
+            GatePosition,
+            Engagement,
+            ParkLockEngaged,
             IgnitionKey,
             StarterRequest,
             Count
@@ -67,6 +70,8 @@ namespace powertrain {
             LockupPressure,
             StarterEnabled,
             IgnitionEnabled,
+            GatePosition,
+            ParkLock,
             Count
         };
 

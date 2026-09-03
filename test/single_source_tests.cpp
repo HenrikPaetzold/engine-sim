@@ -141,12 +141,13 @@ TEST(RegistryCoverageTests, EveryVehicleParameterIsReachable) {
         "vehicle.diff_ratio",
         "vehicle.tire_radius",
         "vehicle.rolling_resistance",
-        "vehicle.road_grade" })
+        "vehicle.road_grade",
+        "vehicle.max_brake_force" })
     {
         EXPECT_TRUE(has(registry, path)) << path;
     }
 
-    EXPECT_EQ(registry.getCount(), 7);
+    EXPECT_EQ(registry.getCount(), 8);
 }
 
 TEST(RegistryCoverageTests, EveryThermalParameterIsReachable) {

@@ -151,12 +151,20 @@ void PowertrainCluster::renderScope(
     }
 }
 
+std::string PowertrainCluster::gearLabel() const {
+    if (m_sample.range == "P" || m_sample.range == "N") return m_sample.range;
+    if (m_sample.range == "R") return "R";
+    if (m_sample.gear < 0) return "N";
+
+    return std::to_string(m_sample.gear + 1);
+}
+
 void PowertrainCluster::renderStatus(const Bounds &bounds) {
     drawFrame(bounds, 1.0f, m_app->getForegroundColor(), m_app->getBackgroundColor());
 
     Grid grid;
     grid.h_cells = 1;
-    grid.v_cells = 8;
+    grid.v_cells = 9;
 
     std::stringstream ss;
     ss << std::fixed << std::setprecision(0);
@@ -169,34 +177,37 @@ void PowertrainCluster::renderStatus(const Bounds &bounds) {
     drawText(ss.str(), grid.get(bounds, 0, 1).inset(10.0f), 16.0f, Bounds::tl);
 
     ss.str("");
-    ss << "GEAR    "
-        << ((m_sample.gear < 0) ? std::string("N") : std::to_string(m_sample.gear + 1));
+    ss << "SELECT  " << m_sample.range;
     drawText(ss.str(), grid.get(bounds, 0, 2).inset(10.0f), 16.0f, Bounds::tl);
+
+    ss.str("");
+    ss << "GEAR    " << gearLabel();
+    drawText(ss.str(), grid.get(bounds, 0, 3).inset(10.0f), 16.0f, Bounds::tl);
 
     ss.str("");
     ss << "SPEED   "
         << units::convert(std::abs(m_sample.vehicleSpeed), units::km / units::hour)
         << " KPH";
-    drawText(ss.str(), grid.get(bounds, 0, 3).inset(10.0f), 16.0f, Bounds::tl);
+    drawText(ss.str(), grid.get(bounds, 0, 4).inset(10.0f), 16.0f, Bounds::tl);
 
     ss.str("");
     ss << "COOLANT "
         << (m_sample.coolantTemperature - units::celcius(0.0)) << " C";
-    drawText(ss.str(), grid.get(bounds, 0, 4).inset(10.0f), 16.0f, Bounds::tl);
+    drawText(ss.str(), grid.get(bounds, 0, 5).inset(10.0f), 16.0f, Bounds::tl);
 
     ss.str("");
     ss << "OIL     "
         << (m_sample.oilTemperature - units::celcius(0.0)) << " C";
-    drawText(ss.str(), grid.get(bounds, 0, 5).inset(10.0f), 16.0f, Bounds::tl);
+    drawText(ss.str(), grid.get(bounds, 0, 6).inset(10.0f), 16.0f, Bounds::tl);
 
     ss.str("");
     ss << std::setprecision(2);
     ss << "GRADE   " << (m_sample.roadGrade * 100.0) << " %";
-    drawText(ss.str(), grid.get(bounds, 0, 6).inset(10.0f), 16.0f, Bounds::tl);
+    drawText(ss.str(), grid.get(bounds, 0, 7).inset(10.0f), 16.0f, Bounds::tl);
 
     ss.str("");
     ss << "ADAPT   " << (m_sample.adaptionEnabled ? "LEARNING" : "HELD");
-    drawText(ss.str(), grid.get(bounds, 0, 7).inset(10.0f), 16.0f, Bounds::tl);
+    drawText(ss.str(), grid.get(bounds, 0, 8).inset(10.0f), 16.0f, Bounds::tl);
 }
 
 void PowertrainCluster::renderShiftQuality(const Bounds &bounds) {

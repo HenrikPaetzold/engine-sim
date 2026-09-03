@@ -72,6 +72,8 @@ void powertrain::PowertrainUnit::fillTelemetry(config::TelemetrySample *sample) 
     sample->engineState = engineStateName(m_ecu.getEngineState());
 
     sample->shiftState = shiftStateName(m_tcu.getShiftState());
+    sample->range = m_tcu.getPosition().name;
+    sample->parkLock = m_tcu.getEngagement() == powertrain::GateEngagement::Park;
     sample->shiftIterations = m_tcu.getEngageProfile().getIterationCount();
     sample->shiftErrorNorm = m_tcu.getEngageProfile().getLastErrorNorm();
 }
@@ -88,6 +90,14 @@ void powertrain::PowertrainUnit::update(
 
     m_bus = m_ecu.getBus();
     m_bus.shiftInProgress = m_tcu.getBus().shiftInProgress;
+}
+
+const std::string &powertrain::PowertrainUnit::getRequestedMode() const {
+    return m_tcu.getRequestedMode();
+}
+
+const std::string &powertrain::PowertrainUnit::getPositionName() const {
+    return m_tcu.getPosition().name;
 }
 
 void powertrain::PowertrainUnit::configureGearbox(

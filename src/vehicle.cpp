@@ -16,6 +16,8 @@ Vehicle::Vehicle() {
     m_travelledDistance = 0;
     m_roadGrade = 0;
     m_rollingResistance = 0;
+    m_brake = 0;
+    m_maxBrakeForce = 0;
 }
 
 Vehicle::~Vehicle() {
@@ -29,6 +31,7 @@ void Vehicle::initialize(const Parameters &params) {
     m_diffRatio = params.diffRatio;
     m_tireRadius = params.tireRadius;
     m_rollingResistance = params.rollingResistance;
+    m_maxBrakeForce = params.maxBrakeForce;
 }
 
 void Vehicle::registerParameters(config::ParameterRegistry *registry, const char *prefix) {
@@ -57,10 +60,13 @@ void Vehicle::registerParameters(config::ParameterRegistry *registry, const char
     registry->registerScalar(
         config::describeScalar(base + "road_grade", -0.30, 0.30, m_roadGrade, "rad"),
         &m_roadGrade);
+    registry->registerScalar(
+        config::describeScalar(base + "max_brake_force", 0.0, 100000.0, m_maxBrakeForce, "N"),
+        &m_maxBrakeForce);
 }
 
 void Vehicle::update(double dt) {
-    m_travelledDistance += getSpeed() * dt;
+    m_travelledDistance += getSignedSpeed() * dt;
 }
 
 void Vehicle::addToSystem(atg_scs::RigidBodySystem *system, atg_scs::RigidBody *rotatingMass) {
@@ -79,13 +85,35 @@ double Vehicle::getSpeed() const {
 
 double Vehicle::getSignedSpeed() const {
     const double speed = getSpeed();
-    return (m_rotatingMass != nullptr && m_rotatingMass->v_theta < 0)
+    return (m_rotatingMass != nullptr && m_rotatingMass->v_theta > 0)
         ? -speed
         : speed;
 }
 
 double Vehicle::getGradeForce() const {
     return m_mass * constants::g * std::sin(m_roadGrade);
+}
+
+double Vehicle::getRollingDragForce() const {
+    return m_rollingResistance + m_brake * m_maxBrakeForce;
+}
+
+double Vehicle::getAeroDragForce() const {
+    constexpr double airDensity =
+        units::AirMolecularMass * units::pressure(1.0, units::atm)
+        / (constants::R * units::celcius(25.0));
+
+    const double v = getSpeed();
+
+    return 0.5 * airDensity * v * v * m_dragCoefficient * m_crossSectionArea;
+}
+
+double Vehicle::getTravelDirection() const {
+    if (m_rotatingMass == nullptr) return 0.0;
+    if (m_rotatingMass->v_theta < 0) return 1.0;
+    if (m_rotatingMass->v_theta > 0) return -1.0;
+
+    return 0.0;
 }
 
 double Vehicle::linearForceToVirtualTorque(double force) const {

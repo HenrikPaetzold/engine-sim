@@ -52,6 +52,8 @@ powertrain::TransmissionControlUnit::TransmissionControlUnit() {
     m_completedShifts = 0;
     m_previousShiftUp = false;
     m_previousShiftDown = false;
+    m_gateIndex = 0;
+    m_positionRefused = false;
 }
 
 powertrain::TransmissionControlUnit::~TransmissionControlUnit() {
@@ -125,6 +127,25 @@ void powertrain::TransmissionControlUnit::reset() {
     m_completedShifts = 0;
     m_previousShiftUp = false;
     m_previousShiftDown = false;
+
+    if (m_gate.isEmpty()) m_gate.buildDefault();
+
+    const int requested = m_gate.find(m_params.defaultPosition);
+    if (requested >= 0) {
+        m_gateIndex = requested;
+    }
+    else {
+        m_gateIndex = 0;
+        for (int i = 0; i < m_gate.getCount(); ++i) {
+            if (m_gate.get(i).engagement == GateEngagement::Forward) {
+                m_gateIndex = i;
+                break;
+            }
+        }
+    }
+
+    m_positionRefused = false;
+    m_requestedMode.clear();
 }
 
 double powertrain::TransmissionControlUnit::engineSpeedForGear(
@@ -171,6 +192,73 @@ int powertrain::TransmissionControlUnit::scheduleGear(
     }
 
     return currentGear;
+}
+
+const powertrain::GatePosition &powertrain::TransmissionControlUnit::getPosition() const {
+    return m_gate.get(m_gateIndex);
+}
+
+bool powertrain::TransmissionControlUnit::positionAllowed(
+    int from,
+    int to,
+    const PowertrainState &state,
+    const DriverInputs &inputs) const
+{
+    if (from == to) return true;
+    if (to < 0 || to >= m_gate.getCount()) return false;
+    if (std::abs(from - to) != 1) return false;
+
+    const GatePosition &leaving = m_gate.get(from);
+    const GatePosition &entering = m_gate.get(to);
+
+    if (!m_params.supportsEngagement
+        && (entering.engagement == GateEngagement::Park
+            || entering.engagement == GateEngagement::Reverse))
+    {
+        return false;
+    }
+
+    const double speed = std::abs(state.vehicleSpeed);
+
+    if (entering.maxEntrySpeed >= 0.0 && speed > entering.maxEntrySpeed) return false;
+    if (leaving.maxExitSpeed >= 0.0 && speed > leaving.maxExitSpeed) return false;
+
+    if (leaving.requiresBrake && inputs.brake < 0.1) return false;
+
+    return true;
+}
+
+void powertrain::TransmissionControlUnit::resolvePosition(
+    const PowertrainState &state,
+    const DriverInputs &inputs)
+{
+    m_positionRefused = false;
+
+    if (m_gate.isEmpty()) m_gate.buildDefault();
+
+    const int requested = (inputs.gatePosition < 0)
+        ? m_gateIndex
+        : m_gate.clampIndex(inputs.gatePosition);
+
+    if (requested == m_gateIndex) return;
+
+    const int step = (requested > m_gateIndex) ? 1 : -1;
+    const int next = m_gateIndex + step;
+
+    if (positionAllowed(m_gateIndex, next, state, inputs)) {
+        m_gateIndex = next;
+        m_requestedMode = m_gate.get(m_gateIndex).mode;
+
+        if (m_shiftState != ShiftState::Idle) {
+            m_shiftState = ShiftState::Idle;
+            m_shiftTimer.reset();
+        }
+
+        m_gearTimer.reset();
+    }
+    else {
+        m_positionRefused = true;
+    }
 }
 
 void powertrain::TransmissionControlUnit::beginShift(int gear) {
@@ -339,7 +427,22 @@ void powertrain::TransmissionControlUnit::update(
     m_bus.resetTransmissionRequests();
     m_gearTimer.advance(dt);
 
-    if (m_shiftState == ShiftState::Idle) {
+    resolvePosition(state, inputs);
+
+    const GateEngagement engagement = getEngagement();
+    const bool driving = (engagement == GateEngagement::Forward);
+    const bool reversing = (engagement == GateEngagement::Reverse);
+
+    if (!driving && !reversing) {
+        m_currentGear = -1;
+        m_targetGear = -1;
+        m_shiftState = ShiftState::Idle;
+        m_clutchPressure = 0.0;
+        m_secondaryPressure = 0.0;
+        m_slipController.reset();
+    }
+
+    if (driving && m_shiftState == ShiftState::Idle) {
         m_currentGear = state.gear;
 
         int requested = m_currentGear;
@@ -373,7 +476,12 @@ void powertrain::TransmissionControlUnit::update(
         advanceShift(dt, state, inputs, commands);
         m_bus.shiftInProgress = true;
     }
-    else {
+    else if (reversing) {
+        m_currentGear = -1;
+        m_targetGear = -1;
+        m_clutchPressure = launchPressure(dt, state, inputs);
+    }
+    else if (driving) {
         m_targetGear = m_currentGear;
 
         if (m_currentGear < 0) {
@@ -392,6 +500,9 @@ void powertrain::TransmissionControlUnit::update(
         ? std::clamp(1.0 - inputs.clutchPedal, 0.0, 1.0)
         : 1.0;
 
+    commands->engagement = engagement;
+    commands->gatePosition = m_gateIndex;
+    commands->parkLock = (engagement == GateEngagement::Park);
     commands->targetGear = m_currentGear;
     commands->preselectGear = m_params.supportsPreselect ? m_targetGear : -1;
     commands->clutchPressure[0] =
@@ -472,6 +583,10 @@ void powertrain::TransmissionControlUnit::registerParameters(
         describe(base + "launch.stall_protect_speed", units::rpm(200.0), units::rpm(3000.0),
             m_params.stallProtectSpeed, "rad/s"),
         &m_params.stallProtectSpeed);
+    registry->registerBoolean(
+        describe(base + "gate.brake_interlock", 0.0, 1.0,
+            m_params.brakeInterlock ? 1.0 : 0.0, ""),
+        &m_params.brakeInterlock);
     registry->registerScalar(
         describe(base + "gearbox.final_drive", 0.5, 12.0,
             m_params.finalDrive, ""),
@@ -503,6 +618,15 @@ void powertrain::TransmissionControlUnit::configureGearbox(
     m_params.supportsPreselect = capabilities.supportsPreselect;
     m_params.requiresTorqueInterrupt = capabilities.requiresTorqueInterrupt;
     m_params.hasLaunchDevice = capabilities.hasLaunchDevice;
+    m_params.supportsEngagement = capabilities.supportsRange;
+
+    if (!m_params.supportsEngagement
+        && (getEngagement() == GateEngagement::Park
+            || getEngagement() == GateEngagement::Reverse))
+    {
+        const int neutral = m_gate.find("N");
+        m_gateIndex = (neutral >= 0) ? neutral : m_gateIndex;
+    }
 
     if (capabilities.gearRatios != nullptr && capabilities.gearCount > 0) {
         m_params.gearCount = std::min(capabilities.gearCount, MaxGears);

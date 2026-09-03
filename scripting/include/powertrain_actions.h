@@ -83,6 +83,31 @@ namespace es_script {
         double m_ratio = 1.0;
     };
 
+    class AddGatePositionNode : public Node {
+    public:
+        AddGatePositionNode() { /* void */ }
+        virtual ~AddGatePositionNode() { /* void */ }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("tcu", &m_tcu, InputTarget::Type::Object);
+            addInput("position", &m_position, InputTarget::Type::Object);
+
+            Node::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            readAllInputs();
+
+            if (m_tcu != nullptr && m_position != nullptr) {
+                m_tcu->addGatePosition(m_position->generate());
+            }
+        }
+
+        TransmissionControlUnitNode *m_tcu = nullptr;
+        GatePositionNode *m_position = nullptr;
+    };
+
     class AddMapSampleNode : public Node {
     public:
         AddMapSampleNode() { /* void */ }

@@ -23,6 +23,8 @@ namespace config {
         double vehicleSpeed = 0.0;
         double roadGrade = 0.0;
         int gear = -1;
+        std::string range = "N";
+        bool parkLock = false;
         double clutchPressure = 0.0;
         double ignitionCut = 0.0;
         double fuelCut = 0.0;

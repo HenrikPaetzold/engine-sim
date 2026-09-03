@@ -33,6 +33,7 @@ class PowertrainSystem {
         void setController(powertrain::PowertrainController *controller);
         void setAdaptationManager(adaptation::AdaptationManager *manager);
         void setConfigServer(config::ConfigServer *server);
+        void setDriveModes(config::DriveModeSet *modes, config::ParameterRegistry *registry);
         void registerParameters(config::ParameterRegistry *registry);
         bool selectDriveMode(
             const std::string &name,
@@ -52,6 +53,7 @@ class PowertrainSystem {
 
         void sampleState(double dt);
         void syncGearbox();
+        void applyGateMode();
         void fillTelemetry(config::TelemetrySample *sample) const;
 
     protected:
@@ -60,6 +62,9 @@ class PowertrainSystem {
         powertrain::PowertrainController *m_controller;
         adaptation::AdaptationManager *m_adaptation;
         config::ConfigServer *m_server;
+        config::DriveModeSet *m_modes;
+        config::ParameterRegistry *m_registry;
+        std::string m_activeMode;
         Simulator *m_simulator;
 
         ExternalThrottle m_throttle;

@@ -94,6 +94,8 @@ void es_script::LanguageRules::registerBuiltinNodeTypes() {
         "__engine_sim__control_block_channel", &es_script::ObjectChannel::ControlBlockChannel);
     registerBuiltinType<piranha::ChannelNode>(
         "__engine_sim__control_program_channel", &es_script::ObjectChannel::ControlProgramChannel);
+    registerBuiltinType<piranha::ChannelNode>(
+        "__engine_sim__gate_position_channel", &es_script::ObjectChannel::GatePositionChannel);
 
     // Literals
     registerBuiltinType<piranha::DefaultLiteralFloatNode>(
@@ -172,6 +174,8 @@ void es_script::LanguageRules::registerBuiltinNodeTypes() {
     registerBuiltinType<AddMapSampleNode>("__engine_sim__add_map_sample");
     registerBuiltinType<SetDriveModeValueNode>("__engine_sim__set_drive_mode_value");
     registerBuiltinType<AddDriveModeNode>("__engine_sim__add_drive_mode");
+    registerBuiltinType<GatePositionNode>("__engine_sim__gate_position");
+    registerBuiltinType<AddGatePositionNode>("__engine_sim__add_gate_position");
 
     // Objects
     registerBuiltinType<EngineNode>("__engine_sim__engine");

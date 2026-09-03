@@ -2,6 +2,7 @@
 #define ATG_ENGINE_SIM_TRANSMISSION_CONTROL_UNIT_H
 
 #include "powertrain_controller.h"
+#include "selector_gate.h"
 
 #include "../control/pid_controller.h"
 #include "../control/map_2d.h"
@@ -54,6 +55,10 @@ namespace powertrain {
                 double launchSpeed = units::distance(2.0, units::m);
                 double stallProtectSpeed = units::rpm(650.0);
 
+                bool brakeInterlock = true;
+                bool supportsEngagement = true;
+                std::string defaultPosition;
+
                 control::PidController::Parameters slipController = defaultSlipController();
                 control::IterativeLearningControl::Parameters engageProfile;
             };
@@ -84,6 +89,18 @@ namespace powertrain {
             inline control::Map2d &getDownshiftMap() { return m_downshiftMap; }
 
             inline ShiftState getShiftState() const { return m_shiftState; }
+            inline SelectorGate &getGate() { return m_gate; }
+            inline const SelectorGate &getGate() const { return m_gate; }
+            inline int getGatePosition() const { return m_gateIndex; }
+            const GatePosition &getPosition() const;
+            inline GateEngagement getEngagement() const { return getPosition().engagement; }
+            inline bool wasPositionRefused() const { return m_positionRefused; }
+            inline const std::string &getRequestedMode() const { return m_requestedMode; }
+            bool positionAllowed(
+                int from,
+                int to,
+                const PowertrainState &state,
+                const DriverInputs &inputs) const;
             inline int getTargetGear() const { return m_targetGear; }
             inline bool isShifting() const { return m_shiftState != ShiftState::Idle; }
             inline const Parameters &getParameters() const { return m_params; }
@@ -102,6 +119,9 @@ namespace powertrain {
                 const PowertrainState &state,
                 const DriverInputs &inputs,
                 ActuatorCommands *commands);
+            void resolvePosition(
+                const PowertrainState &state,
+                const DriverInputs &inputs);
             double launchPressure(
                 double dt,
                 const PowertrainState &state,
@@ -115,6 +135,10 @@ namespace powertrain {
             control::IterativeLearningControl m_engageProfile;
 
             ShiftState m_shiftState;
+            SelectorGate m_gate;
+            int m_gateIndex;
+            bool m_positionRefused;
+            std::string m_requestedMode;
             control::StateTimer m_shiftTimer;
             control::StateTimer m_gearTimer;
 

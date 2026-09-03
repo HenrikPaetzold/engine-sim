@@ -6,6 +6,8 @@
 #include "../include/config/config_server.h"
 #include "../include/transmission.h"
 #include "../include/vehicle.h"
+#include "../include/vehicle_drag_constraint.h"
+#include "../include/powertrain/selector_gate.h"
 #include "../include/units.h"
 
 #include <cmath>
@@ -422,4 +424,144 @@ TEST(TelemetryTests, TheSampleIsAvailableWithoutAConfigServer) {
     EXPECT_FALSE(sample.engineState.empty());
     EXPECT_FALSE(sample.shiftState.empty());
     EXPECT_GT(sample.torqueRequest, 0.0);
+}
+
+namespace {
+    class DrivelineRig {
+        public:
+            DrivelineRig(double mass, double grade, double rolling) {
+                Vehicle::Parameters params = vehicleParameters();
+                params.mass = mass;
+                params.rollingResistance = rolling;
+                params.dragCoefficient = 0.0;
+                m_vehicle.initialize(params);
+
+                m_body.reset();
+                m_body.m = 1.0;
+                m_body.I = 1.0;
+
+                m_system.initialize(new atg_scs::GaussSeidelSleSolver);
+                m_system.addRigidBody(&m_body);
+
+                m_vehicle.addToSystem(&m_system, &m_body);
+                m_vehicle.setRoadGrade(grade);
+
+                const double f = params.tireRadius / params.diffRatio;
+                m_body.I = params.mass * f * f;
+
+                m_drag.initialize(&m_body, &m_vehicle);
+                m_system.addConstraint(&m_drag);
+            }
+
+            void run(int steps, double dt = 1e-3) {
+                for (int i = 0; i < steps; ++i) m_system.process(dt, 1);
+            }
+
+            atg_scs::OptimizedNsvRigidBodySystem m_system;
+            atg_scs::RigidBody m_body;
+            Vehicle m_vehicle;
+            VehicleDragConstraint m_drag;
+    };
+}
+
+TEST(VehicleDragTests, DragOpposesMotionInBothDirections) {
+    DrivelineRig forward(1500.0, 0.0, 400.0);
+    forward.m_body.v_theta = -5.0;
+    forward.run(2000);
+
+    DrivelineRig backward(1500.0, 0.0, 400.0);
+    backward.m_body.v_theta = 5.0;
+    backward.run(2000);
+
+    EXPECT_GT(forward.m_body.v_theta, -5.0) << "forward drag did not slow the car";
+    EXPECT_LT(backward.m_body.v_theta, 5.0) << "reverse drag did not slow the car";
+
+    EXPECT_NEAR(
+        std::abs(forward.m_body.v_theta),
+        std::abs(backward.m_body.v_theta),
+        1e-6) << "drag is asymmetric between forward and reverse";
+}
+
+TEST(VehicleDragTests, TheSignedSpeedIsPositiveWhenDrivingForward) {
+    DrivelineRig rig(1500.0, 0.0, 400.0);
+
+    rig.m_body.v_theta = -5.0;
+    EXPECT_GT(rig.m_vehicle.getSignedSpeed(), 0.0);
+
+    rig.m_body.v_theta = 5.0;
+    EXPECT_LT(rig.m_vehicle.getSignedSpeed(), 0.0);
+}
+
+TEST(VehicleDragTests, RollingResistanceHoldsTheCarOnAGentleGrade) {
+    DrivelineRig rig(1500.0, 0.02, 2000.0);
+    rig.run(4000);
+
+    EXPECT_NEAR(rig.m_vehicle.getSpeed(), 0.0, 1e-3);
+}
+
+TEST(VehicleDragTests, ASteepGradeOvercomesRollingResistance) {
+    DrivelineRig rig(1500.0, 0.20, 400.0);
+    rig.run(4000);
+
+    EXPECT_GT(rig.m_vehicle.getSpeed(), 0.1);
+}
+
+TEST(ParkLockTests, TheParkLockHoldsAgainstAGradeAndSlipsBeyondItsTorque) {
+    Vehicle::Parameters vp = vehicleParameters();
+    vp.rollingResistance = 0.0;
+    vp.dragCoefficient = 0.0;
+
+    static const double ratios[] = { 3.6, 2.1, 1.4, 1.0, 0.8, 0.7 };
+    Transmission::Parameters tp;
+    tp.GearCount = 6;
+    tp.GearRatios = ratios;
+    tp.MaxClutchTorque = units::torque(1000.0, units::Nm);
+    tp.GearboxType = Transmission::Type::Manual;
+
+    for (int strong = 0; strong < 2; ++strong) {
+        Vehicle vehicle;
+        vehicle.initialize(vp);
+
+        Transmission::Parameters params = tp;
+        params.ParkLockTorque = strong
+            ? units::torque(20000.0, units::Nm)
+            : units::torque(1.0, units::Nm);
+
+        Transmission gearbox;
+        gearbox.initialize(params);
+
+        atg_scs::OptimizedNsvRigidBodySystem system;
+        atg_scs::RigidBody body;
+        body.reset();
+        body.m = 1.0;
+        body.I = 1.0;
+        system.initialize(new atg_scs::GaussSeidelSleSolver);
+        system.addRigidBody(&body);
+
+        vehicle.addToSystem(&system, &body);
+        vehicle.setRoadGrade(0.15);
+
+        const double f = vp.tireRadius / vp.diffRatio;
+        body.I = vp.mass * f * f;
+
+        VehicleDragConstraint drag;
+        drag.initialize(&body, &vehicle);
+        system.addConstraint(&drag);
+
+        gearbox.bind(&body, &vehicle, nullptr);
+        gearbox.addParkLockForTest(&system);
+        gearbox.setEngagement(powertrain::GateEngagement::Park);
+
+        for (int i = 0; i < 3000; ++i) {
+            gearbox.update(1e-3);
+            system.process(1e-3, 1);
+        }
+
+        if (strong) {
+            EXPECT_NEAR(vehicle.getSpeed(), 0.0, 1e-2) << "strong park lock let go";
+        }
+        else {
+            EXPECT_GT(vehicle.getSpeed(), 0.1) << "weak park lock did not slip";
+        }
+    }
 }

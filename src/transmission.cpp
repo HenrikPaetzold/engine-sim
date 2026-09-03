@@ -8,6 +8,7 @@
 
 Transmission::Transmission() {
     m_type = Type::Legacy;
+    m_engagement = powertrain::GateEngagement::Forward;
     m_gear = -1;
     m_preselectedGear = -1;
     m_gearCount = 0;
@@ -18,6 +19,8 @@ Transmission::Transmission() {
     m_engine = nullptr;
     m_lockupPressure = 0.0;
     m_turbineInertia = 0.08;
+    m_reverseRatio = 3.2;
+    m_parkLockTorque = units::torque(4000.0, units::Nm);
 
     for (int i = 0; i < ClutchCount; ++i) {
         m_clutchPressure[i] = 0.0;
@@ -40,6 +43,8 @@ void Transmission::initialize(const Parameters &params) {
 
     m_type = params.GearboxType;
     m_turbineInertia = params.TurbineInertia;
+    m_reverseRatio = params.ReverseRatio;
+    m_parkLockTorque = params.ParkLockTorque;
 
     m_converter.m_stallTorqueRatio = params.StallTorqueRatio;
     m_converter.m_couplingPoint = params.CouplingPoint;
@@ -58,6 +63,13 @@ void Transmission::registerParameters(config::ParameterRegistry *registry, const
     registry->registerScalar(
         config::describeScalar(base + "turbine_inertia", 1e-3, 5.0, m_turbineInertia, "kgm2"),
         &m_turbineInertia);
+    registry->registerScalar(
+        config::describeScalar(base + "reverse_ratio", 0.5, 12.0, m_reverseRatio, ""),
+        &m_reverseRatio);
+    registry->registerScalar(
+        config::describeScalar(base + "park_lock_torque", 0.0,
+            units::torque(50000.0, units::Nm), m_parkLockTorque, "Nm"),
+        &m_parkLockTorque);
     registry->registerScalar(
         config::describeScalar(base + "converter.stall_torque_ratio", 1.0, 4.0,
             m_converter.m_stallTorqueRatio, ""),
@@ -84,6 +96,29 @@ void Transmission::setClutchPressure(int index, double pressure) {
 double Transmission::getClutchPressure(int index) const {
     if (index < 0 || index >= ClutchCount) return 0.0;
     return m_clutchPressure[index];
+}
+
+void Transmission::setEngagement(powertrain::GateEngagement range) {
+    if (!supportsEngagement()
+        && (range == powertrain::GateEngagement::Park
+            || range == powertrain::GateEngagement::Reverse))
+    {
+        m_engagement = powertrain::GateEngagement::Neutral;
+        return;
+    }
+
+    m_engagement = range;
+}
+
+double Transmission::getParkLockTorque() const {
+    return m_parkLockTorque;
+}
+
+void Transmission::addParkLockForTest(atg_scs::RigidBodySystem *system) {
+    m_parkLock.setBody(m_rotatingMass);
+    m_parkLock.m_minTorque = 0.0;
+    m_parkLock.m_maxTorque = 0.0;
+    system->addConstraint(&m_parkLock);
 }
 
 void Transmission::setPreselectedGear(int gear) {
@@ -120,7 +155,15 @@ void Transmission::updateRatioClutches() {
     for (int i = 0; i < ClutchCount; ++i) {
         RatioClutchConstraint &clutch = m_ratioClutch[i];
 
-        if (gears[i] < 0 || gears[i] >= m_gearCount) {
+        if (i == 0 && m_engagement == powertrain::GateEngagement::Reverse) {
+            clutch.m_ratio = -m_reverseRatio;
+            clutch.m_capacity = m_maxClutchTorque;
+            clutch.m_pressure = m_clutchPressure[i];
+        }
+        else if (gears[i] < 0 || gears[i] >= m_gearCount
+            || m_engagement == powertrain::GateEngagement::Park
+            || m_engagement == powertrain::GateEngagement::Neutral)
+        {
             clutch.m_ratio = 1.0;
             clutch.m_capacity = 0.0;
             clutch.m_pressure = 0.0;
@@ -159,6 +202,15 @@ void Transmission::update(double dt) {
         m_lockupClutch.m_ratio = 1.0;
         m_lockupClutch.m_capacity = m_maxClutchTorque;
         m_lockupClutch.m_pressure = m_lockupPressure;
+    }
+
+    if (m_engagement == powertrain::GateEngagement::Park) {
+        m_parkLock.m_minTorque = -m_parkLockTorque;
+        m_parkLock.m_maxTorque = m_parkLockTorque;
+    }
+    else {
+        m_parkLock.m_minTorque = 0.0;
+        m_parkLock.m_maxTorque = 0.0;
     }
 }
 
@@ -231,6 +283,11 @@ void Transmission::addToSystem(
         m_ratioClutch[i].setOutput(m_rotatingMass);
         system->addConstraint(&m_ratioClutch[i]);
     }
+
+    m_parkLock.setBody(m_rotatingMass);
+    m_parkLock.m_minTorque = 0.0;
+    m_parkLock.m_maxTorque = 0.0;
+    system->addConstraint(&m_parkLock);
 }
 
 double Transmission::getGearRatio(int gear) const {

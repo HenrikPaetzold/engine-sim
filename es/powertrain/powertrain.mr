@@ -17,6 +17,7 @@ public node drive_mode_channel => __engine_sim__drive_mode_channel { /* void */ 
 public node ecu_channel => __engine_sim__ecu_channel { /* void */ }
 public node tcu_channel => __engine_sim__tcu_channel { /* void */ }
 public node adaptation_channel => __engine_sim__adaptation_channel { /* void */ }
+public node gate_position_channel => __engine_sim__gate_position_channel { /* void */ }
 
 // Objects
 
@@ -87,6 +88,8 @@ public node transmission_control_unit => __engine_sim__transmission_control_unit
     input launch_slip_target [float]: 1000 * units.rpm;
     input launch_lock_slip [float]: 60 * units.rpm;
     input stall_protect_speed [float]: 650 * units.rpm;
+    input brake_interlock [bool]: true;
+    input default_position [string]: "N";
 
     input slip_controller [pid_controller_channel]: pid_controller(kp: 0.004, ki: 0.9, min: 0.0, max: 1.0);
     input upshift_map [map_2d_channel]: map_2d();
@@ -162,6 +165,50 @@ public node set {
 
 public node add_drive_mode => __engine_sim__add_drive_mode {
     input mode [drive_mode_channel];
+}
+
+public node gate_position => __engine_sim__gate_position {
+    input name [string]: "N";
+    input engagement [string]: "neutral";
+    input max_entry_speed [float]: -1.0;
+    input max_exit_speed [float]: -1.0;
+    input requires_brake [bool]: false;
+    input mode [string]: "";
+
+    alias output __out [gate_position_channel];
+}
+
+private node _add_gate_position => __engine_sim__add_gate_position {
+    input position [gate_position_channel];
+    input tcu [tcu_channel];
+}
+
+public node add_gate_position {
+    input position;
+    input this;
+    alias output __out: this;
+
+    _add_gate_position(position: position, tcu: this)
+}
+
+public node automatic_gate {
+    input this;
+    alias output __out: this;
+
+    _add_gate_position(
+        position: gate_position(
+            name: "P", engagement: "park",
+            max_entry_speed: 0.3, max_exit_speed: 0.3, requires_brake: true),
+        tcu: this)
+    _add_gate_position(
+        position: gate_position(name: "R", engagement: "reverse", max_entry_speed: 1.0),
+        tcu: this)
+    _add_gate_position(
+        position: gate_position(name: "N", engagement: "neutral"),
+        tcu: this)
+    _add_gate_position(
+        position: gate_position(name: "D", engagement: "forward"),
+        tcu: this)
 }
 
 public node set_powertrain => __engine_sim__set_powertrain {

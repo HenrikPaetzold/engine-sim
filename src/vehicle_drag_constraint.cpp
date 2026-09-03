@@ -1,7 +1,5 @@
 #include "../include/vehicle_drag_constraint.h"
 
-#include "../include/constants.h"
-#include "../include/units.h"
 #include "../include/vehicle.h"
 
 VehicleDragConstraint::VehicleDragConstraint() : Constraint(1, 1) {
@@ -44,27 +42,31 @@ void VehicleDragConstraint::calculate(Output *output, atg_scs::SystemState *syst
 
     output->v_bias[0] = 0;
 
-    constexpr double airDensity =
-        units::AirMolecularMass * units::pressure(1.0, units::atm)
-        / (constants::R * units::celcius(25.0));
-    const double v = m_vehicle->getSpeed();
-    const double v_squared = v * v;
-    const double c_d = m_vehicle->getDragCoefficient();
-    const double A = m_vehicle->getCrossSectionArea();
-    const double rollingResistance = m_vehicle->getRollingResistance();
+    const double dissipative =
+        m_vehicle->linearForceToVirtualTorque(
+            m_vehicle->getRollingDragForce() + m_vehicle->getAeroDragForce());
+    const double grade =
+        m_vehicle->linearForceToVirtualTorque(m_vehicle->getGradeForce());
 
-    const double resistance =
-        rollingResistance
-        + 0.5 * airDensity * v_squared * c_d * A
-        + m_vehicle->getGradeForce();
-    const double torque = m_vehicle->linearForceToVirtualTorque(resistance);
+    const double direction = m_vehicle->getTravelDirection();
 
-    if (torque >= 0) {
-        output->limits[0][0] = -torque;
-        output->limits[0][1] = 0;
+    double lo, hi;
+    if (direction > 0.0) {
+        lo = 0.0;
+        hi = dissipative;
+    }
+    else if (direction < 0.0) {
+        lo = -dissipative;
+        hi = 0.0;
     }
     else {
-        output->limits[0][0] = 0;
-        output->limits[0][1] = -torque;
+        lo = -dissipative;
+        hi = dissipative;
     }
+
+    lo += grade;
+    hi += grade;
+
+    output->limits[0][0] = -hi;
+    output->limits[0][1] = -lo;
 }

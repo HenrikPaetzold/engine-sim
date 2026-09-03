@@ -42,6 +42,9 @@ namespace {
         "shift_up",
         "shift_down",
         "manual_mode",
+        "gate_position",
+        "engagement",
+        "park_lock_engaged",
         "ignition_key",
         "starter_request" };
 
@@ -64,7 +67,9 @@ namespace {
         "clutch_pressure_2",
         "lockup_pressure",
         "starter_enabled",
-        "ignition_enabled" };
+        "ignition_enabled",
+        "gate_position",
+        "park_lock" };
 
     static_assert(
         sizeof(s_actuatorNames) / sizeof(s_actuatorNames[0])
@@ -240,6 +245,9 @@ void powertrain::ScriptedControlUnit::sampleSignals(
     table.set(signals::ShiftUp, inputs.shiftUpRequest ? 1.0 : 0.0);
     table.set(signals::ShiftDown, inputs.shiftDownRequest ? 1.0 : 0.0);
     table.set(signals::ManualMode, inputs.manualMode ? 1.0 : 0.0);
+    table.set(signals::GatePosition, inputs.gatePosition);
+    table.set(signals::Engagement, static_cast<int>(state.engagement));
+    table.set(signals::ParkLockEngaged, state.parkLockEngaged ? 1.0 : 0.0);
     table.set(signals::IgnitionKey, inputs.ignitionKey ? 1.0 : 0.0);
     table.set(signals::StarterRequest, inputs.starterRequest ? 1.0 : 0.0);
 }
@@ -262,6 +270,8 @@ void powertrain::ScriptedControlUnit::seedActuators(const PowertrainState &state
     table.set(actuators::LockupPressure, state.lockupPressure);
     table.set(actuators::StarterEnabled, 0.0);
     table.set(actuators::IgnitionEnabled, 1.0);
+    table.set(actuators::GatePosition, state.gatePosition);
+    table.set(actuators::ParkLock, state.parkLockEngaged ? 1.0 : 0.0);
 }
 
 void powertrain::ScriptedControlUnit::applyActuators(ActuatorCommands *commands) const {
@@ -293,6 +303,10 @@ void powertrain::ScriptedControlUnit::applyActuators(ActuatorCommands *commands)
 
     commands->starterEnabled = table.get(actuators::StarterEnabled) >= 0.5;
     commands->ignitionEnabled = table.get(actuators::IgnitionEnabled) >= 0.5;
+
+    commands->gatePosition =
+        static_cast<int>(std::lround(table.get(actuators::GatePosition)));
+    commands->parkLock = table.get(actuators::ParkLock) >= 0.5;
 }
 
 void powertrain::ScriptedControlUnit::update(

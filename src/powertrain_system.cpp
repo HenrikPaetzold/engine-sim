@@ -10,6 +10,8 @@ PowertrainSystem::PowertrainSystem() {
     m_controller = nullptr;
     m_adaptation = nullptr;
     m_server = nullptr;
+    m_modes = nullptr;
+    m_registry = nullptr;
     m_simulator = nullptr;
     m_previousThrottle = nullptr;
     m_accumulator = 0.0;
@@ -38,6 +40,24 @@ void PowertrainSystem::setAdaptationManager(adaptation::AdaptationManager *manag
 
 void PowertrainSystem::setConfigServer(config::ConfigServer *server) {
     m_server = server;
+}
+
+void PowertrainSystem::setDriveModes(
+    config::DriveModeSet *modes,
+    config::ParameterRegistry *registry)
+{
+    m_modes = modes;
+    m_registry = registry;
+    m_activeMode.clear();
+}
+
+void PowertrainSystem::applyGateMode() {
+    if (m_controller == nullptr || m_modes == nullptr || m_registry == nullptr) return;
+
+    const std::string &requested = m_controller->getRequestedMode();
+    if (requested.empty() || requested == m_activeMode) return;
+
+    if (m_modes->select(requested, m_registry)) m_activeMode = requested;
 }
 
 void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
@@ -108,6 +128,7 @@ void PowertrainSystem::syncGearbox() {
     capabilities.supportsPreselect = transmission->supportsPreselect();
     capabilities.requiresTorqueInterrupt = transmission->requiresTorqueInterrupt();
     capabilities.hasLaunchDevice = transmission->hasLaunchDevice();
+    capabilities.supportsRange = transmission->supportsEngagement();
 
     Vehicle *vehicle = m_simulator->getVehicle();
     if (vehicle != nullptr) {
@@ -154,6 +175,8 @@ void PowertrainSystem::fillTelemetry(config::TelemetrySample *sample) const {
     out.vehicleSpeed = m_state.vehicleSpeed;
     out.roadGrade = m_state.roadGrade;
     out.gear = m_state.gear;
+
+    out.parkLock = m_state.parkLockEngaged;
     out.clutchPressure = m_state.clutchPressure[0];
     out.ignitionCut = m_commands.ignitionCutFraction;
     out.fuelCut = m_commands.fuelCutFraction;
@@ -217,9 +240,13 @@ void PowertrainSystem::sampleState(double dt) {
         m_state.turbineSpeed = transmission->getTurbineSpeed();
         m_state.converterSlip = transmission->getConverterSlip();
         m_state.lockupPressure = transmission->getLockupPressure();
+        m_state.engagement = transmission->getEngagement();
+        m_state.gatePosition = m_commands.gatePosition;
+        m_state.parkLockEngaged = transmission->isParkLockEngaged();
     }
 
     if (vehicle != nullptr) {
+        vehicle->setBrake(std::clamp(m_inputs.brake, 0.0, 1.0));
         m_state.vehicleSpeed = vehicle->getSignedSpeed();
         m_state.wheelSpeed = vehicle->getRotationalSpeed();
         m_state.roadGrade = vehicle->getRoadGrade();
@@ -255,6 +282,8 @@ void PowertrainSystem::applyCommands() {
 
     Transmission *transmission = m_simulator->getTransmission();
     if (transmission != nullptr) {
+        transmission->setEngagement(m_commands.engagement);
+
         for (int i = 0; i < powertrain::MaxClutches; ++i) {
             transmission->setClutchPressure(
                 i, std::clamp(m_commands.clutchPressure[i], 0.0, 1.0));
@@ -297,6 +326,7 @@ void PowertrainSystem::update(double dt) {
         m_adaptation->update(controlDt, m_state, m_controller->getBus());
     }
 
+    applyGateMode();
     applyCommands();
 
     m_telemetryAccumulator += controlDt;

@@ -32,6 +32,7 @@ class PowertrainCluster : public UiElement {
             const Bounds &bounds,
             const std::string &title,
             bool overlay = false);
+        std::string gearLabel() const;
         void renderStatus(const Bounds &bounds);
         void renderShiftQuality(const Bounds &bounds);
 

@@ -19,6 +19,8 @@ namespace powertrain {
             virtual void fillTelemetry(config::TelemetrySample *sample) const;
             virtual void reset();
             virtual void configureGearbox(const GearboxCapabilities &capabilities);
+            virtual const std::string &getRequestedMode() const override;
+            virtual const std::string &getPositionName() const override;
 
             virtual void update(
                 double dt,

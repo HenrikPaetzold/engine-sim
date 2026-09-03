@@ -159,6 +159,7 @@ class EngineSimApplication {
         config::ConfigServer m_configServer;
         int m_driveModeIndex;
         int m_reportedGear;
+        int m_reportedGatePosition;
 
         double m_dynoSpeed;
         double m_torque;

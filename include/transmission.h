@@ -5,6 +5,8 @@
 #include "engine.h"
 #include "ratio_clutch_constraint.h"
 #include "torque_converter_constraint.h"
+#include "powertrain/gate_engagement.h"
+#include "units.h"
 #include "scs.h"
 
 namespace config {
@@ -30,6 +32,9 @@ class Transmission {
             double StallTorqueRatio = 2.0;
             double CouplingPoint = 0.85;
             double CapacityFactor = 4.04e-3;
+
+            double ReverseRatio = 3.2;
+            double ParkLockTorque = units::torque(4000.0, units::Nm);
         };
 
         static constexpr int ClutchCount = 2;
@@ -61,6 +66,13 @@ class Transmission {
         void setClutchPressure(int index, double pressure);
         double getClutchPressure(int index) const;
 
+        void setEngagement(powertrain::GateEngagement range);
+        inline powertrain::GateEngagement getEngagement() const { return m_engagement; }
+        inline bool supportsEngagement() const { return m_type != Type::Legacy; }
+        inline bool isParkLockEngaged() const { return m_engagement == powertrain::GateEngagement::Park; }
+        double getParkLockTorque() const;
+        void addParkLockForTest(atg_scs::RigidBodySystem *system);
+
         void setPreselectedGear(int gear);
         inline int getPreselectedGear() const { return m_preselectedGear; }
         inline void setLockupPressure(double pressure) { m_lockupPressure = pressure; }
@@ -91,6 +103,7 @@ class Transmission {
         atg_scs::ClutchConstraint m_clutchConstraint;
         RatioClutchConstraint m_ratioClutch[ClutchCount];
         RatioClutchConstraint m_lockupClutch;
+        atg_scs::RotationFrictionConstraint m_parkLock;
         TorqueConverterConstraint m_converter;
         atg_scs::RigidBody m_turbine;
 
@@ -99,6 +112,7 @@ class Transmission {
         Engine *m_engine;
 
         Type m_type;
+        powertrain::GateEngagement m_engagement;
         int m_gear;
         int m_preselectedGear;
         int m_gearCount;
@@ -107,6 +121,8 @@ class Transmission {
         double m_clutchPressure[ClutchCount];
         double m_lockupPressure;
         double m_turbineInertia;
+        double m_reverseRatio;
+        double m_parkLockTorque;
 };
 
 #endif /* ATG_ENGINE_SIM_TRANSMISSION_H */

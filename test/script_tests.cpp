@@ -528,3 +528,75 @@ TEST_F(ScriptFixture, ScriptedBlockParametersReachTheRegistry) {
 
     EXPECT_NEAR(commands.throttlePlate, 0.25, 1e-9);
 }
+
+TEST_F(ScriptFixture, AFreelyNamedGateReachesTheTransmissionControlUnit) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    tcu: transmission_control_unit(default_position: \"IDLE\")\n"
+        "        .add_gate_position(\n"
+        "            gate_position(name: \"REV\", engagement: \"reverse\",\n"
+        "                max_entry_speed: 1.0, mode: \"reverse_thrust\"))\n"
+        "        .add_gate_position(gate_position(name: \"IDLE\", engagement: \"neutral\"))\n"
+        "        .add_gate_position(\n"
+        "            gate_position(name: \"CLB\", engagement: \"forward\", mode: \"climb\"))\n"
+        "        .add_gate_position(\n"
+        "            gate_position(name: \"TOGA\", engagement: \"forward\", mode: \"toga\")))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    const powertrain::SelectorGate &gate =
+        unit->getTransmissionControlUnit().getGate();
+
+    ASSERT_EQ(gate.getCount(), 4);
+    EXPECT_EQ(gate.get(0).name, "REV");
+    EXPECT_EQ(gate.get(0).engagement, powertrain::GateEngagement::Reverse);
+    EXPECT_NEAR(gate.get(0).maxEntrySpeed, 1.0, 1e-12);
+    EXPECT_EQ(gate.get(0).mode, "reverse_thrust");
+
+    EXPECT_EQ(gate.get(3).name, "TOGA");
+    EXPECT_EQ(gate.get(3).engagement, powertrain::GateEngagement::Forward);
+    EXPECT_EQ(gate.get(3).mode, "toga");
+
+    EXPECT_EQ(unit->getPositionName(), "IDLE");
+}
+
+TEST_F(ScriptFixture, TheAutomaticGateHelperBuildsPRND) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    tcu: transmission_control_unit(default_position: \"P\").automatic_gate())\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    const powertrain::SelectorGate &gate =
+        unit->getTransmissionControlUnit().getGate();
+
+    ASSERT_EQ(gate.getCount(), 4);
+    EXPECT_EQ(gate.get(0).name, "P");
+    EXPECT_EQ(gate.get(1).name, "R");
+    EXPECT_EQ(gate.get(2).name, "N");
+    EXPECT_EQ(gate.get(3).name, "D");
+
+    EXPECT_TRUE(gate.get(0).requiresBrake);
+    EXPECT_EQ(unit->getPositionName(), "P");
+}
+
+TEST_F(ScriptFixture, TheReverseRatioAndParkLockTorqueReachTheGearbox) {
+    ASSERT_TRUE(run(
+        "set_transmission(\n"
+        "    dual_clutch_gearbox(reverse_ratio: 4.1, park_lock_torque: 9000)\n"
+        "        .add_gear(3.0).add_gear(1.5))\n"));
+
+    Transmission *transmission = es_script::Compiler::output()->transmission;
+    ASSERT_NE(transmission, nullptr);
+
+    EXPECT_NEAR(transmission->getParkLockTorque(), 9000.0, 1e-9);
+
+    config::ParameterRegistry registry;
+    transmission->registerParameters(&registry, "");
+
+    double value = 0.0;
+    ASSERT_TRUE(registry.get("driveline.reverse_ratio", &value));
+    EXPECT_NEAR(value, 4.1, 1e-9);
+}

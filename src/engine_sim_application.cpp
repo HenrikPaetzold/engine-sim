@@ -63,6 +63,7 @@ EngineSimApplication::EngineSimApplication() {
     m_controlProgram = nullptr;
     m_driveModeIndex = -1;
     m_reportedGear = -2;
+    m_reportedGatePosition = -1;
     m_engineView = nullptr;
     m_rightGaugeCluster = nullptr;
     m_temperatureGauge = nullptr;
@@ -716,6 +717,7 @@ void EngineSimApplication::releasePowertrain() {
     m_driveModes.clear();
     m_driveModeIndex = -1;
     m_reportedGear = -2;
+    m_reportedGatePosition = -1;
 
     delete m_powertrainUnit;
     m_powertrainUnit = nullptr;
@@ -742,6 +744,7 @@ void EngineSimApplication::installPowertrain(
     PowertrainSystem &system = m_simulator->m_powertrain;
     system.initialize(PowertrainSystem::Parameters());
     system.setController(controller);
+    system.setDriveModes(&m_driveModes, &m_registry);
 
     if (controller == m_powertrainUnit && m_powertrainUnit != nullptr) {
         m_adaptation.initialize(adaptationParams);
@@ -1007,6 +1010,20 @@ void EngineSimApplication::processEngineInput() {
             inputs.manualMode = !inputs.manualMode;
             m_infoCluster->setLogMessage(
                 inputs.manualMode ? "MANUAL MODE" : "AUTOMATIC MODE");
+        }
+
+        inputs.brake = m_engine.IsKeyDown(ysKey::Code::K) ? 1.0 : 0.0;
+
+        const int engagedPosition = m_simulator->m_powertrain.getState().gatePosition;
+        if (inputs.gatePosition < 0) inputs.gatePosition = engagedPosition;
+
+        if (m_engine.ProcessKeyDown(ysKey::Code::P)) ++inputs.gatePosition;
+        else if (m_engine.ProcessKeyDown(ysKey::Code::O)) --inputs.gatePosition;
+
+        if (engagedPosition != m_reportedGatePosition) {
+            m_reportedGatePosition = engagedPosition;
+            m_infoCluster->setLogMessage(
+                "SELECTOR " + m_powertrainUnit->getPositionName());
         }
 
         if (m_engine.ProcessKeyDown(ysKey::Code::L) && m_driveModes.getCount() > 0) {

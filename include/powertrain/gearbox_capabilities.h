@@ -13,6 +13,7 @@ namespace powertrain {
         bool supportsPreselect = false;
         bool requiresTorqueInterrupt = true;
         bool hasLaunchDevice = false;
+        bool supportsRange = true;
     };
 
 } /* namespace powertrain */

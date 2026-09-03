@@ -618,5 +618,7 @@ public node transmission => __engine_sim__transmission {
     input stall_torque_ratio [float]: 2.0;
     input coupling_point [float]: 0.85;
     input capacity_factor [float]: 0.00404;
+    input reverse_ratio [float]: 3.2;
+    input park_lock_torque [float]: 4000 * units.Nm;
     alias output __out [transmission_channel];
 }

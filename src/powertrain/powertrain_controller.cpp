@@ -20,3 +20,13 @@ void powertrain::PowertrainController::configureGearbox(
 {
     /* void */
 }
+
+const std::string &powertrain::PowertrainController::getRequestedMode() const {
+    static const std::string empty;
+    return empty;
+}
+
+const std::string &powertrain::PowertrainController::getPositionName() const {
+    static const std::string empty;
+    return empty;
+}

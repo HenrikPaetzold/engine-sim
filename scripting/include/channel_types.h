@@ -35,6 +35,7 @@ namespace es_script {
         static const piranha::ChannelType AdaptationChannel;
         static const piranha::ChannelType ControlBlockChannel;
         static const piranha::ChannelType ControlProgramChannel;
+        static const piranha::ChannelType GatePositionChannel;
     };
 
     template <typename Type>
@@ -80,6 +81,7 @@ namespace es_script {
     ASSIGN_CHANNEL_TYPE(AdaptationNode, AdaptationChannel);
     ASSIGN_CHANNEL_TYPE(ControlBlockNode, ControlBlockChannel);
     ASSIGN_CHANNEL_TYPE(ControlProgramNode, ControlProgramChannel);
+    ASSIGN_CHANNEL_TYPE(GatePositionNode, GatePositionChannel);
 
 } /* namespace es_script */
 

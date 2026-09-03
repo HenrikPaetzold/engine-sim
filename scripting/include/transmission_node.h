@@ -43,6 +43,8 @@ namespace es_script {
             addInput("stall_torque_ratio", &m_parameters.StallTorqueRatio);
             addInput("coupling_point", &m_parameters.CouplingPoint);
             addInput("capacity_factor", &m_parameters.CapacityFactor);
+            addInput("reverse_ratio", &m_parameters.ReverseRatio);
+            addInput("park_lock_torque", &m_parameters.ParkLockTorque);
 
             ObjectReferenceNode<TransmissionNode>::registerInputs();
         }

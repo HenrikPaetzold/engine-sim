@@ -17,6 +17,8 @@ private node gearbox_base {
     input stall_torque_ratio [float]: 2.0;
     input coupling_point [float]: 0.85;
     input capacity_factor [float]: 0.00404;
+    input reverse_ratio [float]: 3.2;
+    input park_lock_torque [float]: 4000 * units.Nm;
 
     alias output __out [transmission_channel]:
         transmission(
@@ -25,32 +27,42 @@ private node gearbox_base {
             turbine_inertia: turbine_inertia,
             stall_torque_ratio: stall_torque_ratio,
             coupling_point: coupling_point,
-            capacity_factor: capacity_factor);
+            capacity_factor: capacity_factor,
+            reverse_ratio: reverse_ratio,
+            park_lock_torque: park_lock_torque);
 }
 
 public node manual_gearbox {
     input max_clutch_torque [float]: 1000 * units.lb_ft;
+    input reverse_ratio [float]: 3.2;
+    input park_lock_torque [float]: 4000 * units.Nm;
 
     alias output __out [transmission_channel]:
-        gearbox_base(type: "manual", max_clutch_torque: max_clutch_torque);
+        gearbox_base(type: "manual", max_clutch_torque: max_clutch_torque, reverse_ratio: reverse_ratio, park_lock_torque: park_lock_torque);
 }
 
 public node robotised_manual_gearbox {
     input max_clutch_torque [float]: 1000 * units.lb_ft;
+    input reverse_ratio [float]: 3.2;
+    input park_lock_torque [float]: 4000 * units.Nm;
 
     alias output __out [transmission_channel]:
-        gearbox_base(type: "amt", max_clutch_torque: max_clutch_torque);
+        gearbox_base(type: "amt", max_clutch_torque: max_clutch_torque, reverse_ratio: reverse_ratio, park_lock_torque: park_lock_torque);
 }
 
 public node dual_clutch_gearbox {
     input max_clutch_torque [float]: 1000 * units.lb_ft;
+    input reverse_ratio [float]: 3.2;
+    input park_lock_torque [float]: 4000 * units.Nm;
 
     alias output __out [transmission_channel]:
-        gearbox_base(type: "dct", max_clutch_torque: max_clutch_torque);
+        gearbox_base(type: "dct", max_clutch_torque: max_clutch_torque, reverse_ratio: reverse_ratio, park_lock_torque: park_lock_torque);
 }
 
 public node converter_gearbox {
     input max_clutch_torque [float]: 1000 * units.lb_ft;
+    input reverse_ratio [float]: 3.2;
+    input park_lock_torque [float]: 4000 * units.Nm;
     input turbine_inertia [float]: 0.08;
     input stall_torque_ratio [float]: 2.0;
     input coupling_point [float]: 0.85;
@@ -63,5 +75,7 @@ public node converter_gearbox {
             turbine_inertia: turbine_inertia,
             stall_torque_ratio: stall_torque_ratio,
             coupling_point: coupling_point,
-            capacity_factor: capacity_factor);
+            capacity_factor: capacity_factor,
+            reverse_ratio: reverse_ratio,
+            park_lock_torque: park_lock_torque);
 }

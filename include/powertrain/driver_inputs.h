@@ -1,6 +1,8 @@
 #ifndef ATG_ENGINE_SIM_DRIVER_INPUTS_H
 #define ATG_ENGINE_SIM_DRIVER_INPUTS_H
 
+#include "gate_engagement.h"
+
 namespace powertrain {
 
     struct DriverInputs {
@@ -10,6 +12,7 @@ namespace powertrain {
 
         int driveMode = 0;
         int selectedGear = -1;
+        int gatePosition = -1;
 
         bool shiftUpRequest = false;
         bool shiftDownRequest = false;

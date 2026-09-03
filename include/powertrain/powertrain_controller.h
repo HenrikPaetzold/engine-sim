@@ -7,6 +7,8 @@
 #include "powertrain_bus.h"
 #include "gearbox_capabilities.h"
 
+#include <string>
+
 namespace config {
     class ParameterRegistry;
     struct TelemetrySample;
@@ -23,6 +25,8 @@ namespace powertrain {
             virtual void fillTelemetry(config::TelemetrySample *sample) const;
             virtual void reset();
             virtual void configureGearbox(const GearboxCapabilities &capabilities);
+            virtual const std::string &getRequestedMode() const;
+            virtual const std::string &getPositionName() const;
 
             virtual void update(
                 double dt,

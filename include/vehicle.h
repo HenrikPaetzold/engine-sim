@@ -16,6 +16,7 @@ class Vehicle {
             double diffRatio;
             double tireRadius;
             double rollingResistance;
+            double maxBrakeForce = 12000.0;
         };
 
     public:
@@ -37,6 +38,12 @@ class Vehicle {
         inline void setRoadGrade(double grade) { m_roadGrade = grade; }
         inline double getRoadGrade() const { return m_roadGrade; }
         double getGradeForce() const;
+        double getRollingDragForce() const;
+        double getAeroDragForce() const;
+        double getTravelDirection() const;
+        inline void setBrake(double brake) { m_brake = brake; }
+        inline double getBrake() const { return m_brake; }
+        inline double getMaxBrakeForce() const { return m_maxBrakeForce; }
         inline double getRotationalSpeed() const {
             return (m_rotatingMass != nullptr) ? m_rotatingMass->v_theta : 0.0;
         }
@@ -55,6 +62,8 @@ class Vehicle {
         double m_travelledDistance;
         double m_rollingResistance;
         double m_roadGrade;
+        double m_brake;
+        double m_maxBrakeForce;
 };
 
 #endif /* ATG_ENGINE_SIM_VEHICLE_H */

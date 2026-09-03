@@ -87,6 +87,10 @@ namespace es_script {
         TransmissionControlUnitNode() { /* void */ }
         virtual ~TransmissionControlUnitNode() { /* void */ }
 
+        void addGatePosition(const powertrain::GatePosition &position) {
+            m_gate.add(position);
+        }
+
         void addGear(double ratio) {
             if (m_gears.size() < powertrain::MaxGears) m_gears.push_back(ratio);
         }
@@ -106,6 +110,11 @@ namespace es_script {
             }
 
             tcu->initialize(parameters);
+
+            if (!m_gate.isEmpty()) {
+                tcu->getGate() = m_gate;
+                tcu->reset();
+            }
 
             if (m_upshiftMap != nullptr && !m_upshiftMap->isEmpty()) {
                 m_upshiftMap->generate(&tcu->getUpshiftMap());
@@ -135,6 +144,8 @@ namespace es_script {
             addInput("launch_slip_target", &m_parameters.launchSlipTarget);
             addInput("launch_lock_slip", &m_parameters.launchLockSlip);
             addInput("stall_protect_speed", &m_parameters.stallProtectSpeed);
+            addInput("brake_interlock", &m_parameters.brakeInterlock);
+            addInput("default_position", &m_parameters.defaultPosition);
 
             addInput("slip_controller", &m_slipController, InputTarget::Type::Object);
             addInput("upshift_map", &m_upshiftMap, InputTarget::Type::Object);
@@ -150,10 +161,54 @@ namespace es_script {
 
         powertrain::TransmissionControlUnit::Parameters m_parameters;
         std::vector<double> m_gears;
+        powertrain::SelectorGate m_gate;
 
         PidControllerNode *m_slipController = nullptr;
         Map2dNode *m_upshiftMap = nullptr;
         Map2dNode *m_downshiftMap = nullptr;
+    };
+
+    class GatePositionNode : public ObjectReferenceNode<GatePositionNode> {
+    public:
+        GatePositionNode() { /* void */ }
+        virtual ~GatePositionNode() { /* void */ }
+
+        powertrain::GatePosition generate() const {
+            powertrain::GatePosition position;
+            position.name = m_name;
+            position.engagement =
+                powertrain::engagementFromName(m_engagement.c_str());
+            position.maxEntrySpeed = m_maxEntrySpeed;
+            position.maxExitSpeed = m_maxExitSpeed;
+            position.requiresBrake = m_requiresBrake;
+            position.mode = m_mode;
+
+            return position;
+        }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("name", &m_name);
+            addInput("engagement", &m_engagement);
+            addInput("max_entry_speed", &m_maxEntrySpeed);
+            addInput("max_exit_speed", &m_maxExitSpeed);
+            addInput("requires_brake", &m_requiresBrake);
+            addInput("mode", &m_mode);
+
+            ObjectReferenceNode<GatePositionNode>::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            setOutput(this);
+            readAllInputs();
+        }
+
+        std::string m_name;
+        std::string m_engagement = "neutral";
+        std::string m_mode;
+        double m_maxEntrySpeed = -1.0;
+        double m_maxExitSpeed = -1.0;
+        bool m_requiresBrake = false;
     };
 
     class AdaptationNode : public ObjectReferenceNode<AdaptationNode> {

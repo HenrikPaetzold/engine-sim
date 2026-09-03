@@ -144,6 +144,8 @@ void config::ConfigServer::refreshState(const TelemetrySample &sample) {
         << ",\"vehicleSpeed\":" << sample.vehicleSpeed
         << ",\"roadGrade\":" << sample.roadGrade
         << ",\"gear\":" << sample.gear
+        << ",\"range\":" << jsonString(sample.range)
+        << ",\"parkLock\":" << (sample.parkLock ? "true" : "false")
         << ",\"clutchPressure\":" << sample.clutchPressure
         << ",\"ignitionCut\":" << sample.ignitionCut
         << ",\"fuelCut\":" << sample.fuelCut

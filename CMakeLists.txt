@@ -72,6 +72,7 @@ add_library(engine-sim STATIC
     src/powertrain/passthrough_controller.cpp
     src/powertrain/powertrain_unit.cpp
     src/powertrain/scripted_control_unit.cpp
+    src/powertrain/selector_gate.cpp
     src/powertrain/transmission_control_unit.cpp
     src/powertrain/powertrain_controller.cpp
     src/external_throttle.cpp
@@ -142,6 +143,8 @@ add_library(engine-sim STATIC
     include/powertrain/passthrough_controller.h
     include/powertrain/powertrain_bus.h
     include/powertrain/gearbox_capabilities.h
+    include/powertrain/gate_engagement.h
+    include/powertrain/selector_gate.h
     include/powertrain/powertrain_controller.h
     include/powertrain/powertrain_state.h
     include/powertrain/powertrain_unit.h
@@ -399,6 +402,7 @@ add_executable(engine-sim-test
     test/ecu_tests.cpp
     test/tcu_tests.cpp
     test/driveline_tests.cpp
+    test/range_tests.cpp
     test/control_program_tests.cpp
     test/adaptation_tests.cpp
     test/drive_mode_tests.cpp

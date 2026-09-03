@@ -1,6 +1,8 @@
 #ifndef ATG_ENGINE_SIM_POWERTRAIN_STATE_H
 #define ATG_ENGINE_SIM_POWERTRAIN_STATE_H
 
+#include "gate_engagement.h"
+
 namespace powertrain {
 
     static constexpr int MaxClutches = 2;
@@ -20,6 +22,10 @@ namespace powertrain {
 
         double coolantTemperature = 0.0;
         double oilTemperature = 0.0;
+
+        GateEngagement engagement = GateEngagement::Neutral;
+        int gatePosition = 0;
+        bool parkLockEngaged = false;
 
         int gear = -1;
         int preselectedGear = -1;

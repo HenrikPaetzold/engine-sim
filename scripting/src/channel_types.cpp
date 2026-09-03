@@ -24,6 +24,7 @@ DEFINE_CHANNEL(ThrottleChannel);
 DEFINE_CHANNEL(PidControllerChannel);
 DEFINE_CHANNEL(ControlBlockChannel);
 DEFINE_CHANNEL(ControlProgramChannel);
+DEFINE_CHANNEL(GatePositionChannel);
 DEFINE_CHANNEL(Map2dChannel);
 DEFINE_CHANNEL(DriveModeChannel);
 DEFINE_CHANNEL(EngineControlUnitChannel);

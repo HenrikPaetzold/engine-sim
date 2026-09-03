@@ -14,6 +14,10 @@ namespace powertrain {
         double revLimit = 0.0;
         double limiterDuration = 0.0;
 
+        GateEngagement engagement = GateEngagement::Neutral;
+        int gatePosition = 0;
+        bool parkLock = false;
+
         int targetGear = -1;
         int preselectGear = -1;
 
