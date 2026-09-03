@@ -9,6 +9,7 @@ Intake::Intake() {
     m_idleFlowK = 0;
     m_flow = 0;
     m_throttle = 1.0;
+    m_fuelFactor = 1.0;
     m_idleThrottlePlatePosition = 0.0;
     m_crossSectionArea = 0.0;
     m_flowRate = 0;
@@ -57,6 +58,20 @@ void Intake::destroy() {
     /* void */
 }
 
+GasSystem::Mix Intake::scaleFuel(const GasSystem::Mix &mix, double factor) {
+    GasSystem::Mix scaled = mix;
+    scaled.p_fuel = mix.p_fuel * factor;
+
+    const double total = scaled.p_fuel + scaled.p_inert + scaled.p_o2;
+    if (total <= 0.0) return mix;
+
+    scaled.p_fuel /= total;
+    scaled.p_inert /= total;
+    scaled.p_o2 /= total;
+
+    return scaled;
+}
+
 void Intake::process(double dt) {
     const double ideal_afr = 0.8 * m_molecularAfr * 4;
     const double current_afr = (m_system.mix().p_o2 + m_system.mix().p_inert) / m_system.mix().p_fuel;
@@ -73,6 +88,9 @@ void Intake::process(double dt) {
     fuelMix.p_fuel = (1.0 - p_idle_air);
     fuelMix.p_inert = p_idle_air * 0.75;
     fuelMix.p_o2 = p_idle_air * 0.25;
+
+    fuelAirMix = scaleFuel(fuelAirMix, m_fuelFactor);
+    fuelMix = scaleFuel(fuelMix, m_fuelFactor);
 
     const double throttle = getThrottlePlatePosition();
     const double flowAttenuation = std::cos(throttle * constants::pi / 2);

@@ -1,5 +1,4 @@
 #include "../include/engine.h"
-#include "../include/engine.h"
 
 #include "../include/constants.h"
 #include "../include/units.h"
@@ -35,6 +34,7 @@ Engine::Engine() {
 
     m_throttle = nullptr;
     m_throttleValue = 0.0;
+    m_fuelFactor = 1.0;
 
     m_initialSimulationFrequency = 10000.0;
     m_initialHighFrequencyGain = 0.01;
@@ -307,6 +307,41 @@ double Engine::getIntakeFlowRate() const {
 
 void Engine::update(double dt) {
     m_throttle->update(dt, this);
+}
+
+void Engine::updateThermal(double dt, double vehicleSpeed) {
+    double heat = 0.0;
+    for (int i = 0; i < m_cylinderCount; ++i) {
+        heat += m_combustionChambers[i].popHeatRejected();
+    }
+
+    m_thermalModel.addHeat(heat * m_thermalModel.getParameters().combustionHeatFraction);
+    m_thermalModel.update(dt, vehicleSpeed);
+
+    const double wallTemperature = m_thermalModel.getBlockTemperature();
+    for (int i = 0; i < m_cylinderCount; ++i) {
+        m_combustionChambers[i].m_wallTemperature = wallTemperature;
+    }
+}
+
+void Engine::setFuelFactor(double factor) {
+    m_fuelFactor = factor;
+
+    for (int i = 0; i < m_intakeCount; ++i) {
+        m_intakes[i].m_fuelFactor = factor;
+    }
+}
+
+double Engine::getIndicatedTorque() const {
+    const double speed = getSpeed();
+    if (speed < 1e-6) return 0.0;
+
+    double power = 0.0;
+    for (int i = 0; i < m_cylinderCount; ++i) {
+        power += m_combustionChambers[i].getIndicatedPower();
+    }
+
+    return power / speed;
 }
 
 double Engine::getManifoldPressure() const {

@@ -51,8 +51,11 @@ class Intake : public Part {
         inline double getPlenumCrossSectionArea() const { return m_crossSectionArea; }
         inline double getVelocityDecay() const { return m_velocityDecay; }
 
+        static GasSystem::Mix scaleFuel(const GasSystem::Mix &mix, double factor);
+
         GasSystem m_system;
         double m_throttle;
+        double m_fuelFactor;
 
         double m_flow;
         double m_flowRate;

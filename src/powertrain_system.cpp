@@ -85,12 +85,16 @@ void PowertrainSystem::sampleState(double dt) {
         m_state.intakeAfr = engine->getIntakeAfr();
         m_state.exhaustO2 = engine->getExhaustO2();
         m_state.engineRunning = engine->getRpm() > 1.0;
+        m_state.coolantTemperature = engine->getCoolantTemperature();
+        m_state.oilTemperature = engine->getOilTemperature();
 
         IgnitionModule *ignition = engine->getIgnitionModule();
         if (ignition != nullptr) m_state.timingAdvance = ignition->getTimingAdvance();
     }
 
-    m_state.indicatedTorque = m_simulator->getFilteredDynoTorque();
+    m_state.indicatedTorque = (engine != nullptr)
+        ? engine->getIndicatedTorque()
+        : 0.0;
 
     if (transmission != nullptr) {
         m_state.gear = transmission->getGear();
@@ -102,6 +106,7 @@ void PowertrainSystem::sampleState(double dt) {
     if (vehicle != nullptr) {
         m_state.vehicleSpeed = vehicle->getSignedSpeed();
         m_state.wheelSpeed = vehicle->getRotationalSpeed();
+        m_state.roadGrade = vehicle->getRoadGrade();
     }
 }
 
@@ -115,7 +120,12 @@ void PowertrainSystem::applyCommands() {
         IgnitionModule *ignition = engine->getIgnitionModule();
         if (ignition != nullptr) {
             ignition->m_enabled = m_commands.ignitionEnabled;
+            ignition->setCutFraction(m_commands.ignitionCutFraction);
+            ignition->setTimingOffset(m_commands.timingOffset);
         }
+
+        engine->setFuelFactor(
+            std::clamp(1.0 - m_commands.fuelCutFraction, 0.0, 4.0));
     }
 
     Transmission *transmission = m_simulator->getTransmission();

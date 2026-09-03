@@ -24,6 +24,8 @@ CombustionChamber::CombustionChamber() {
 
     m_meanPistonSpeedToTurbulence = nullptr;
     m_nBurntFuel = 0;
+    m_wallTemperature = units::celcius(90.0);
+    m_heatRejected = 0.0;
 
     m_manifoldToRunnerFlowRate = 0;
     m_primaryToCollectorFlowRate = 0;
@@ -243,9 +245,11 @@ void CombustionChamber::flow(double dt) {
         cylinderHeight * constants::pi * m_head->getCylinderBank()->getBore()
         + m_cylinderCrossSectionSurfaceArea * 2;
 
-    const double dT = units::celcius(90.0) - m_system.temperature();
+    const double dT = m_wallTemperature - m_system.temperature();
+    const double wallEnergyFlow = dT * cylinderSurfaceArea * 100 * dt;
 
-    m_system.changeEnergy(dT * cylinderSurfaceArea * 100 * dt);
+    m_heatRejected -= wallEnergyFlow;
+    m_system.changeEnergy(wallEnergyFlow);
     m_system.flow(m_piston->getBlowbyK(), dt, m_crankcasePressure, units::celcius(25.0));
 
     Intake *intake = m_head->getIntake(m_piston->getCylinderIndex());
@@ -432,6 +436,25 @@ void CombustionChamber::apply(atg_scs::SystemState *system) {
         (force + F_fric) * bank->getDx(),
         (force + F_fric) * bank->getDy(),
         m_piston->m_body.index);
+}
+
+double CombustionChamber::getIndicatedPower() const {
+    CylinderBank *bank = m_head->getCylinderBank();
+    const double area = (bank->getBore() * bank->getBore() / 4.0) * constants::pi;
+
+    const double v_s =
+        m_piston->m_body.v_x * bank->getDx() + m_piston->m_body.v_y * bank->getDy();
+
+    const double force = -area * (m_system.pressure() - m_crankcasePressure);
+
+    return force * v_s;
+}
+
+double CombustionChamber::popHeatRejected() {
+    const double heat = m_heatRejected;
+    m_heatRejected = 0.0;
+
+    return heat;
 }
 
 double CombustionChamber::getFrictionForce() const {

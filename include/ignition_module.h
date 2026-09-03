@@ -39,7 +39,22 @@ class IgnitionModule : public Part {
 
         double getTimingAdvance();
 
+        void setTimingOffset(double offset);
+        inline double getTimingOffset() const { return m_timingOffset; }
+
+        void setCutFraction(double fraction);
+        inline double getCutFraction() const { return m_cutFraction; }
+
+        inline void setRevLimit(double revLimit) { m_revLimit = revLimit; }
+        inline double getRevLimit() const { return m_revLimit; }
+        inline void setLimiterDuration(double duration) { m_limiterDuration = duration; }
+        inline double getLimiterDuration() const { return m_limiterDuration; }
+
+        inline bool isLimiterActive() const { return m_revLimitTimer > 0; }
+
         bool m_enabled;
+
+        bool consumeCutDecision();
 
     protected:
         SparkPlug *getPlug(int i);
@@ -53,6 +68,10 @@ class IgnitionModule : public Part {
         double m_revLimit;
         double m_revLimitTimer;
         double m_limiterDuration;
+
+        double m_timingOffset;
+        double m_cutFraction;
+        double m_cutAccumulator;
 };
 
 #endif /* ATG_ENGINE_SIM_IGNITION_MODULE_H */

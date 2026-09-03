@@ -29,6 +29,9 @@ class Vehicle {
         inline double getTireRadius() const { return m_tireRadius; }
         double getSpeed() const;
         double getSignedSpeed() const;
+        inline void setRoadGrade(double grade) { m_roadGrade = grade; }
+        inline double getRoadGrade() const { return m_roadGrade; }
+        double getGradeForce() const;
         inline double getRotationalSpeed() const {
             return (m_rotatingMass != nullptr) ? m_rotatingMass->v_theta : 0.0;
         }
@@ -46,6 +49,7 @@ class Vehicle {
         double m_tireRadius;
         double m_travelledDistance;
         double m_rollingResistance;
+        double m_roadGrade;
 };
 
 #endif /* ATG_ENGINE_SIM_VEHICLE_H */

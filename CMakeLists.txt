@@ -64,6 +64,7 @@ add_library(engine-sim STATIC
     src/powertrain/powertrain_controller.cpp
     src/external_throttle.cpp
     src/powertrain_system.cpp
+    src/thermal_model.cpp
 
     src/audio_buffer.cpp
     src/camshaft.cpp
@@ -121,6 +122,7 @@ add_library(engine-sim STATIC
     include/powertrain/powertrain_state.h
     include/external_throttle.h
     include/powertrain_system.h
+    include/thermal_model.h
 
     include/audio_buffer.h
     include/application_settings.h
@@ -354,6 +356,7 @@ add_executable(engine-sim-test
     test/control_tests.cpp
     test/parameter_registry_tests.cpp
     test/powertrain_tests.cpp
+    test/thermal_tests.cpp
 )
 
 target_link_libraries(engine-sim-test

@@ -110,6 +110,7 @@ bool Simulator::simulateStep() {
     m_system->process(timestep, 1);
 
     m_engine->update(timestep);
+    m_engine->updateThermal(timestep, m_vehicle->getSpeed());
     m_vehicle->update(timestep);
     m_transmission->update(timestep);
 

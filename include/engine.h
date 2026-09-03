@@ -12,6 +12,7 @@
 #include "ignition_module.h"
 #include "intake.h"
 #include "combustion_chamber.h"
+#include "thermal_model.h"
 #include "units.h"
 #include "throttle.h"
 
@@ -67,6 +68,16 @@ class Engine : public Part {
         double getDisplacement() const { return m_displacement; }
         virtual double getIntakeFlowRate() const;
         virtual void update(double dt);
+        virtual void updateThermal(double dt, double vehicleSpeed);
+
+        inline ThermalModel &getThermalModel() { return m_thermalModel; }
+        inline const ThermalModel &getThermalModel() const { return m_thermalModel; }
+        inline double getCoolantTemperature() const { return m_thermalModel.getBlockTemperature(); }
+        inline double getOilTemperature() const { return m_thermalModel.getOilTemperature(); }
+
+        void setFuelFactor(double factor);
+        inline double getFuelFactor() const { return m_fuelFactor; }
+        double getIndicatedTorque() const;
 
         virtual double getManifoldPressure() const;
         virtual double getIntakeAfr() const;
@@ -150,6 +161,9 @@ class Engine : public Part {
         Throttle *m_throttle;
 
         double m_throttleValue;
+        double m_fuelFactor;
+
+        ThermalModel m_thermalModel;
         double m_displacement;
 };
 

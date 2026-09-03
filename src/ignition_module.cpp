@@ -16,6 +16,9 @@ IgnitionModule::IgnitionModule() {
     m_revLimitTimer = 0.0;
     m_revLimit = 0;
     m_limiterDuration = 0;
+    m_timingOffset = 0.0;
+    m_cutFraction = 0.0;
+    m_cutAccumulator = 0.0;
 }
 
 IgnitionModule::~IgnitionModule() {
@@ -69,7 +72,7 @@ void IgnitionModule::update(double dt) {
                 }
 
                 if (adjustedAngle >= r0 && adjustedAngle < r1) {
-                    m_plugs[i].ignitionEvent = m_plugs[i].enabled;
+                    m_plugs[i].ignitionEvent = m_plugs[i].enabled && consumeCutDecision();
                 }
             }
             else {
@@ -79,7 +82,7 @@ void IgnitionModule::update(double dt) {
                 }
 
                 if (adjustedAngle >= r1 && adjustedAngle < r0) {
-                    m_plugs[i].ignitionEvent = m_plugs[i].enabled;
+                    m_plugs[i].ignitionEvent = m_plugs[i].enabled && consumeCutDecision();
                 }
             }
         }
@@ -108,7 +111,33 @@ void IgnitionModule::resetIgnitionEvents() {
 }
 
 double IgnitionModule::getTimingAdvance() {
-    return m_timingCurve->sampleTriangle(-m_crankshaft->m_body.v_theta);
+    return m_timingCurve->sampleTriangle(-m_crankshaft->m_body.v_theta)
+        + m_timingOffset;
+}
+
+void IgnitionModule::setTimingOffset(double offset) {
+    m_timingOffset = offset;
+}
+
+void IgnitionModule::setCutFraction(double fraction) {
+    const double clamped = (fraction < 0.0)
+        ? 0.0
+        : ((fraction > 1.0) ? 1.0 : fraction);
+
+    if (clamped == 0.0) m_cutAccumulator = 0.0;
+    m_cutFraction = clamped;
+}
+
+bool IgnitionModule::consumeCutDecision() {
+    if (m_cutFraction <= 0.0) return true;
+
+    m_cutAccumulator += m_cutFraction;
+    if (m_cutAccumulator >= 1.0) {
+        m_cutAccumulator -= 1.0;
+        return false;
+    }
+
+    return true;
 }
 
 IgnitionModule::SparkPlug *IgnitionModule::getPlug(int i) {

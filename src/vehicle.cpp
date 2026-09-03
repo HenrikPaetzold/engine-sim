@@ -1,5 +1,7 @@
 #include "../include/vehicle.h"
 
+#include "../include/constants.h"
+
 #include <cmath>
 
 Vehicle::Vehicle() {
@@ -10,6 +12,7 @@ Vehicle::Vehicle() {
     m_diffRatio = 0;
     m_tireRadius = 0;
     m_travelledDistance = 0;
+    m_roadGrade = 0;
     m_rollingResistance = 0;
 }
 
@@ -49,6 +52,10 @@ double Vehicle::getSignedSpeed() const {
     return (m_rotatingMass != nullptr && m_rotatingMass->v_theta < 0)
         ? -speed
         : speed;
+}
+
+double Vehicle::getGradeForce() const {
+    return m_mass * constants::g * std::sin(m_roadGrade);
 }
 
 double Vehicle::linearForceToVirtualTorque(double force) const {
