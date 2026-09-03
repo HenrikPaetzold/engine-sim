@@ -48,6 +48,8 @@ powertrain::TransmissionControlUnit::TransmissionControlUnit() {
     m_previousGear = -1;
     m_clutchPressure = 0.0;
     m_secondaryPressure = 0.0;
+    m_engagePhase = 0.0;
+    m_completedShifts = 0;
     m_previousShiftUp = false;
     m_previousShiftDown = false;
 }
@@ -100,6 +102,7 @@ void powertrain::TransmissionControlUnit::initialize(const Parameters &params) {
 
     buildDefaultMaps();
     m_slipController.initialize(m_params.slipController);
+    m_engageProfile.initialize(m_params.engageProfile);
 
     reset();
 }
@@ -111,12 +114,15 @@ void powertrain::TransmissionControlUnit::reset() {
     m_shiftTimer.reset();
     m_gearTimer.reset();
     m_slipController.reset();
+    m_engageProfile.reset();
 
     m_currentGear = -1;
     m_targetGear = -1;
     m_previousGear = -1;
     m_clutchPressure = 0.0;
     m_secondaryPressure = 0.0;
+    m_engagePhase = 0.0;
+    m_completedShifts = 0;
     m_previousShiftUp = false;
     m_previousShiftDown = false;
 }
@@ -295,6 +301,7 @@ void powertrain::TransmissionControlUnit::advanceShift(
             m_bus.torqueReductionRequest = 0.0;
             m_shiftState = ShiftState::Idle;
             m_gearTimer.reset();
+            ++m_completedShifts;
         }
         break;
     }
@@ -304,7 +311,8 @@ void powertrain::TransmissionControlUnit::advanceShift(
             ? std::clamp(m_shiftTimer.getElapsed() / m_params.clutchEngageTime, 0.0, 1.0)
             : 1.0;
 
-        m_clutchPressure = t;
+        m_engagePhase = t;
+        m_clutchPressure = std::clamp(t + m_engageProfile.correction(t), 0.0, 1.0);
         m_bus.torqueReductionRequest = m_params.shiftTorqueReduction * (1.0 - t);
 
         if (t >= 1.0) {
@@ -312,6 +320,7 @@ void powertrain::TransmissionControlUnit::advanceShift(
             m_bus.torqueReductionRequest = 0.0;
             m_shiftState = ShiftState::Idle;
             m_gearTimer.reset();
+            ++m_completedShifts;
         }
         break;
     }

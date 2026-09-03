@@ -6,6 +6,7 @@
 #include "../control/pid_controller.h"
 #include "../control/map_2d.h"
 #include "../control/hysteresis.h"
+#include "../control/iterative_learning.h"
 #include "../units.h"
 
 namespace powertrain {
@@ -53,6 +54,7 @@ namespace powertrain {
                 double stallProtectSpeed = units::rpm(650.0);
 
                 control::PidController::Parameters slipController = defaultSlipController();
+                control::IterativeLearningControl::Parameters engageProfile;
             };
 
             static control::PidController::Parameters defaultSlipController();
@@ -73,6 +75,10 @@ namespace powertrain {
                 ActuatorCommands *commands);
 
             inline control::Map2d &getUpshiftMap() { return m_upshiftMap; }
+            inline control::IterativeLearningControl &getEngageProfile() { return m_engageProfile; }
+            inline const control::IterativeLearningControl &getEngageProfile() const { return m_engageProfile; }
+            inline double getEngagePhase() const { return m_engagePhase; }
+            inline int getCompletedShiftCount() const { return m_completedShifts; }
             inline control::Map2d &getDownshiftMap() { return m_downshiftMap; }
 
             inline ShiftState getShiftState() const { return m_shiftState; }
@@ -104,6 +110,7 @@ namespace powertrain {
             control::Map2d m_upshiftMap;
             control::Map2d m_downshiftMap;
             control::PidController m_slipController;
+            control::IterativeLearningControl m_engageProfile;
 
             ShiftState m_shiftState;
             control::StateTimer m_shiftTimer;
@@ -112,6 +119,9 @@ namespace powertrain {
             int m_currentGear;
             int m_targetGear;
             int m_previousGear;
+
+            double m_engagePhase;
+            int m_completedShifts;
 
             double m_clutchPressure;
             double m_secondaryPressure;

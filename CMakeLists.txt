@@ -57,7 +57,10 @@ set_property(TARGET gtest_main PROPERTY FOLDER "gtest")
 
 add_library(engine-sim STATIC
     # Source files
+    src/adaptation/adaptation_manager.cpp
+    src/adaptation/rls_estimator.cpp
     src/config/parameter_registry.cpp
+    src/control/iterative_learning.cpp
     src/control/map_2d.cpp
     src/control/pid_controller.cpp
     src/powertrain/engine_control_unit.cpp
@@ -112,8 +115,11 @@ add_library(engine-sim STATIC
     src/vtec_valvetrain.cpp
 
     # Include files
+    include/adaptation/adaptation_manager.h
+    include/adaptation/rls_estimator.h
     include/config/parameter_registry.h
     include/control/hysteresis.h
+    include/control/iterative_learning.h
     include/control/map_2d.h
     include/control/pid_controller.h
     include/control/rate_limiter.h
@@ -365,6 +371,7 @@ add_executable(engine-sim-test
     test/thermal_tests.cpp
     test/ecu_tests.cpp
     test/tcu_tests.cpp
+    test/adaptation_tests.cpp
 )
 
 target_link_libraries(engine-sim-test

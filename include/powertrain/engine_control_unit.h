@@ -62,6 +62,14 @@ namespace powertrain {
             void setTransmissionRequests(const PowertrainBus &bus);
 
             inline control::Map2d &getThrottleMap() { return m_throttleMap; }
+            inline control::Map2d &getIdleTrimMap() { return m_idleTrim; }
+            inline control::PidController &getIdleController() { return m_idleController; }
+            inline control::PidController &getTorqueController() { return m_torqueController; }
+
+            inline void setFuelTrim(double trim) { m_fuelTrim = trim; }
+            inline double getFuelTrim() const { return m_fuelTrim; }
+            inline double getFeedforwardPlate() const { return m_feedforwardPlate; }
+            inline double getCommandedPlate() const { return m_commandedPlate; }
             inline control::Map2d &getMaxTorqueMap() { return m_maxTorqueMap; }
             inline control::Map2d &getPedalMap() { return m_pedalMap; }
 
@@ -85,6 +93,7 @@ namespace powertrain {
             Parameters m_params;
 
             control::Map2d m_throttleMap;
+            control::Map2d m_idleTrim;
             control::Map2d m_maxTorqueMap;
             control::Map2d m_pedalMap;
 
@@ -97,6 +106,8 @@ namespace powertrain {
             double m_driverTorqueRequest;
             double m_idleTorqueRequest;
             double m_feedforwardPlate;
+            double m_commandedPlate;
+            double m_fuelTrim;
 
             EngineState m_engineState;
     };

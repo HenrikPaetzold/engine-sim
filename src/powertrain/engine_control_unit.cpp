@@ -11,6 +11,7 @@ namespace {
     constexpr int ThrottleMapTorquePoints = 9;
     constexpr int TorqueCurvePoints = 12;
     constexpr int PedalMapPoints = 6;
+    constexpr int IdleTrimPoints = 6;
 
     config::ParameterDescriptor describe(
         const std::string &path,
@@ -59,6 +60,8 @@ powertrain::EngineControlUnit::EngineControlUnit() {
     m_driverTorqueRequest = 0.0;
     m_idleTorqueRequest = 0.0;
     m_feedforwardPlate = 0.0;
+    m_commandedPlate = 0.0;
+    m_fuelTrim = 1.0;
     m_engineState = EngineState::Off;
 }
 
@@ -75,6 +78,14 @@ void powertrain::EngineControlUnit::buildDefaultMaps() {
 
         const double shape = 0.55 + 0.45 * std::sin(constants::pi * std::pow(t, 0.85));
         m_maxTorqueMap.setValue(i, 0, m_params.referenceTorque * shape);
+    }
+
+    m_idleTrim.initialize(IdleTrimPoints, 1, 0.0);
+    for (int i = 0; i < IdleTrimPoints; ++i) {
+        const double t = static_cast<double>(i) / (IdleTrimPoints - 1);
+        m_idleTrim.setXAxis(
+            i,
+            m_params.coldTemperature + t * (m_params.warmTemperature - m_params.coldTemperature));
     }
 
     m_pedalMap.initialize(PedalMapPoints, 1, 0.0);
@@ -136,6 +147,8 @@ void powertrain::EngineControlUnit::reset() {
     m_driverTorqueRequest = 0.0;
     m_idleTorqueRequest = 0.0;
     m_feedforwardPlate = 0.0;
+    m_commandedPlate = 0.0;
+    m_fuelTrim = 1.0;
     m_engineState = EngineState::Off;
 }
 
@@ -209,8 +222,12 @@ void powertrain::EngineControlUnit::update(
         idleTarget = std::max(idleTarget, m_bus.speedRequest);
     }
 
+    const double idleTrim = m_idleTrim.isInitialized()
+        ? m_idleTrim.sample(state.coolantTemperature, 0.0)
+        : 0.0;
+
     const double idleAuthority =
-        m_idleController.update(dt, idleTarget, state.engineSpeed);
+        m_idleController.update(dt, idleTarget, state.engineSpeed, idleTrim);
     m_idleTorqueRequest = idleAuthority * available;
 
     double coordinated = std::max(m_driverTorqueRequest, m_idleTorqueRequest);
@@ -274,10 +291,11 @@ void powertrain::EngineControlUnit::update(
         fuelCut = 0.0;
     }
 
+    m_commandedPlate = plate;
     commands->throttlePlate = plate;
     commands->ignitionCutFraction = ignitionCut;
     commands->fuelCutFraction = std::clamp(fuelCut, 0.0, 1.0);
-    commands->fuelEnrichment = enrichment;
+    commands->fuelEnrichment = enrichment * m_fuelTrim;
     commands->timingOffset = -m_params.coldStartTimingRetard * (1.0 - warm);
     commands->ignitionEnabled = inputs.ignitionKey;
     commands->starterEnabled =
@@ -386,4 +404,11 @@ void powertrain::EngineControlUnit::registerParameters(
     registry->registerMap(
         describe(base + "pedal_map", 0.0, 1.0, 0.0, ""),
         &m_pedalMap);
+
+    config::ParameterDescriptor idleTrim =
+        describe(base + "idle.trim", -1.0, 1.0, 0.0, "");
+    idleTrim.adaptive = true;
+    idleTrim.adaptMin = -1.0;
+    idleTrim.adaptMax = 1.0;
+    registry->registerMap(idleTrim, &m_idleTrim);
 }
