@@ -8,9 +8,12 @@
 
 PowertrainSystem::PowertrainSystem() {
     m_controller = nullptr;
+    m_adaptation = nullptr;
+    m_server = nullptr;
     m_simulator = nullptr;
     m_previousThrottle = nullptr;
     m_accumulator = 0.0;
+    m_telemetryAccumulator = 0.0;
     m_time = 0.0;
     m_roadGrade = 0.0;
     m_ambientTemperature = units::celcius(20.0);
@@ -28,6 +31,14 @@ void PowertrainSystem::initialize(const Parameters &params) {
 void PowertrainSystem::setController(powertrain::PowertrainController *controller) {
     m_controller = controller;
     reset();
+}
+
+void PowertrainSystem::setAdaptationManager(adaptation::AdaptationManager *manager) {
+    m_adaptation = manager;
+}
+
+void PowertrainSystem::setConfigServer(config::ConfigServer *server) {
+    m_server = server;
 }
 
 void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
@@ -92,11 +103,40 @@ void PowertrainSystem::detach() {
 
 void PowertrainSystem::reset() {
     m_accumulator = 0.0;
+    m_telemetryAccumulator = 0.0;
     m_time = 0.0;
     m_state = powertrain::PowertrainState();
     m_commands = powertrain::ActuatorCommands();
 
     if (m_controller != nullptr) m_controller->reset();
+    if (m_adaptation != nullptr) m_adaptation->reset();
+}
+
+void PowertrainSystem::publishTelemetry() {
+    if (m_server == nullptr) return;
+
+    config::TelemetrySample sample;
+    sample.time = m_time;
+    sample.engineRpm = m_state.engineRpm;
+    sample.throttlePlate = m_state.throttlePlate;
+    sample.indicatedTorque = m_state.indicatedTorque;
+    sample.coolantTemperature = m_state.coolantTemperature;
+    sample.oilTemperature = m_state.oilTemperature;
+    sample.vehicleSpeed = m_state.vehicleSpeed;
+    sample.roadGrade = m_state.roadGrade;
+    sample.gear = m_state.gear;
+    sample.clutchPressure = m_state.clutchPressure[0];
+    sample.ignitionCut = m_commands.ignitionCutFraction;
+    sample.fuelCut = m_commands.fuelCutFraction;
+
+    if (m_controller != nullptr) m_controller->fillTelemetry(&sample);
+    if (m_adaptation != nullptr) {
+        sample.adaptionEnabled = m_adaptation->wasEnabledLastUpdate();
+        sample.shiftIterations = m_adaptation->getShiftIterationCount();
+        sample.shiftErrorNorm = m_adaptation->getShiftErrorNorm();
+    }
+
+    m_server->publish(sample);
 }
 
 void PowertrainSystem::sampleState(double dt) {
@@ -198,5 +238,21 @@ void PowertrainSystem::update(double dt) {
 
     sampleState(controlDt);
     m_controller->update(controlDt, m_state, m_inputs, &m_commands);
+
+    if (m_adaptation != nullptr) {
+        m_adaptation->update(controlDt, m_state, m_controller->getBus());
+    }
+
     applyCommands();
+
+    m_telemetryAccumulator += controlDt;
+    const double telemetryPeriod =
+        1.0 / std::max(m_params.telemetryFrequency, 1.0);
+
+    if (m_telemetryAccumulator >= telemetryPeriod) {
+        m_telemetryAccumulator = 0.0;
+
+        if (m_server != nullptr) m_server->applyPendingCommands();
+        publishTelemetry();
+    }
 }

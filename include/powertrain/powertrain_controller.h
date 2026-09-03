@@ -8,6 +8,7 @@
 
 namespace config {
     class ParameterRegistry;
+    struct TelemetrySample;
 }
 
 namespace powertrain {
@@ -18,6 +19,7 @@ namespace powertrain {
             virtual ~PowertrainController() { /* void */ }
 
             virtual void registerParameters(config::ParameterRegistry *registry, const char *prefix);
+            virtual void fillTelemetry(config::TelemetrySample *sample) const;
             virtual void reset();
 
             virtual void update(

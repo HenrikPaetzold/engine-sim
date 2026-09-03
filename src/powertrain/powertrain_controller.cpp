@@ -7,6 +7,10 @@ void powertrain::PowertrainController::registerParameters(
     /* void */
 }
 
+void powertrain::PowertrainController::fillTelemetry(config::TelemetrySample *sample) const {
+    /* void */
+}
+
 void powertrain::PowertrainController::reset() {
     m_bus = PowertrainBus();
 }

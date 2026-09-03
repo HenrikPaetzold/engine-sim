@@ -4,6 +4,8 @@
 #include "powertrain/powertrain_controller.h"
 #include "external_throttle.h"
 #include "config/parameter_registry.h"
+#include "config/config_server.h"
+#include "adaptation/adaptation_manager.h"
 
 class Engine;
 class Transmission;
@@ -14,6 +16,7 @@ class PowertrainSystem {
     public:
         struct Parameters {
             double controlFrequency = 1000.0;
+            double telemetryFrequency = 20.0;
         };
 
     public:
@@ -25,6 +28,8 @@ class PowertrainSystem {
         void detach();
 
         void setController(powertrain::PowertrainController *controller);
+        void setAdaptationManager(adaptation::AdaptationManager *manager);
+        void setConfigServer(config::ConfigServer *server);
         void registerParameters(config::ParameterRegistry *registry);
         inline powertrain::PowertrainController *getController() const { return m_controller; }
 
@@ -44,6 +49,8 @@ class PowertrainSystem {
         void applyCommands();
 
         powertrain::PowertrainController *m_controller;
+        adaptation::AdaptationManager *m_adaptation;
+        config::ConfigServer *m_server;
         Simulator *m_simulator;
 
         ExternalThrottle m_throttle;
@@ -58,7 +65,10 @@ class PowertrainSystem {
         double m_roadGrade;
         double m_ambientTemperature;
 
+        void publishTelemetry();
+
         double m_accumulator;
+        double m_telemetryAccumulator;
         double m_time;
 };
 

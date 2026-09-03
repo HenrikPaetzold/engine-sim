@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Powertrain</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+    --bg: #14161a;
+    --panel: #1c1f25;
+    --line: #2b3038;
+    --text: #dfe3ea;
+    --muted: #8b93a1;
+    --accent: #6fb2ff;
+    --learn: #7ddc9a;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+header {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+h1 { font-size: 14px; margin: 0; font-weight: 600; letter-spacing: .04em; }
+#status { color: var(--muted); }
+main { display: grid; grid-template-columns: minmax(320px, 1fr) 380px; gap: 0; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+#params { padding: 12px 18px; }
+#side { border-left: 1px solid var(--line); padding: 12px 18px; }
+@media (max-width: 900px) { #side { border-left: none; border-top: 1px solid var(--line); } }
+.group { margin-bottom: 18px; }
+.group > h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 0 0 8px; font-weight: 600;
+}
+.row {
+    display: grid;
+    grid-template-columns: 1fr 150px 90px;
+    gap: 10px;
+    align-items: center;
+    padding: 3px 0;
+}
+.row label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .unit { color: var(--muted); font-size: 11px; }
+.row.adaptive label::after {
+    content: " learned";
+    color: var(--learn);
+    font-size: 10px;
+}
+input[type=range] { width: 100%; accent-color: var(--accent); }
+input[type=number] {
+    width: 100%;
+    background: #0f1114;
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 3px 6px;
+    font: inherit;
+    border-radius: 3px;
+}
+button {
+    background: #232830; color: var(--text); border: 1px solid var(--line);
+    padding: 5px 12px; border-radius: 3px; font: inherit; cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.active { border-color: var(--accent); color: var(--accent); }
+table { width: 100%; border-collapse: collapse; }
+td { padding: 2px 0; }
+td.k { color: var(--muted); }
+td.v { text-align: right; font-variant-numeric: tabular-nums; }
+canvas { width: 100%; height: 120px; display: block; margin-top: 6px; background: #0f1114; border: 1px solid var(--line); border-radius: 3px; }
+#modes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+pre {
+    background: #0f1114; border: 1px solid var(--line); border-radius: 3px;
+    padding: 8px; overflow: auto; max-height: 160px; color: var(--muted);
+    white-space: pre-wrap; word-break: break-all;
+}
+</style>
+</head>
+<body>
+<header>
+    <h1>POWERTRAIN</h1>
+    <span id="status">connecting</span>
+    <button id="reset">reset to defaults</button>
+</header>
+
+<main>
+    <section id="params"></section>
+    <aside id="side">
+        <div class="group">
+            <h2>Drive mode</h2>
+            <div id="modes"></div>
+        </div>
+        <div class="group">
+            <h2>Telemetry</h2>
+            <table id="telemetry"></table>
+        </div>
+        <div class="group">
+            <h2>Adaption</h2>
+            <table id="learning"></table>
+            <canvas id="plot" width="720" height="240"></canvas>
+        </div>
+        <div class="group">
+            <h2>Learned values</h2>
+            <pre id="export">—</pre>
+        </div>
+    </aside>
+</main>
+
+<script>
+const state = { schema: null, values: {}, telemetry: {}, dirty: new Set() };
+const history = [];
+const HISTORY = 240;
+
+async function api(path, body) {
+    const options = body === undefined
+        ? {}
+        : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+    const response = await fetch(path, options);
+    if (!response.ok) throw new Error(path + " -> " + response.status);
+    const type = response.headers.get("content-type") || "";
+    return type.includes("json") ? response.json() : response.text();
+}
+
+function groupOf(path) {
+    const parts = path.split(".");
+    if (parts.length > 2) return parts[0] + "." + parts[1];
+    if (parts.length === 2) return parts[0];
+    return "general";
+}
+
+function labelOf(path, group) {
+    return path.startsWith(group + ".") ? path.slice(group.length + 1) : path;
+}
+
+function buildParameters() {
+    const container = document.getElementById("params");
+    container.textContent = "";
+
+    const groups = new Map();
+    for (const p of state.schema.registry.parameters) {
+        if (p.type === "map") continue;
+        const key = groupOf(p.path);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(p);
+    }
+
+    for (const [name, items] of groups) {
+        const section = document.createElement("div");
+        section.className = "group";
+
+        const heading = document.createElement("h2");
+        heading.textContent = name;
+        section.appendChild(heading);
+
+        for (const p of items) {
+            const row = document.createElement("div");
+            row.className = "row" + (p.adaptive ? " adaptive" : "");
+
+            const label = document.createElement("label");
+            label.textContent = labelOf(p.path, name);
+            label.title = p.path;
+            row.appendChild(label);
+
+            const slider = document.createElement("input");
+            slider.type = "range";
+            slider.min = p.min;
+            slider.max = p.max;
+            slider.step = (p.max - p.min) / 500 || 0.001;
+            slider.dataset.path = p.path;
+
+            const number = document.createElement("input");
+            number.type = "number";
+            number.step = "any";
+            number.dataset.path = p.path;
+
+            const push = (value) => {
+                state.dirty.add(p.path);
+                api("/api/set", { path: p.path, value: Number(value) }).catch(() => {});
+                setTimeout(() => state.dirty.delete(p.path), 600);
+            };
+
+            slider.addEventListener("input", () => { number.value = slider.value; push(slider.value); });
+            number.addEventListener("change", () => { slider.value = number.value; push(number.value); });
+
+            row.appendChild(slider);
+            row.appendChild(number);
+            section.appendChild(row);
+        }
+
+        container.appendChild(section);
+    }
+}
+
+function buildModes() {
+    const container = document.getElementById("modes");
+    container.textContent = "";
+
+    if (!state.schema.modes.length) {
+        container.textContent = "none defined";
+        return;
+    }
+
+    state.schema.modes.forEach((name, index) => {
+        const button = document.createElement("button");
+        button.textContent = name;
+        button.dataset.index = index;
+        button.addEventListener("click", () => api("/api/mode", { index }).catch(() => {}));
+        container.appendChild(button);
+    });
+}
+
+function applyValues() {
+    for (const [path, value] of Object.entries(state.values)) {
+        if (state.dirty.has(path)) continue;
+        for (const input of document.querySelectorAll('[data-path="' + CSS.escape(path) + '"]')) {
+            const rounded = Math.abs(value) >= 1000 ? value.toFixed(1) : value.toPrecision(5);
+            if (input.type === "number") input.value = Number(rounded);
+            else input.value = value;
+        }
+    }
+
+    const selected = state.telemetry.selectedMode;
+    for (const button of document.querySelectorAll("#modes button")) {
+        button.classList.toggle("active", Number(button.dataset.index) === selected);
+    }
+}
+
+function fill(id, rows) {
+    const table = document.getElementById(id);
+    table.textContent = "";
+    for (const [key, value] of rows) {
+        const tr = document.createElement("tr");
+        const k = document.createElement("td");
+        k.className = "k";
+        k.textContent = key;
+        const v = document.createElement("td");
+        v.className = "v";
+        v.textContent = value;
+        tr.appendChild(k);
+        tr.appendChild(v);
+        table.appendChild(tr);
+    }
+}
+
+const n = (x, digits = 1) => Number(x).toFixed(digits);
+
+function renderTelemetry() {
+    const t = state.telemetry;
+    fill("telemetry", [
+        ["rpm", n(t.engineRpm, 0)],
+        ["throttle", n(t.throttlePlate, 3)],
+        ["torque", n(t.indicatedTorque) + " / " + n(t.torqueRequest) + " Nm"],
+        ["gear", t.gear < 0 ? "N" : String(t.gear + 1)],
+        ["clutch", n(t.clutchPressure, 3)],
+        ["speed", n(t.vehicleSpeed * 3.6) + " km/h"],
+        ["grade", n(t.roadGrade * 100, 2) + " %"],
+        ["coolant", n(t.coolantTemperature - 273.15) + " °C"],
+        ["oil", n(t.oilTemperature - 273.15) + " °C"],
+        ["spark cut", n(t.ignitionCut, 2)],
+        ["fuel cut", n(t.fuelCut, 2)],
+        ["engine", t.engineState],
+        ["shift", t.shiftState]
+    ]);
+
+    fill("learning", [
+        ["active", t.adaptionEnabled ? "yes" : "no"],
+        ["idle integrator", n(t.idleIntegrator, 4)],
+        ["torque correction", n(t.torqueCorrection, 4)],
+        ["fuel trim", n(t.fuelTrim, 4)],
+        ["shifts learned", String(t.shiftIterations)],
+        ["shift error", n(t.shiftErrorNorm, 4)]
+    ]);
+}
+
+function drawSeries(ctx, w, top, height, values, peak, color) {
+    if (peak <= 0) return;
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+
+    const span = Math.max(values.length - 1, 1);
+    values.forEach((value, i) => {
+        const x = (i / span) * w;
+        const y = top + height / 2 - (value / peak) * (height / 2 - 3);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+
+    ctx.stroke();
+}
+
+function plot() {
+    const canvas = document.getElementById("plot");
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width;
+    const h = canvas.height;
+    const band = h / 2;
+
+    ctx.clearRect(0, 0, w, h);
+    if (history.length < 2) return;
+
+    const request = history.map((s) => s.torqueRequest);
+    const actual = history.map((s) => s.indicatedTorque);
+    const correction = history.map((s) => s.torqueCorrection);
+
+    const torquePeak = Math.max(
+        1,
+        ...request.map(Math.abs),
+        ...actual.map(Math.abs));
+    const correctionPeak = Math.max(1e-3, ...correction.map(Math.abs));
+
+    ctx.strokeStyle = "#2b3038";
+    ctx.beginPath();
+    ctx.moveTo(0, band);
+    ctx.lineTo(w, band);
+    ctx.stroke();
+
+    drawSeries(ctx, w, 0, band, request, torquePeak, "#6fb2ff");
+    drawSeries(ctx, w, 0, band, actual, torquePeak, "#7ddc9a");
+    drawSeries(ctx, w, band, band, correction, correctionPeak, "#e8a13a");
+
+    ctx.font = "16px ui-monospace, monospace";
+    ctx.fillStyle = "#6fb2ff";
+    ctx.fillText("request", 8, 20);
+    ctx.fillStyle = "#7ddc9a";
+    ctx.fillText("actual  \u00b1" + torquePeak.toFixed(0) + " Nm", 90, 20);
+    ctx.fillStyle = "#e8a13a";
+    ctx.fillText("pid correction \u00b1" + correctionPeak.toFixed(3), 8, band + 20);
+}
+
+async function poll() {
+    try {
+        const data = await api("/api/state");
+        state.values = data.values;
+        state.telemetry = data.telemetry;
+
+        history.push(data.telemetry);
+        while (history.length > HISTORY) history.shift();
+
+        applyValues();
+        renderTelemetry();
+        plot();
+
+        document.getElementById("status").textContent =
+            "connected · t=" + n(data.telemetry.time, 1) + "s";
+    }
+    catch (error) {
+        document.getElementById("status").textContent = "disconnected";
+    }
+}
+
+async function pollExport() {
+    try {
+        const text = await api("/api/export");
+        document.getElementById("export").textContent = text.trim() || "nothing learned yet";
+    }
+    catch (error) { /* keep the previous contents */ }
+}
+
+async function main() {
+    document.getElementById("reset").addEventListener("click", () => {
+        api("/api/reset", {}).catch(() => {});
+    });
+
+    state.schema = await api("/api/schema");
+    buildParameters();
+    buildModes();
+
+    setInterval(poll, 100);
+    setInterval(pollExport, 2000);
+    poll();
+    pollExport();
+}
+
+main().catch((error) => {
+    document.getElementById("status").textContent = "failed: " + error.message;
+});
+</script>
+</body>
+</html>

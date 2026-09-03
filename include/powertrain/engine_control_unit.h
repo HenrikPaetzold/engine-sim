@@ -65,6 +65,8 @@ namespace powertrain {
             inline control::Map2d &getIdleTrimMap() { return m_idleTrim; }
             inline control::PidController &getIdleController() { return m_idleController; }
             inline control::PidController &getTorqueController() { return m_torqueController; }
+            inline const control::PidController &getIdleController() const { return m_idleController; }
+            inline const control::PidController &getTorqueController() const { return m_torqueController; }
 
             inline void setFuelTrim(double trim) { m_fuelTrim = trim; }
             inline double getFuelTrim() const { return m_fuelTrim; }

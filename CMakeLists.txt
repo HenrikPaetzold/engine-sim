@@ -59,6 +59,7 @@ add_library(engine-sim STATIC
     # Source files
     src/adaptation/adaptation_manager.cpp
     src/adaptation/rls_estimator.cpp
+    src/config/config_server.cpp
     src/config/drive_mode.cpp
     src/config/parameter_registry.cpp
     src/control/iterative_learning.cpp
@@ -118,6 +119,7 @@ add_library(engine-sim STATIC
     # Include files
     include/adaptation/adaptation_manager.h
     include/adaptation/rls_estimator.h
+    include/config/config_server.h
     include/config/drive_mode.h
     include/config/parameter_registry.h
     include/control/hysteresis.h
@@ -183,9 +185,12 @@ add_library(engine-sim STATIC
     include/vtec_valvetrain.h
 )
 
+find_package(Threads REQUIRED)
+
 target_link_libraries(engine-sim
     simple-2d-constraint-solver
-    csv-io)
+    csv-io
+    Threads::Threads)
 
 if (ENGINE_SIM_APP)
     target_link_libraries(engine-sim
@@ -379,6 +384,7 @@ add_executable(engine-sim-test
     test/tcu_tests.cpp
     test/adaptation_tests.cpp
     test/drive_mode_tests.cpp
+    test/config_server_tests.cpp
 )
 
 target_link_libraries(engine-sim-test

@@ -16,6 +16,7 @@ namespace powertrain {
                 const TransmissionControlUnit::Parameters &transmissionParams);
 
             virtual void registerParameters(config::ParameterRegistry *registry, const char *prefix);
+            virtual void fillTelemetry(config::TelemetrySample *sample) const;
             virtual void reset();
 
             virtual void update(
