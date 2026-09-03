@@ -2,6 +2,8 @@
 
 #include "../include/ratio_clutch_constraint.h"
 #include "../include/torque_converter_constraint.h"
+#include "../include/powertrain/powertrain_unit.h"
+#include "../include/config/config_server.h"
 #include "../include/transmission.h"
 #include "../include/vehicle.h"
 #include "../include/units.h"
@@ -393,4 +395,31 @@ TEST(GearboxModelTests, TheSecondClutchOnlyCarriesTorqueOnADualClutchGearbox) {
     EXPECT_NEAR(dct.getClutchRatio(0), dct.getGearRatio(1), 1e-12);
     EXPECT_NEAR(dct.getClutchRatio(1), dct.getGearRatio(2), 1e-12);
     EXPECT_GT(dct.getClutchCapacity(1), 0.0);
+}
+
+TEST(TelemetryTests, TheSampleIsAvailableWithoutAConfigServer) {
+    powertrain::PowertrainUnit unit;
+    unit.initialize(
+        powertrain::EngineControlUnit::Parameters(),
+        powertrain::TransmissionControlUnit::Parameters());
+
+    powertrain::PowertrainState state;
+    state.coolantTemperature = units::celcius(90.0);
+    state.engineRpm = 3000.0;
+    state.engineSpeed = units::rpm(3000.0);
+    state.engineRunning = true;
+    state.gear = 1;
+
+    powertrain::DriverInputs inputs;
+    inputs.accelerator = 0.5;
+
+    powertrain::ActuatorCommands commands;
+    unit.update(1e-3, state, inputs, &commands);
+
+    config::TelemetrySample sample;
+    unit.fillTelemetry(&sample);
+
+    EXPECT_FALSE(sample.engineState.empty());
+    EXPECT_FALSE(sample.shiftState.empty());
+    EXPECT_GT(sample.torqueRequest, 0.0);
 }

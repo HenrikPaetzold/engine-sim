@@ -52,6 +52,7 @@ class PowertrainSystem {
 
         void sampleState(double dt);
         void syncGearbox();
+        void fillTelemetry(config::TelemetrySample *sample) const;
 
     protected:
         void applyCommands();

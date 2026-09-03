@@ -141,29 +141,36 @@ void PowertrainSystem::reset() {
     if (m_adaptation != nullptr) m_adaptation->reset();
 }
 
+void PowertrainSystem::fillTelemetry(config::TelemetrySample *sample) const {
+    if (sample == nullptr) return;
+
+    config::TelemetrySample &out = *sample;
+    out.time = m_time;
+    out.engineRpm = m_state.engineRpm;
+    out.throttlePlate = m_state.throttlePlate;
+    out.indicatedTorque = m_state.indicatedTorque;
+    out.coolantTemperature = m_state.coolantTemperature;
+    out.oilTemperature = m_state.oilTemperature;
+    out.vehicleSpeed = m_state.vehicleSpeed;
+    out.roadGrade = m_state.roadGrade;
+    out.gear = m_state.gear;
+    out.clutchPressure = m_state.clutchPressure[0];
+    out.ignitionCut = m_commands.ignitionCutFraction;
+    out.fuelCut = m_commands.fuelCutFraction;
+
+    if (m_controller != nullptr) m_controller->fillTelemetry(&out);
+    if (m_adaptation != nullptr) {
+        out.adaptionEnabled = m_adaptation->wasEnabledLastUpdate();
+        out.shiftIterations = m_adaptation->getShiftIterationCount();
+        out.shiftErrorNorm = m_adaptation->getShiftErrorNorm();
+    }
+}
+
 void PowertrainSystem::publishTelemetry() {
     if (m_server == nullptr) return;
 
     config::TelemetrySample sample;
-    sample.time = m_time;
-    sample.engineRpm = m_state.engineRpm;
-    sample.throttlePlate = m_state.throttlePlate;
-    sample.indicatedTorque = m_state.indicatedTorque;
-    sample.coolantTemperature = m_state.coolantTemperature;
-    sample.oilTemperature = m_state.oilTemperature;
-    sample.vehicleSpeed = m_state.vehicleSpeed;
-    sample.roadGrade = m_state.roadGrade;
-    sample.gear = m_state.gear;
-    sample.clutchPressure = m_state.clutchPressure[0];
-    sample.ignitionCut = m_commands.ignitionCutFraction;
-    sample.fuelCut = m_commands.fuelCutFraction;
-
-    if (m_controller != nullptr) m_controller->fillTelemetry(&sample);
-    if (m_adaptation != nullptr) {
-        sample.adaptionEnabled = m_adaptation->wasEnabledLastUpdate();
-        sample.shiftIterations = m_adaptation->getShiftIterationCount();
-        sample.shiftErrorNorm = m_adaptation->getShiftErrorNorm();
-    }
+    fillTelemetry(&sample);
 
     m_server->publish(sample);
 }

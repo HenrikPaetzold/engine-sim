@@ -20,6 +20,7 @@
 #include "load_simulation_cluster.h"
 #include "mixer_cluster.h"
 #include "info_cluster.h"
+#include "powertrain_cluster.h"
 #include "application_settings.h"
 #include "transmission.h"
 #include "powertrain/powertrain_unit.h"
@@ -171,6 +172,7 @@ class EngineSimApplication {
         LoadSimulationCluster *m_loadSimulationCluster;
         MixerCluster *m_mixerCluster;
         InfoCluster *m_infoCluster;
+        PowertrainCluster *m_powertrainCluster;
         SimulationObject::ViewParameters m_viewParameters;
 
         bool m_paused;

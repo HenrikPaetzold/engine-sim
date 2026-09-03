@@ -71,6 +71,7 @@ EngineSimApplication::EngineSimApplication() {
     m_loadSimulationCluster = nullptr;
     m_mixerCluster = nullptr;
     m_infoCluster = nullptr;
+    m_powertrainCluster = nullptr;
     m_iceEngine = nullptr;
     m_mainRenderTarget = nullptr;
 
@@ -244,6 +245,8 @@ void EngineSimApplication::process(float frame_dt) {
         m_oscCluster->sample();
     }
 
+    m_powertrainCluster->sample();
+
     auto proc_t1 = std::chrono::steady_clock::now();
 
     m_simulator->endFrame();
@@ -367,7 +370,7 @@ void EngineSimApplication::run() {
 
         if (m_engine.ProcessKeyDown(ysKey::Code::Tab)) {
             m_screen++;
-            if (m_screen > 2) m_screen = 0;
+            if (m_screen > 3) m_screen = 0;
         }
 
         if (m_engine.ProcessKeyDown(ysKey::Code::F)) {
@@ -1120,6 +1123,7 @@ void EngineSimApplication::renderScene() {
         m_loadSimulationCluster->setVisible(true);
         m_mixerCluster->setVisible(true);
         m_infoCluster->setVisible(true);
+        m_powertrainCluster->setVisible(false);
 
         m_oscCluster->activate();
     }
@@ -1137,6 +1141,7 @@ void EngineSimApplication::renderScene() {
         m_loadSimulationCluster->setVisible(false);
         m_mixerCluster->setVisible(false);
         m_infoCluster->setVisible(false);
+        m_powertrainCluster->setVisible(false);
     }
     else if (m_screen == 2) {
         Bounds windowBounds((float)screenWidth, (float)screenHeight, { 0, (float)screenHeight });
@@ -1152,6 +1157,29 @@ void EngineSimApplication::renderScene() {
 
         m_engineView->setVisible(true);
         m_rightGaugeCluster->setVisible(true);
+        m_oscCluster->setVisible(false);
+        m_performanceCluster->setVisible(false);
+        m_loadSimulationCluster->setVisible(false);
+        m_mixerCluster->setVisible(false);
+        m_infoCluster->setVisible(false);
+        m_powertrainCluster->setVisible(false);
+    }
+    else if (m_screen == 3) {
+        Bounds windowBounds((float)screenWidth, (float)screenHeight, { 0, (float)screenHeight });
+        Grid grid;
+        grid.v_cells = 1;
+        grid.h_cells = 4;
+
+        m_engineView->setDrawFrame(true);
+        m_engineView->setBounds(grid.get(windowBounds, 0, 0, 1, 1));
+        m_engineView->setLocalPosition({ 0, 0 });
+        m_engineView->activate();
+
+        m_powertrainCluster->m_bounds = grid.get(windowBounds, 1, 0, 3, 1);
+
+        m_engineView->setVisible(true);
+        m_powertrainCluster->setVisible(true);
+        m_rightGaugeCluster->setVisible(false);
         m_oscCluster->setVisible(false);
         m_performanceCluster->setVisible(false);
         m_loadSimulationCluster->setVisible(false);
@@ -1209,8 +1237,10 @@ void EngineSimApplication::refreshUserInterface() {
     m_loadSimulationCluster = m_uiManager.getRoot()->addElement<LoadSimulationCluster>();
     m_mixerCluster = m_uiManager.getRoot()->addElement<MixerCluster>();
     m_infoCluster = m_uiManager.getRoot()->addElement<InfoCluster>();
+    m_powertrainCluster = m_uiManager.getRoot()->addElement<PowertrainCluster>();
 
     m_infoCluster->setEngine(m_iceEngine);
+    m_powertrainCluster->setSimulator(m_simulator);
     m_rightGaugeCluster->m_simulator = m_simulator;
     m_rightGaugeCluster->setEngine(m_iceEngine);
     m_oscCluster->setSimulator(m_simulator);

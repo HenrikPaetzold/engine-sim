@@ -111,3 +111,28 @@ Ein Block ohne `name` bleibt unsichtbar.
 gesetzt, gewinnt das Skriptprogramm, und die Adaption bleibt aus — sie lernt in
 die ECU/TCU hinein, die dann nicht läuft. Die eingebauten Steuergeräte bleiben
 als Referenz und als der Weg mit Adaption bestehen.
+
+---
+
+# In-App-Anzeige (M11)
+
+`PowertrainCluster` ist ein vierter Bildschirm (Tab schaltet 0-1-2-3 durch) und
+zeigt, was die Regelung tut:
+
+| Feld | Inhalt |
+|---|---|
+| Torque request / actual | Sollmoment der ECU gegen gemessenes Moment, gemeinsame Skala |
+| Pedal / throttle plate | die Entkopplung, die das ganze Projekt ausmacht — Pedal und Klappe übereinander |
+| Clutch pressure | Kupplungsdruck |
+| Clutch slip | Schlupfdrehzahl |
+| Status | Motorzustand, Schaltzustand, Gang, Geschwindigkeit, Kühlmittel, Öl, Steigung, Adaptionsfreigabe |
+| Shift quality | Fehlernorm der letzten 16 Schaltungen als Balken — der ILC-Lernverlauf |
+
+Die Daten kommen aus `PowertrainSystem::fillTelemetry()`, demselben
+`config::TelemetrySample`, das auch der Konfigurationsserver veröffentlicht.
+Der Aufruf ist aus `publishTelemetry()` herausgezogen, damit die Anzeige
+unabhängig davon funktioniert, ob ein Server läuft.
+
+Abgetastet wird einmal pro Bild (~60 Hz), nicht pro Physikschritt — die
+Regelung läuft mit 1 kHz, die Telemetrie mit 20 Hz, und für diese Verläufe
+reicht die Bildrate.
