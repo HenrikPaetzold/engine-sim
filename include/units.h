@@ -5,93 +5,93 @@
 
 namespace units {
     // Force
-    extern constexpr double N = 1.0;
+    inline constexpr double N = 1.0;
 
-    extern constexpr double lbf = N * 4.44822;
+    inline constexpr double lbf = N * 4.44822;
 
     // Mass
-    extern constexpr double kg = 1.0;
-    extern constexpr double g = kg / 1000.0;
+    inline constexpr double kg = 1.0;
+    inline constexpr double g = kg / 1000.0;
 
-    extern constexpr double lb = 0.45359237 * kg;
+    inline constexpr double lb = 0.45359237 * kg;
 
     // Distance
-    extern constexpr double m = 1.0;
-    extern constexpr double cm = m / 100.0;
-    extern constexpr double mm = m / 1000.0;
-    extern constexpr double km = m * 1000.0;
+    inline constexpr double m = 1.0;
+    inline constexpr double cm = m / 100.0;
+    inline constexpr double mm = m / 1000.0;
+    inline constexpr double km = m * 1000.0;
 
-    extern constexpr double inch = cm * 2.54;
-    extern constexpr double foot = inch * 12.0;
-    extern constexpr double thou = inch / 1000.0;
-    extern constexpr double mile = m * 1609.344;
+    inline constexpr double inch = cm * 2.54;
+    inline constexpr double foot = inch * 12.0;
+    inline constexpr double thou = inch / 1000.0;
+    inline constexpr double mile = m * 1609.344;
 
     // Time
-    extern constexpr double sec = 1.0;
-    extern constexpr double minute = 60 * sec;
-    extern constexpr double hour = 60 * minute;
+    inline constexpr double sec = 1.0;
+    inline constexpr double minute = 60 * sec;
+    inline constexpr double hour = 60 * minute;
 
     // Torque
-    extern constexpr double Nm = N * m;
-    extern constexpr double ft_lb = foot * lbf;
+    inline constexpr double Nm = N * m;
+    inline constexpr double ft_lb = foot * lbf;
 
     // Power
-    extern constexpr double W = Nm / sec;
-    extern constexpr double kW = W * 1000.0;
-    extern constexpr double hp = 745.699872 * W;
+    inline constexpr double W = Nm / sec;
+    inline constexpr double kW = W * 1000.0;
+    inline constexpr double hp = 745.699872 * W;
 
     // Volume
-    extern constexpr double m3 = 1.0;
-    extern constexpr double cc = cm * cm * cm;
-    extern constexpr double mL = cc;
-    extern constexpr double L = mL * 1000.0;
-    extern constexpr double cubic_feet = foot * foot * foot;
-    extern constexpr double cubic_inches = inch * inch * inch;
-    extern constexpr double gal = 3.785411784 * L;
+    inline constexpr double m3 = 1.0;
+    inline constexpr double cc = cm * cm * cm;
+    inline constexpr double mL = cc;
+    inline constexpr double L = mL * 1000.0;
+    inline constexpr double cubic_feet = foot * foot * foot;
+    inline constexpr double cubic_inches = inch * inch * inch;
+    inline constexpr double gal = 3.785411784 * L;
 
     // Molecular
-    extern constexpr double mol = 1.0;
-    extern constexpr double kmol = mol / 1000.0;
-    extern constexpr double mmol = mol / 1000000.0;
-    extern constexpr double lbmol = mol * 453.59237;
+    inline constexpr double mol = 1.0;
+    inline constexpr double kmol = mol / 1000.0;
+    inline constexpr double mmol = mol / 1000000.0;
+    inline constexpr double lbmol = mol * 453.59237;
 
     // Flow-rate (moles)
-    extern constexpr double mol_per_sec = mol / sec;
-    extern constexpr double scfm = 0.002641 * lbmol / minute;
+    inline constexpr double mol_per_sec = mol / sec;
+    inline constexpr double scfm = 0.002641 * lbmol / minute;
 
     // Area
-    extern constexpr double m2 = 1.0;
-    extern constexpr double cm2 = cm * cm;
+    inline constexpr double m2 = 1.0;
+    inline constexpr double cm2 = cm * cm;
 
     // Pressure
-    extern constexpr double Pa = 1.0;
-    extern constexpr double kPa = Pa * 1000.0;
-    extern constexpr double MPa = Pa * 1000000.0;
-    extern constexpr double atm = 101.325 * kPa;
+    inline constexpr double Pa = 1.0;
+    inline constexpr double kPa = Pa * 1000.0;
+    inline constexpr double MPa = Pa * 1000000.0;
+    inline constexpr double atm = 101.325 * kPa;
 
-    extern constexpr double mbar = Pa * 100.0;
-    extern constexpr double bar = mbar * 1000.0;
+    inline constexpr double mbar = Pa * 100.0;
+    inline constexpr double bar = mbar * 1000.0;
 
-    extern constexpr double psi = lbf / (inch * inch);
-    extern constexpr double psig = psi;
-    extern constexpr double inHg = Pa * 3386.3886666666713;
-    extern constexpr double inH2O = inHg * 0.0734824;
+    inline constexpr double psi = lbf / (inch * inch);
+    inline constexpr double psig = psi;
+    inline constexpr double inHg = Pa * 3386.3886666666713;
+    inline constexpr double inH2O = inHg * 0.0734824;
 
     // Temperature
-    extern constexpr double K = 1.0;
-    extern constexpr double K0 = 273.15;
-    extern constexpr double C = K;
-    extern constexpr double F = (5.0 / 9.0) * K;
-    extern constexpr double F0 = -459.67;
+    inline constexpr double K = 1.0;
+    inline constexpr double K0 = 273.15;
+    inline constexpr double C = K;
+    inline constexpr double F = (5.0 / 9.0) * K;
+    inline constexpr double F0 = -459.67;
 
     // Energy
-    extern constexpr double J = 1.0;
-    extern constexpr double kJ = J * 1000;
-    extern constexpr double MJ = J * 1000000;
+    inline constexpr double J = 1.0;
+    inline constexpr double kJ = J * 1000;
+    inline constexpr double MJ = J * 1000000;
 
     // Angles
-    extern constexpr double rad = 1.0;
-    extern constexpr double deg = rad * (constants::pi / 180);
+    inline constexpr double rad = 1.0;
+    inline constexpr double deg = rad * (constants::pi / 180);
 
     // Conversions
     inline constexpr double distance(double v, double unit) {

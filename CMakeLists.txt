@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 option(DTV "Enable video output" OFF)
 option(PIRANHA_ENABLED "Enable scripting input" ON)
 option(DISCORD_ENABLED "Enable Discord Rich Presence" ON)
+option(ENGINE_SIM_APP "Build the windowed application" ON)
 
 if (DTV)
     add_compile_definitions(ATG_ENGINE_SIM_VIDEO_CAPTURE)
@@ -23,6 +24,16 @@ set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "cmake")
 project(engine-sim)
 
 set(CMAKE_CXX_STANDARD 17)
+
+if (NOT MSVC)
+    add_compile_options(-include ${CMAKE_CURRENT_SOURCE_DIR}/cmake/msvc_compat.h)
+
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag(-Wno-error=changes-meaning HAS_WCHANGES_MEANING)
+    if (HAS_WCHANGES_MEANING)
+        add_compile_options(-Wno-error=changes-meaning)
+    endif (HAS_WCHANGES_MEANING)
+endif (NOT MSVC)
 
 # ========================================================
 # GTEST
@@ -136,8 +147,12 @@ add_library(engine-sim STATIC
 
 target_link_libraries(engine-sim
     simple-2d-constraint-solver
-    csv-io
-    delta-basic)
+    csv-io)
+
+if (ENGINE_SIM_APP)
+    target_link_libraries(engine-sim
+        delta-basic)
+endif (ENGINE_SIM_APP)
 
 target_include_directories(engine-sim
     PUBLIC dependencies/submodules)
@@ -202,6 +217,8 @@ if (DISCORD_ENABLED)
         dependencies/discord/discord_rpc.h
     )
 endif (DISCORD_ENABLED)
+
+if (ENGINE_SIM_APP)
 
 add_executable(engine-sim-app WIN32
     # Source files
@@ -298,6 +315,8 @@ endif (DISCORD_ENABLED)
 
 target_include_directories(engine-sim-app
     PUBLIC dependencies/submodules)
+
+endif (ENGINE_SIM_APP)
 
 add_subdirectory(dependencies)
 

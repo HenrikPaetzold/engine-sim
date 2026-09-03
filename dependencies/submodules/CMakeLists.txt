@@ -1,9 +1,11 @@
-add_subdirectory(delta-studio)
+if (ENGINE_SIM_APP)
+    add_subdirectory(delta-studio)
 
-set_property(TARGET delta-basic PROPERTY FOLDER "delta")
-set_property(TARGET delta-basic-demo PROPERTY FOLDER "delta")
-set_property(TARGET delta-core PROPERTY FOLDER "delta")
-set_property(TARGET delta-physics PROPERTY FOLDER "delta")
+    set_property(TARGET delta-basic PROPERTY FOLDER "delta")
+    set_property(TARGET delta-basic-demo PROPERTY FOLDER "delta")
+    set_property(TARGET delta-core PROPERTY FOLDER "delta")
+    set_property(TARGET delta-physics PROPERTY FOLDER "delta")
+endif (ENGINE_SIM_APP)
 
 add_subdirectory(simple-2d-constraint-solver)
 
