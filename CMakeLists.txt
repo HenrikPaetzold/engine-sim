@@ -60,6 +60,7 @@ add_library(engine-sim STATIC
     src/config/parameter_registry.cpp
     src/control/map_2d.cpp
     src/control/pid_controller.cpp
+    src/powertrain/engine_control_unit.cpp
     src/powertrain/passthrough_controller.cpp
     src/powertrain/powertrain_controller.cpp
     src/external_throttle.cpp
@@ -116,6 +117,7 @@ add_library(engine-sim STATIC
     include/control/rate_limiter.h
     include/powertrain/actuator_commands.h
     include/powertrain/driver_inputs.h
+    include/powertrain/engine_control_unit.h
     include/powertrain/passthrough_controller.h
     include/powertrain/powertrain_bus.h
     include/powertrain/powertrain_controller.h
@@ -357,6 +359,7 @@ add_executable(engine-sim-test
     test/parameter_registry_tests.cpp
     test/powertrain_tests.cpp
     test/thermal_tests.cpp
+    test/ecu_tests.cpp
 )
 
 target_link_libraries(engine-sim-test

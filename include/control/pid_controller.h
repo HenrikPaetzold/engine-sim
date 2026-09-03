@@ -34,6 +34,7 @@ namespace control {
             void setIntegrator(double value);
 
             inline const Parameters &getParameters() const { return m_params; }
+            inline Parameters &getParametersMutable() { return m_params; }
             inline void setParameters(const Parameters &params) { m_params = params; }
 
             inline double getIntegrator() const { return m_integrator; }

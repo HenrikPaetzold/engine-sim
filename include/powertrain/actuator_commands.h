@@ -9,6 +9,7 @@ namespace powertrain {
         double throttlePlate = 0.0;
         double ignitionCutFraction = 0.0;
         double fuelCutFraction = 0.0;
+        double fuelEnrichment = 1.0;
         double timingOffset = 0.0;
 
         int targetGear = -1;

@@ -3,6 +3,7 @@
 
 #include "powertrain/powertrain_controller.h"
 #include "external_throttle.h"
+#include "config/parameter_registry.h"
 
 class Engine;
 class Transmission;
@@ -24,6 +25,7 @@ class PowertrainSystem {
         void detach();
 
         void setController(powertrain::PowertrainController *controller);
+        void registerParameters(config::ParameterRegistry *registry);
         inline powertrain::PowertrainController *getController() const { return m_controller; }
 
         inline bool isActive() const { return m_controller != nullptr && m_simulator != nullptr; }
@@ -52,6 +54,9 @@ class PowertrainSystem {
         powertrain::ActuatorCommands m_commands;
 
         Parameters m_params;
+
+        double m_roadGrade;
+        double m_ambientTemperature;
 
         double m_accumulator;
         double m_time;

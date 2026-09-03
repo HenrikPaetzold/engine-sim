@@ -12,6 +12,8 @@ PowertrainSystem::PowertrainSystem() {
     m_previousThrottle = nullptr;
     m_accumulator = 0.0;
     m_time = 0.0;
+    m_roadGrade = 0.0;
+    m_ambientTemperature = units::celcius(20.0);
 }
 
 PowertrainSystem::~PowertrainSystem() {
@@ -26,6 +28,36 @@ void PowertrainSystem::initialize(const Parameters &params) {
 void PowertrainSystem::setController(powertrain::PowertrainController *controller) {
     m_controller = controller;
     reset();
+}
+
+void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
+    if (registry == nullptr) return;
+
+    config::ParameterDescriptor grade;
+    grade.path = "environment.road_grade";
+    grade.minValue = -0.30;
+    grade.maxValue = 0.30;
+    grade.defaultValue = 0.0;
+    grade.unit = "rad";
+    registry->registerScalar(grade, &m_roadGrade);
+
+    config::ParameterDescriptor ambient;
+    ambient.path = "environment.ambient_temperature";
+    ambient.minValue = units::celcius(-40.0);
+    ambient.maxValue = units::celcius(60.0);
+    ambient.defaultValue = units::celcius(20.0);
+    ambient.unit = "K";
+    registry->registerScalar(ambient, &m_ambientTemperature);
+
+    config::ParameterDescriptor frequency;
+    frequency.path = "control.frequency";
+    frequency.minValue = 20.0;
+    frequency.maxValue = 10000.0;
+    frequency.defaultValue = m_params.controlFrequency;
+    frequency.unit = "Hz";
+    registry->registerScalar(frequency, &m_params.controlFrequency);
+
+    if (m_controller != nullptr) m_controller->registerParameters(registry, "");
 }
 
 void PowertrainSystem::attach(Simulator *simulator) {
@@ -124,8 +156,10 @@ void PowertrainSystem::applyCommands() {
             ignition->setTimingOffset(m_commands.timingOffset);
         }
 
-        engine->setFuelFactor(
-            std::clamp(1.0 - m_commands.fuelCutFraction, 0.0, 4.0));
+        const double fuelFactor =
+            (1.0 - std::clamp(m_commands.fuelCutFraction, 0.0, 1.0))
+            * std::max(m_commands.fuelEnrichment, 0.0);
+        engine->setFuelFactor(std::clamp(fuelFactor, 0.0, 4.0));
     }
 
     Transmission *transmission = m_simulator->getTransmission();
@@ -139,6 +173,14 @@ void PowertrainSystem::applyCommands() {
     }
 
     m_simulator->m_starterMotor.m_enabled = m_commands.starterEnabled;
+
+    Vehicle *vehicle = m_simulator->getVehicle();
+    if (vehicle != nullptr) vehicle->setRoadGrade(m_roadGrade);
+
+    if (engine != nullptr) {
+        engine->getThermalModel().getParameters().ambientTemperature =
+            m_ambientTemperature;
+    }
 }
 
 void PowertrainSystem::update(double dt) {
@@ -147,7 +189,8 @@ void PowertrainSystem::update(double dt) {
     m_time += dt;
     m_accumulator += dt;
 
-    const double controlPeriod = 1.0 / m_params.controlFrequency;
+    const double controlPeriod =
+        1.0 / std::max(m_params.controlFrequency, 1.0);
     if (m_accumulator < controlPeriod) return;
 
     const double controlDt = m_accumulator;
