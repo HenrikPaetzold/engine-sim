@@ -62,6 +62,8 @@ add_library(engine-sim STATIC
     src/control/pid_controller.cpp
     src/powertrain/engine_control_unit.cpp
     src/powertrain/passthrough_controller.cpp
+    src/powertrain/powertrain_unit.cpp
+    src/powertrain/transmission_control_unit.cpp
     src/powertrain/powertrain_controller.cpp
     src/external_throttle.cpp
     src/powertrain_system.cpp
@@ -122,6 +124,8 @@ add_library(engine-sim STATIC
     include/powertrain/powertrain_bus.h
     include/powertrain/powertrain_controller.h
     include/powertrain/powertrain_state.h
+    include/powertrain/powertrain_unit.h
+    include/powertrain/transmission_control_unit.h
     include/external_throttle.h
     include/powertrain_system.h
     include/thermal_model.h
@@ -360,6 +364,7 @@ add_executable(engine-sim-test
     test/powertrain_tests.cpp
     test/thermal_tests.cpp
     test/ecu_tests.cpp
+    test/tcu_tests.cpp
 )
 
 target_link_libraries(engine-sim-test

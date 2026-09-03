@@ -283,12 +283,6 @@ void powertrain::EngineControlUnit::update(
     commands->starterEnabled =
         inputs.starterRequest && state.engineSpeed < m_params.crankingSpeed;
 
-    commands->targetGear = state.gear;
-    commands->preselectGear = state.preselectedGear;
-    commands->clutchPressure[0] = state.clutchPressure[0];
-    commands->clutchPressure[1] = state.clutchPressure[1];
-    commands->lockupPressure = state.lockupPressure;
-
     m_bus.engineSpeed = state.engineSpeed;
     m_bus.indicatedTorque = state.indicatedTorque;
     m_bus.maxTorqueAtCurrentSpeed = available;
