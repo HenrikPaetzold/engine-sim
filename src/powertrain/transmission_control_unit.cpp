@@ -388,10 +388,16 @@ void powertrain::TransmissionControlUnit::update(
     m_previousShiftUp = inputs.shiftUpRequest;
     m_previousShiftDown = inputs.shiftDownRequest;
 
+    const double driverLimit = m_params.driverClutchAuthority
+        ? std::clamp(1.0 - inputs.clutchPedal, 0.0, 1.0)
+        : 1.0;
+
     commands->targetGear = m_currentGear;
     commands->preselectGear = m_params.supportsPreselect ? m_targetGear : -1;
-    commands->clutchPressure[0] = std::clamp(m_clutchPressure, 0.0, 1.0);
-    commands->clutchPressure[1] = std::clamp(m_secondaryPressure, 0.0, 1.0);
+    commands->clutchPressure[0] =
+        std::min(std::clamp(m_clutchPressure, 0.0, 1.0), driverLimit);
+    commands->clutchPressure[1] =
+        std::min(std::clamp(m_secondaryPressure, 0.0, 1.0), driverLimit);
     commands->lockupPressure = m_params.hasLaunchDevice
         ? ((m_shiftState == ShiftState::Idle && std::abs(state.vehicleSpeed) > m_params.launchSpeed) ? 1.0 : 0.0)
         : 0.0;
@@ -474,6 +480,10 @@ void powertrain::TransmissionControlUnit::registerParameters(
         describe(base + "gearbox.tire_radius", 0.05, 1.5,
             m_params.tireRadius, "m"),
         &m_params.tireRadius);
+    registry->registerBoolean(
+        describe(base + "gearbox.driver_clutch_authority", 0.0, 1.0,
+            m_params.driverClutchAuthority ? 1.0 : 0.0, ""),
+        &m_params.driverClutchAuthority);
 
     config::ParameterDescriptor upshift =
         describe(base + "upshift_map", 0.0, 200.0, 0.0, "m/s");

@@ -74,6 +74,7 @@ public node transmission_control_unit => __engine_sim__transmission_control_unit
     input torque_interrupt [bool]: true;
     input preselect [bool]: false;
     input launch_device [bool]: false;
+    input driver_clutch [bool]: false;
     input torque_reduction [float]: 0.70;
     input torque_reduction_time [float]: 0.08 * units.sec;
     input clutch_release_time [float]: 0.10 * units.sec;

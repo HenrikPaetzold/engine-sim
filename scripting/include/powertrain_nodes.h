@@ -122,6 +122,7 @@ namespace es_script {
             addInput("torque_interrupt", &m_parameters.requiresTorqueInterrupt);
             addInput("preselect", &m_parameters.supportsPreselect);
             addInput("launch_device", &m_parameters.hasLaunchDevice);
+            addInput("driver_clutch", &m_parameters.driverClutchAuthority);
             addInput("torque_reduction", &m_parameters.shiftTorqueReduction);
             addInput("torque_reduction_time", &m_parameters.torqueReductionTime);
             addInput("clutch_release_time", &m_parameters.clutchReleaseTime);

@@ -391,3 +391,45 @@ TEST(PowertrainUnitTests, TransmissionCommandsSurviveTheEngineUpdate) {
     EXPECT_EQ(commands.targetGear, 2);
     EXPECT_GT(commands.clutchPressure[0], 0.0);
 }
+
+TEST(TransmissionControlUnitTests, TheClutchPedalIsIgnoredWithoutDriverAuthority) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(tcuParameters());
+
+    powertrain::PowertrainState state = drivingState(2, 20.0);
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.accelerator = 0.4;
+    inputs.clutchPedal = 1.0;
+    settle(tcu, state, inputs, commands, 1.0);
+
+    EXPECT_GT(commands.clutchPressure[0], 0.9);
+}
+
+TEST(TransmissionControlUnitTests, TheClutchPedalCapsThePressureWithDriverAuthority) {
+    powertrain::TransmissionControlUnit::Parameters params = tcuParameters();
+    params.driverClutchAuthority = true;
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(params);
+
+    powertrain::PowertrainState state = drivingState(2, 20.0);
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.accelerator = 0.4;
+    inputs.clutchPedal = 0.0;
+    settle(tcu, state, inputs, commands, 1.0);
+    const double released = commands.clutchPressure[0];
+
+    inputs.clutchPedal = 1.0;
+    tcu.update(1e-3, state, inputs, &commands);
+    EXPECT_NEAR(commands.clutchPressure[0], 0.0, 1e-12);
+
+    inputs.clutchPedal = 0.6;
+    tcu.update(1e-3, state, inputs, &commands);
+    EXPECT_NEAR(commands.clutchPressure[0], 0.4, 1e-12);
+
+    EXPECT_GT(released, 0.9);
+}

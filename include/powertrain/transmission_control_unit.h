@@ -35,6 +35,7 @@ namespace powertrain {
                 bool requiresTorqueInterrupt = true;
                 bool supportsPreselect = false;
                 bool hasLaunchDevice = false;
+                bool driverClutchAuthority = false;
 
                 double torqueReductionTime = 0.08;
                 double clutchReleaseTime = 0.10;

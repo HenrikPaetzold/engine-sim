@@ -59,6 +59,9 @@ EngineSimApplication::EngineSimApplication() {
     m_dynoSpeed = 0;
 
     m_simulator = nullptr;
+    m_powertrainUnit = nullptr;
+    m_driveModeIndex = -1;
+    m_reportedGear = -2;
     m_engineView = nullptr;
     m_rightGaugeCluster = nullptr;
     m_temperatureGauge = nullptr;
@@ -422,6 +425,8 @@ void EngineSimApplication::run() {
 }
 
 void EngineSimApplication::destroy() {
+    releasePowertrain();
+
     m_shaderSet.Destroy();
 
     m_engine.GetDevice()->DestroyGPUBuffer(m_geometryVertexBuffer);
@@ -620,6 +625,13 @@ void EngineSimApplication::loadScript() {
     Vehicle *vehicle = nullptr;
     Transmission *transmission = nullptr;
 
+    releasePowertrain();
+
+    powertrain::PowertrainUnit *scriptedPowertrain = nullptr;
+    adaptation::AdaptationManager::Parameters adaptationParams;
+    config::DriveModeSet driveModes;
+    std::string defaultMode;
+
 #ifdef ATG_ENGINE_SIM_PIRANHA_ENABLED
     es_script::Compiler compiler;
     compiler.initialize();
@@ -631,6 +643,11 @@ void EngineSimApplication::loadScript() {
         engine = output.engine;
         vehicle = output.vehicle;
         transmission = output.transmission;
+
+        scriptedPowertrain = output.powertrain;
+        adaptationParams = output.adaptation;
+        driveModes = output.driveModes;
+        defaultMode = output.defaultMode;
     }
     else {
         engine = nullptr;
@@ -664,7 +681,72 @@ void EngineSimApplication::loadScript() {
     }
 
     loadEngine(engine, vehicle, transmission);
+
+    if (scriptedPowertrain != nullptr) {
+        installPowertrain(scriptedPowertrain, adaptationParams, driveModes, defaultMode);
+    }
+
     refreshUserInterface();
+
+    if (powertrainActive() && m_configServer.isRunning()) {
+        m_infoCluster->setLogMessage(
+            "Powertrain configuration on http://127.0.0.1:"
+            + std::to_string(m_configServer.getBoundPort()));
+    }
+}
+
+bool EngineSimApplication::powertrainActive() const {
+    return m_powertrainUnit != nullptr;
+}
+
+void EngineSimApplication::releasePowertrain() {
+    m_configServer.stop();
+
+    if (m_simulator != nullptr) m_simulator->m_powertrain.detach();
+
+    m_adaptation.attach(nullptr, nullptr);
+    m_registry.clear();
+    m_driveModes.clear();
+    m_driveModeIndex = -1;
+    m_reportedGear = -2;
+
+    delete m_powertrainUnit;
+    m_powertrainUnit = nullptr;
+}
+
+void EngineSimApplication::installPowertrain(
+    powertrain::PowertrainUnit *unit,
+    const adaptation::AdaptationManager::Parameters &adaptationParams,
+    const config::DriveModeSet &modes,
+    const std::string &defaultMode)
+{
+    m_powertrainUnit = unit;
+    m_driveModes = modes;
+
+    m_adaptation.initialize(adaptationParams);
+    m_adaptation.attach(
+        &m_powertrainUnit->getEngineControlUnit(),
+        &m_powertrainUnit->getTransmissionControlUnit());
+
+    PowertrainSystem &system = m_simulator->m_powertrain;
+    system.initialize(PowertrainSystem::Parameters());
+    system.setController(m_powertrainUnit);
+    system.setAdaptationManager(&m_adaptation);
+    system.attach(m_simulator);
+    system.registerParameters(&m_registry);
+
+    if (!defaultMode.empty()) {
+        m_driveModeIndex = m_driveModes.find(defaultMode);
+        m_driveModes.select(defaultMode, &m_registry);
+    }
+
+    config::ConfigServer::Parameters serverParams;
+    serverParams.uiPath = "../assets/config_ui/index.html";
+    m_configServer.initialize(serverParams, &m_registry, &m_driveModes);
+
+    if (m_configServer.start()) {
+        system.setConfigServer(&m_configServer);
+    }
 }
 
 void EngineSimApplication::processEngineInput() {
@@ -797,7 +879,12 @@ void EngineSimApplication::processEngineInput() {
 
     m_speedSetting = m_targetSpeedSetting * 0.5 + 0.5 * m_speedSetting;
 
-    m_iceEngine->setSpeedControl(m_speedSetting);
+    if (powertrainActive()) {
+        m_simulator->m_powertrain.getDriverInputs().accelerator = m_speedSetting;
+    }
+    else {
+        m_iceEngine->setSpeedControl(m_speedSetting);
+    }
     if (m_engine.ProcessKeyDown(ysKey::Code::M)) {
         const int currentLayer = getViewParameters().Layer0;
         if (currentLayer + 1 < m_iceEngine->getMaxDepth()) {
@@ -856,32 +943,71 @@ void EngineSimApplication::processEngineInput() {
     m_dynoSpeed = clamp(m_dynoSpeed, m_iceEngine->getDynoMinSpeed(), m_iceEngine->getDynoMaxSpeed());
     m_simulator->m_dyno.m_rotationSpeed = m_dynoSpeed;
 
-    const bool prevStarterEnabled = m_simulator->m_starterMotor.m_enabled;
-    if (m_engine.IsKeyDown(ysKey::Code::S)) {
-        m_simulator->m_starterMotor.m_enabled = true;
+    const bool starterRequest = m_engine.IsKeyDown(ysKey::Code::S);
+    if (powertrainActive()) {
+        powertrain::DriverInputs &inputs = m_simulator->m_powertrain.getDriverInputs();
+        if (inputs.starterRequest != starterRequest) {
+            m_infoCluster->setLogMessage(
+                starterRequest ? "STARTER ENABLED" : "STARTER DISABLED");
+        }
+
+        inputs.starterRequest = starterRequest;
     }
     else {
-        m_simulator->m_starterMotor.m_enabled = false;
-    }
+        if (m_simulator->m_starterMotor.m_enabled != starterRequest) {
+            m_infoCluster->setLogMessage(
+                starterRequest ? "STARTER ENABLED" : "STARTER DISABLED");
+        }
 
-    if (prevStarterEnabled != m_simulator->m_starterMotor.m_enabled) {
-        const std::string msg = m_simulator->m_starterMotor.m_enabled
-            ? "STARTER ENABLED"
-            : "STARTER DISABLED";
-        m_infoCluster->setLogMessage(msg);
+        m_simulator->m_starterMotor.m_enabled = starterRequest;
     }
 
     if (m_engine.ProcessKeyDown(ysKey::Code::A)) {
-        m_simulator->getEngine()->getIgnitionModule()->m_enabled =
-            !m_simulator->getEngine()->getIgnitionModule()->m_enabled;
+        bool enabled;
+        if (powertrainActive()) {
+            powertrain::DriverInputs &inputs = m_simulator->m_powertrain.getDriverInputs();
+            inputs.ignitionKey = !inputs.ignitionKey;
+            enabled = inputs.ignitionKey;
+        }
+        else {
+            IgnitionModule *ignition = m_simulator->getEngine()->getIgnitionModule();
+            ignition->m_enabled = !ignition->m_enabled;
+            enabled = ignition->m_enabled;
+        }
 
-        const std::string msg = m_simulator->getEngine()->getIgnitionModule()->m_enabled
-            ? "IGNITION ENABLED"
-            : "IGNITION DISABLED";
-        m_infoCluster->setLogMessage(msg);
+        m_infoCluster->setLogMessage(enabled ? "IGNITION ENABLED" : "IGNITION DISABLED");
     }
 
-    if (m_engine.ProcessKeyDown(ysKey::Code::Up)) {
+    if (powertrainActive()) {
+        powertrain::DriverInputs &inputs = m_simulator->m_powertrain.getDriverInputs();
+        inputs.shiftUpRequest = m_engine.IsKeyDown(ysKey::Code::Up);
+        inputs.shiftDownRequest = m_engine.IsKeyDown(ysKey::Code::Down);
+
+        if (m_engine.ProcessKeyDown(ysKey::Code::J)) {
+            inputs.manualMode = !inputs.manualMode;
+            m_infoCluster->setLogMessage(
+                inputs.manualMode ? "MANUAL MODE" : "AUTOMATIC MODE");
+        }
+
+        if (m_engine.ProcessKeyDown(ysKey::Code::L) && m_driveModes.getCount() > 0) {
+            m_driveModeIndex = (m_driveModeIndex + 1) % m_driveModes.getCount();
+            if (m_driveModes.select(m_driveModeIndex, &m_registry)) {
+                inputs.driveMode = m_driveModeIndex;
+                m_infoCluster->setLogMessage(
+                    "DRIVE MODE " + m_driveModes.get(m_driveModeIndex).getName());
+            }
+        }
+
+        const int gear = m_simulator->getTransmission()->getGear();
+        if (gear != m_reportedGear) {
+            m_reportedGear = gear;
+            m_infoCluster->setLogMessage(
+                (gear == -1)
+                    ? "SHIFTED TO NEUTRAL"
+                    : "SHIFTED TO " + std::to_string(gear + 1));
+        }
+    }
+    else if (m_engine.ProcessKeyDown(ysKey::Code::Up)) {
         m_simulator->getTransmission()->changeGear(m_simulator->getTransmission()->getGear() + 1);
 
         m_infoCluster->setLogMessage(
@@ -922,7 +1048,13 @@ void EngineSimApplication::processEngineInput() {
 
     const double clutch_s = dt / (dt + clutchRC);
     m_clutchPressure = m_clutchPressure * (1 - clutch_s) + m_targetClutchPressure * clutch_s;
-    m_simulator->getTransmission()->setClutchPressure(m_clutchPressure);
+
+    if (powertrainActive()) {
+        m_simulator->m_powertrain.getDriverInputs().clutchPedal = 1.0 - m_clutchPressure;
+    }
+    else {
+        m_simulator->getTransmission()->setClutchPressure(m_clutchPressure);
+    }
 }
 
 void EngineSimApplication::renderScene() {

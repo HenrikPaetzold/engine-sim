@@ -22,6 +22,11 @@
 #include "info_cluster.h"
 #include "application_settings.h"
 #include "transmission.h"
+#include "powertrain/powertrain_unit.h"
+#include "adaptation/adaptation_manager.h"
+#include "config/parameter_registry.h"
+#include "config/drive_mode.h"
+#include "config/config_server.h"
 
 #include "delta.h"
 #include "dtv.h"
@@ -90,6 +95,13 @@ class EngineSimApplication {
 
     protected:
         void loadScript();
+        void releasePowertrain();
+        void installPowertrain(
+            powertrain::PowertrainUnit *unit,
+            const adaptation::AdaptationManager::Parameters &adaptationParams,
+            const config::DriveModeSet &modes,
+            const std::string &defaultMode);
+        bool powertrainActive() const;
         void processEngineInput();
         void renderScene();
 
@@ -135,6 +147,15 @@ class EngineSimApplication {
         Vehicle *m_vehicle;
         Transmission *m_transmission;
         Simulator *m_simulator;
+
+        powertrain::PowertrainUnit *m_powertrainUnit;
+        adaptation::AdaptationManager m_adaptation;
+        config::ParameterRegistry m_registry;
+        config::DriveModeSet m_driveModes;
+        config::ConfigServer m_configServer;
+        int m_driveModeIndex;
+        int m_reportedGear;
+
         double m_dynoSpeed;
         double m_torque;
 
