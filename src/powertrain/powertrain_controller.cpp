@@ -14,3 +14,9 @@ void powertrain::PowertrainController::fillTelemetry(config::TelemetrySample *sa
 void powertrain::PowertrainController::reset() {
     m_bus = PowertrainBus();
 }
+
+void powertrain::PowertrainController::configureGearbox(
+    const GearboxCapabilities &capabilities)
+{
+    /* void */
+}

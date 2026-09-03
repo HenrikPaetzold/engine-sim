@@ -613,5 +613,10 @@ public node vehicle => __engine_sim__vehicle {
 
 public node transmission => __engine_sim__transmission {
     input max_clutch_torque [float]: 1000 * units.lb_ft;
+    input type [string]: "legacy";
+    input turbine_inertia [float]: 0.08;
+    input stall_torque_ratio [float]: 2.0;
+    input coupling_point [float]: 0.85;
+    input capacity_factor [float]: 0.00404;
     alias output __out [transmission_channel];
 }

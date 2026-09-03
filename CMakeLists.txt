@@ -114,6 +114,8 @@ add_library(engine-sim STATIC
     src/valvetrain.cpp
     src/vehicle.cpp
     src/vehicle_drag_constraint.cpp
+    src/ratio_clutch_constraint.cpp
+    src/torque_converter_constraint.cpp
     src/vtec_valvetrain.cpp
 
     # Include files
@@ -132,6 +134,7 @@ add_library(engine-sim STATIC
     include/powertrain/engine_control_unit.h
     include/powertrain/passthrough_controller.h
     include/powertrain/powertrain_bus.h
+    include/powertrain/gearbox_capabilities.h
     include/powertrain/powertrain_controller.h
     include/powertrain/powertrain_state.h
     include/powertrain/powertrain_unit.h
@@ -182,6 +185,8 @@ add_library(engine-sim STATIC
     include/valvetrain.h
     include/vehicle.h
     include/vehicle_drag_constraint.h
+    include/ratio_clutch_constraint.h
+    include/torque_converter_constraint.h
     include/vtec_valvetrain.h
 )
 
@@ -382,6 +387,7 @@ add_executable(engine-sim-test
     test/thermal_tests.cpp
     test/ecu_tests.cpp
     test/tcu_tests.cpp
+    test/driveline_tests.cpp
     test/adaptation_tests.cpp
     test/drive_mode_tests.cpp
     test/config_server_tests.cpp

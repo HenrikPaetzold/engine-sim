@@ -10,3 +10,8 @@ compile_commands.json
 
 # Blender temporary files
 *.blend1
+
+# Test artefacts
+error_log.log
+gas_system_test_output.csv
+intake_stroke.csv

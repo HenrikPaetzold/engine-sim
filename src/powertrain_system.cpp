@@ -28,6 +28,7 @@ void PowertrainSystem::initialize(const Parameters &params) {
 
 void PowertrainSystem::setController(powertrain::PowertrainController *controller) {
     m_controller = controller;
+    syncGearbox();
     reset();
 }
 
@@ -57,6 +58,9 @@ void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
 
         Engine *engine = m_simulator->getEngine();
         if (engine != nullptr) engine->getThermalModel().registerParameters(registry, "");
+
+        Transmission *transmission = m_simulator->getTransmission();
+        if (transmission != nullptr) transmission->registerParameters(registry, "");
     }
 
     if (m_controller != nullptr) m_controller->registerParameters(registry, "");
@@ -87,7 +91,31 @@ void PowertrainSystem::attach(Simulator *simulator) {
     m_previousThrottle = engine->replaceThrottleController(&m_throttle);
     m_throttle.setPlatePosition(0.0);
 
+    syncGearbox();
+
     reset();
+}
+
+void PowertrainSystem::syncGearbox() {
+    if (m_controller == nullptr || m_simulator == nullptr) return;
+
+    Transmission *transmission = m_simulator->getTransmission();
+    if (transmission == nullptr) return;
+
+    powertrain::GearboxCapabilities capabilities;
+    capabilities.gearCount = transmission->getGearCount();
+    capabilities.gearRatios = transmission->getGearRatios();
+    capabilities.supportsPreselect = transmission->supportsPreselect();
+    capabilities.requiresTorqueInterrupt = transmission->requiresTorqueInterrupt();
+    capabilities.hasLaunchDevice = transmission->hasLaunchDevice();
+
+    Vehicle *vehicle = m_simulator->getVehicle();
+    if (vehicle != nullptr) {
+        capabilities.finalDrive = vehicle->getDiffRatio();
+        capabilities.tireRadius = vehicle->getTireRadius();
+    }
+
+    m_controller->configureGearbox(capabilities);
 }
 
 void PowertrainSystem::detach() {
@@ -171,9 +199,17 @@ void PowertrainSystem::sampleState(double dt) {
 
     if (transmission != nullptr) {
         m_state.gear = transmission->getGear();
+        m_state.preselectedGear = transmission->getPreselectedGear();
         m_state.gearCount = transmission->getGearCount();
-        m_state.clutchPressure[0] = transmission->getClutchPressure();
-        m_state.clutchSlipSpeed[0] = transmission->getClutchSlipSpeed();
+
+        for (int i = 0; i < powertrain::MaxClutches; ++i) {
+            m_state.clutchPressure[i] = transmission->getClutchPressure(i);
+            m_state.clutchSlipSpeed[i] = transmission->getClutchSlipSpeed(i);
+        }
+
+        m_state.turbineSpeed = transmission->getTurbineSpeed();
+        m_state.converterSlip = transmission->getConverterSlip();
+        m_state.lockupPressure = transmission->getLockupPressure();
     }
 
     if (vehicle != nullptr) {
@@ -212,8 +248,19 @@ void PowertrainSystem::applyCommands() {
 
     Transmission *transmission = m_simulator->getTransmission();
     if (transmission != nullptr) {
-        transmission->setClutchPressure(
-            std::clamp(m_commands.clutchPressure[0], 0.0, 1.0));
+        for (int i = 0; i < powertrain::MaxClutches; ++i) {
+            transmission->setClutchPressure(
+                i, std::clamp(m_commands.clutchPressure[i], 0.0, 1.0));
+        }
+
+        if (transmission->supportsPreselect()) {
+            transmission->setPreselectedGear(m_commands.preselectGear);
+        }
+
+        if (transmission->hasLaunchDevice()) {
+            transmission->setLockupPressure(
+                std::clamp(m_commands.lockupPressure, 0.0, 1.0));
+        }
 
         if (m_commands.targetGear != transmission->getGear()) {
             transmission->changeGear(m_commands.targetGear);

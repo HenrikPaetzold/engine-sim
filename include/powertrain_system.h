@@ -51,6 +51,7 @@ class PowertrainSystem {
         inline const powertrain::ActuatorCommands &getCommands() const { return m_commands; }
 
         void sampleState(double dt);
+        void syncGearbox();
 
     protected:
         void applyCommands();

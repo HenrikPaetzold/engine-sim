@@ -496,3 +496,21 @@ void powertrain::TransmissionControlUnit::registerParameters(
         describe(base + "downshift_map", 0.0, 200.0, 0.0, "m/s"),
         &m_downshiftMap);
 }
+
+void powertrain::TransmissionControlUnit::configureGearbox(
+    const GearboxCapabilities &capabilities)
+{
+    m_params.supportsPreselect = capabilities.supportsPreselect;
+    m_params.requiresTorqueInterrupt = capabilities.requiresTorqueInterrupt;
+    m_params.hasLaunchDevice = capabilities.hasLaunchDevice;
+
+    if (capabilities.gearRatios != nullptr && capabilities.gearCount > 0) {
+        m_params.gearCount = std::min(capabilities.gearCount, MaxGears);
+        for (int i = 0; i < m_params.gearCount; ++i) {
+            m_params.gearRatios[i] = capabilities.gearRatios[i];
+        }
+    }
+
+    if (capabilities.finalDrive > 0.0) m_params.finalDrive = capabilities.finalDrive;
+    if (capabilities.tireRadius > 0.0) m_params.tireRadius = capabilities.tireRadius;
+}

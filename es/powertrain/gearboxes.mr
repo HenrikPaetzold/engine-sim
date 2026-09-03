@@ -1,0 +1,67 @@
+module {
+    @name:      "Gearbox Library"
+}
+
+private import "../types/atomic_types.mr"
+private import "../types/conversions.mr"
+private import "../types/operations.mr"
+private import "../constants/units.mr"
+private import "../objects/objects.mr"
+
+units units()
+
+private node gearbox_base {
+    input max_clutch_torque [float]: 1000 * units.lb_ft;
+    input type [string]: "legacy";
+    input turbine_inertia [float]: 0.08;
+    input stall_torque_ratio [float]: 2.0;
+    input coupling_point [float]: 0.85;
+    input capacity_factor [float]: 0.00404;
+
+    alias output __out [transmission_channel]:
+        transmission(
+            max_clutch_torque: max_clutch_torque,
+            type: type,
+            turbine_inertia: turbine_inertia,
+            stall_torque_ratio: stall_torque_ratio,
+            coupling_point: coupling_point,
+            capacity_factor: capacity_factor);
+}
+
+public node manual_gearbox {
+    input max_clutch_torque [float]: 1000 * units.lb_ft;
+
+    alias output __out [transmission_channel]:
+        gearbox_base(type: "manual", max_clutch_torque: max_clutch_torque);
+}
+
+public node robotised_manual_gearbox {
+    input max_clutch_torque [float]: 1000 * units.lb_ft;
+
+    alias output __out [transmission_channel]:
+        gearbox_base(type: "amt", max_clutch_torque: max_clutch_torque);
+}
+
+public node dual_clutch_gearbox {
+    input max_clutch_torque [float]: 1000 * units.lb_ft;
+
+    alias output __out [transmission_channel]:
+        gearbox_base(type: "dct", max_clutch_torque: max_clutch_torque);
+}
+
+public node converter_gearbox {
+    input max_clutch_torque [float]: 1000 * units.lb_ft;
+    input turbine_inertia [float]: 0.08;
+    input stall_torque_ratio [float]: 2.0;
+    input coupling_point [float]: 0.85;
+    input capacity_factor [float]: 0.00404;
+
+    alias output __out [transmission_channel]:
+        gearbox_base(
+            type: "converter",
+            max_clutch_torque: max_clutch_torque,
+            turbine_inertia: turbine_inertia,
+            stall_torque_ratio: stall_torque_ratio,
+            coupling_point: coupling_point,
+            capacity_factor: capacity_factor);
+}

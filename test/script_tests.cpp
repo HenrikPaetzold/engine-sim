@@ -2,6 +2,8 @@
 
 #include "../scripting/include/compiler.h"
 
+#include "../include/transmission.h"
+#include "../include/config/parameter_registry.h"
 #include "../include/units.h"
 
 #include <fstream>
@@ -265,4 +267,87 @@ TEST_F(ScriptFixture, TwoVariantsCanBeDefinedAndTheLastOneWins) {
         unit->getEngineControlUnit().getParameters().revLimit,
         units::rpm(8500.0),
         1e-6);
+}
+
+TEST_F(ScriptFixture, TheGearboxTypeReachesTheTransmission) {
+    ASSERT_TRUE(run(
+        "set_transmission(\n"
+        "    transmission(type: \"dct\", max_clutch_torque: 900 * units.lb_ft)\n"
+        "        .add_gear(3.60)\n"
+        "        .add_gear(2.19)\n"
+        "        .add_gear(1.41))\n"));
+
+    Transmission *transmission = es_script::Compiler::output()->transmission;
+    ASSERT_NE(transmission, nullptr);
+
+    EXPECT_EQ(transmission->getType(), Transmission::Type::DualClutch);
+    EXPECT_TRUE(transmission->supportsPreselect());
+    EXPECT_FALSE(transmission->requiresTorqueInterrupt());
+    EXPECT_EQ(transmission->getGearCount(), 3);
+    EXPECT_NEAR(transmission->getGearRatio(0), 3.60, 1e-9);
+}
+
+TEST_F(ScriptFixture, TheConverterCurveParametersReachTheTransmission) {
+    ASSERT_TRUE(run(
+        "set_transmission(\n"
+        "    transmission(\n"
+        "        type: \"converter\",\n"
+        "        stall_torque_ratio: 2.4,\n"
+        "        coupling_point: 0.9,\n"
+        "        capacity_factor: 0.006)\n"
+        "        .add_gear(2.80)\n"
+        "        .add_gear(1.50))\n"));
+
+    Transmission *transmission = es_script::Compiler::output()->transmission;
+    ASSERT_NE(transmission, nullptr);
+
+    EXPECT_EQ(transmission->getType(), Transmission::Type::Converter);
+    EXPECT_TRUE(transmission->hasLaunchDevice());
+
+    config::ParameterRegistry registry;
+    transmission->registerParameters(&registry, "");
+
+    double value = 0.0;
+    ASSERT_TRUE(registry.get("driveline.converter.stall_torque_ratio", &value));
+    EXPECT_NEAR(value, 2.4, 1e-9);
+    ASSERT_TRUE(registry.get("driveline.converter.coupling_point", &value));
+    EXPECT_NEAR(value, 0.9, 1e-9);
+    ASSERT_TRUE(registry.get("driveline.converter.capacity_factor", &value));
+    EXPECT_NEAR(value, 0.006, 1e-9);
+}
+
+TEST_F(ScriptFixture, AnUnknownGearboxTypeFallsBackToTheLegacyModel) {
+    ASSERT_TRUE(run(
+        "set_transmission(transmission(type: \"hovercraft\").add_gear(1.0))\n"));
+
+    Transmission *transmission = es_script::Compiler::output()->transmission;
+    ASSERT_NE(transmission, nullptr);
+    EXPECT_EQ(transmission->getType(), Transmission::Type::Legacy);
+}
+
+TEST_F(ScriptFixture, TheGearboxLibraryBuildsEveryKind) {
+    struct Case {
+        const char *node;
+        Transmission::Type type;
+    };
+
+    const Case cases[] = {
+        { "manual_gearbox()", Transmission::Type::Manual },
+        { "robotised_manual_gearbox()", Transmission::Type::Manual },
+        { "dual_clutch_gearbox()", Transmission::Type::DualClutch },
+        { "converter_gearbox()", Transmission::Type::Converter } };
+
+    for (const Case &c : cases) {
+        delete es_script::Compiler::output()->powertrain;
+        *es_script::Compiler::output() = es_script::Compiler::Output();
+
+        const std::string body =
+            std::string("set_transmission(") + c.node + ".add_gear(3.0).add_gear(1.5))\n";
+        ASSERT_TRUE(run(body)) << c.node;
+
+        Transmission *transmission = es_script::Compiler::output()->transmission;
+        ASSERT_NE(transmission, nullptr) << c.node;
+        EXPECT_EQ(transmission->getType(), c.type) << c.node;
+        EXPECT_EQ(transmission->getGearCount(), 2) << c.node;
+    }
 }

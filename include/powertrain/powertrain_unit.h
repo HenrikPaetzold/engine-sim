@@ -18,6 +18,7 @@ namespace powertrain {
             virtual void registerParameters(config::ParameterRegistry *registry, const char *prefix);
             virtual void fillTelemetry(config::TelemetrySample *sample) const;
             virtual void reset();
+            virtual void configureGearbox(const GearboxCapabilities &capabilities);
 
             virtual void update(
                 double dt,

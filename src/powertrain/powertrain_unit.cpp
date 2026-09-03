@@ -89,3 +89,9 @@ void powertrain::PowertrainUnit::update(
     m_bus = m_ecu.getBus();
     m_bus.shiftInProgress = m_tcu.getBus().shiftInProgress;
 }
+
+void powertrain::PowertrainUnit::configureGearbox(
+    const GearboxCapabilities &capabilities)
+{
+    m_tcu.configureGearbox(capabilities);
+}
