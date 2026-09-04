@@ -9,6 +9,7 @@
 #include "engine_context.h"
 #include "fuel_node.h"
 #include "throttle_nodes.h"
+#include "control_nodes.h"
 
 #include "engine_sim.h"
 
@@ -49,6 +50,13 @@ namespace es_script {
             parameters.intakeCount = (int)intakes.size();
             parameters.throttle = m_throttle->generate();
             engine->initialize(parameters);
+
+            if (m_starterTorqueMap != nullptr && !m_starterTorqueMap->isEmpty()) {
+                m_starterTorqueMap->generate(&engine->getStarterTorqueMap());
+            }
+            if (m_starterSpeedMap != nullptr && !m_starterSpeedMap->isEmpty()) {
+                m_starterSpeedMap->generate(&engine->getStarterSpeedMap());
+            }
 
             {
                 int i = 0;
@@ -154,6 +162,8 @@ namespace es_script {
             addInput("name", &m_parameters.name);
             addInput("starter_torque", &m_parameters.starterTorque);
             addInput("starter_speed", &m_parameters.starterSpeed);
+            addInput("starter_torque_map", &m_starterTorqueMap, InputTarget::Type::Object);
+            addInput("starter_speed_map", &m_starterSpeedMap, InputTarget::Type::Object);
             addInput("dyno_min_speed", &m_parameters.dynoMinSpeed);
             addInput("dyno_max_speed", &m_parameters.dynoMaxSpeed);
             addInput("dyno_hold_step", &m_parameters.dynoHoldStep);
@@ -180,6 +190,8 @@ namespace es_script {
         FuelNode *m_fuel = nullptr;
 
         Engine::Parameters m_parameters;
+        Map2dNode *m_starterTorqueMap = nullptr;
+        Map2dNode *m_starterSpeedMap = nullptr;
         std::vector<CrankshaftNode *> m_crankshafts;
         std::vector<CylinderBankNode *> m_cylinderBanks;
     };

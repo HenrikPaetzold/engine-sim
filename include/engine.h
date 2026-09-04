@@ -13,6 +13,7 @@
 #include "intake.h"
 #include "combustion_chamber.h"
 #include "thermal_model.h"
+#include "control/map_2d.h"
 #include "units.h"
 #include "throttle.h"
 
@@ -91,6 +92,9 @@ class Engine : public Part {
         double getTotalVolumeFuelConsumed() const;
 
         inline double getStarterTorque() const { return m_starterTorque; }
+        inline control::Map2d &getStarterTorqueMap() { return m_starterTorqueMap; }
+        inline control::Map2d &getStarterSpeedMap() { return m_starterSpeedMap; }
+        void copyStarterMaps(control::Map2d *torque, control::Map2d *speed) const;
         inline double getStarterSpeed() const { return m_starterSpeed; }
         inline double getRedline() const { return m_redline; }
         inline double getDynoMinSpeed() const { return m_dynoMinSpeed; }
@@ -138,6 +142,8 @@ class Engine : public Part {
         int m_cylinderCount;
 
         double m_starterTorque;
+        control::Map2d m_starterTorqueMap;
+        control::Map2d m_starterSpeedMap;
         double m_starterSpeed;
         double m_redline;
         double m_dynoMinSpeed;

@@ -90,6 +90,30 @@ void Engine::initialize(const Parameters &params) {
     }
 }
 
+void Engine::copyStarterMaps(control::Map2d *torque, control::Map2d *speed) const {
+    const control::Map2d *sources[2] = { &m_starterTorqueMap, &m_starterSpeedMap };
+    control::Map2d *targets[2] = { torque, speed };
+
+    for (int m = 0; m < 2; ++m) {
+        if (targets[m] == nullptr) continue;
+        if (!sources[m]->isInitialized()) continue;
+
+        const int xCount = sources[m]->getXCount();
+        const int yCount = sources[m]->getYCount();
+
+        targets[m]->initialize(xCount, yCount, 0.0);
+
+        for (int i = 0; i < xCount; ++i) targets[m]->setXAxis(i, sources[m]->getXAxis(i));
+        for (int j = 0; j < yCount; ++j) targets[m]->setYAxis(j, sources[m]->getYAxis(j));
+
+        for (int j = 0; j < yCount; ++j) {
+            for (int i = 0; i < xCount; ++i) {
+                targets[m]->setValue(i, j, sources[m]->getValue(i, j));
+            }
+        }
+    }
+}
+
 void Engine::destroy() {
     for (int i = 0; i < m_crankshaftCount; ++i) {
         m_crankshafts[i].destroy();

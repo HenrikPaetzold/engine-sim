@@ -9,6 +9,7 @@ private import "../types/conversions.mr"
 private import "../types/operations.mr"
 private import "../constants/units.mr"
 private import "../actions/actions.mr"
+private import "../powertrain/powertrain.mr"
 
 units units()
 
@@ -64,6 +65,35 @@ public node fuel => __engine_sim__fuel {
     alias output __out [fuel_channel];
 }
 
+public node dc_starter_torque_map {
+    input stall_torque [float]: 200 * units.lb_ft;
+    input free_speed [float]: 300 * units.rpm;
+    input cold_fraction [float]: 0.55;
+    input cold_temperature [float]: (-20.0 + units.K0);
+    input warm_temperature [float]: (80.0 + units.K0);
+
+    alias output __out [map_2d_channel]:
+        map_2d()
+            .add_map_sample(x: 0.0, y: cold_temperature, value: stall_torque * cold_fraction)
+            .add_map_sample(x: free_speed * 0.5, y: cold_temperature, value: stall_torque * cold_fraction * 0.5)
+            .add_map_sample(x: free_speed, y: cold_temperature, value: 0.0)
+            .add_map_sample(x: 0.0, y: warm_temperature, value: stall_torque)
+            .add_map_sample(x: free_speed * 0.5, y: warm_temperature, value: stall_torque * 0.5)
+            .add_map_sample(x: free_speed, y: warm_temperature, value: 0.0);
+}
+
+public node dc_starter_speed_map {
+    input cold_speed [float]: 150 * units.rpm;
+    input warm_speed [float]: 260 * units.rpm;
+    input cold_temperature [float]: (-20.0 + units.K0);
+    input warm_temperature [float]: (80.0 + units.K0);
+
+    alias output __out [map_2d_channel]:
+        map_2d()
+            .add_map_sample(x: cold_temperature, y: 0.0, value: cold_speed)
+            .add_map_sample(x: warm_temperature, y: 0.0, value: warm_speed);
+}
+
 // Engine
 public node engine_parameters {
     input name: "";
@@ -79,6 +109,8 @@ private node _engine => __engine_sim__engine {
     input redline [float];
     input starter_speed [float];
     input starter_torque [float];
+    input starter_torque_map [map_2d_channel];
+    input starter_speed_map [map_2d_channel];
     input dyno_min_speed [float];
     input dyno_max_speed [float];
     input dyno_hold_step [float];
@@ -101,6 +133,8 @@ public node engine {
     input redline: params.redline;
     input starter_speed: params.starter_speed;
     input starter_torque: params.starter_torque;
+    input starter_torque_map: map_2d();
+    input starter_speed_map: map_2d();
     input dyno_min_speed: 1000 * units.rpm;
     input dyno_max_speed: redline;
     input dyno_hold_step: 100 * units.rpm;
@@ -122,6 +156,8 @@ public node engine {
             redline: redline,
             starter_speed: starter_speed,
             starter_torque: starter_torque,
+            starter_torque_map: starter_torque_map,
+            starter_speed_map: starter_speed_map,
             dyno_min_speed: dyno_min_speed,
             dyno_max_speed: dyno_max_speed,
             dyno_hold_step: dyno_hold_step,

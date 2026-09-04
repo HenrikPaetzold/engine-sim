@@ -4,6 +4,7 @@
 
 #include "../include/powertrain/scripted_control_unit.h"
 #include "../include/transmission.h"
+#include "../include/engine.h"
 #include "../include/config/parameter_registry.h"
 #include "../include/units.h"
 
@@ -588,6 +589,47 @@ TEST_F(ScriptFixture, WithoutAShapeTheRampStaysLinear) {
     for (double t = 0.0; t <= 1.0; t += 0.125) {
         EXPECT_NEAR(shape.sample(t, 0.5), t, 1e-9) << "phase " << t;
     }
+}
+
+TEST_F(ScriptFixture, TheStarterPresetBuildsAFallingTorqueCurve) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    tcu: transmission_control_unit(\n"
+        "        lockup_map: dc_starter_torque_map(\n"
+        "            stall_torque: 180 * units.Nm,\n"
+        "            free_speed: 320 * units.rpm)))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    control::Map2d &map = unit->getTransmissionControlUnit().getLockupMap();
+
+    const double warm = units::celcius(80.0);
+    const double cold = units::celcius(-20.0);
+
+    EXPECT_NEAR(map.sample(0.0, warm), units::torque(180.0, units::Nm), 1e-6);
+    EXPECT_NEAR(map.sample(units::rpm(320.0), warm), 0.0, 1e-6);
+    EXPECT_GT(map.sample(0.0, warm), map.sample(units::rpm(160.0), warm))
+        << "the torque does not fall with speed";
+    EXPECT_LT(map.sample(0.0, cold), map.sample(0.0, warm))
+        << "the cold column is not weaker";
+}
+
+TEST_F(ScriptFixture, TheStarterSpeedPresetRisesWithTemperature) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    tcu: transmission_control_unit(\n"
+        "        lockup_map: dc_starter_speed_map(\n"
+        "            cold_speed: 140 * units.rpm,\n"
+        "            warm_speed: 250 * units.rpm)))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    control::Map2d &map = unit->getTransmissionControlUnit().getLockupMap();
+
+    EXPECT_NEAR(map.sample(units::celcius(80.0), 0.0), units::rpm(250.0), 1e-6);
+    EXPECT_NEAR(map.sample(units::celcius(-20.0), 0.0), units::rpm(140.0), 1e-6);
 }
 
 namespace {

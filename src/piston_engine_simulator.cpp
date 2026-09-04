@@ -179,6 +179,8 @@ void PistonEngineSimulator::loadSimulation(Engine *engine, Vehicle *vehicle, Tra
     m_starterMotor.connectCrankshaft(m_engine->getOutputCrankshaft());
     m_starterMotor.m_maxTorque = m_engine->getStarterTorque();
     m_starterMotor.m_rotationSpeed = -m_engine->getStarterSpeed();
+    m_starterMotor.m_temperature = m_engine->getOilTemperature();
+    m_engine->copyStarterMaps(&m_starterMotor.m_torqueMap, &m_starterMotor.m_speedMap);
     m_system->addConstraint(&m_starterMotor);
 
     placeAndInitialize();
@@ -282,6 +284,8 @@ void PistonEngineSimulator::placeCylinder(int i) {
 
 void PistonEngineSimulator::simulateStep_() {
     const double timestep = getTimestep();
+    m_starterMotor.m_temperature = m_engine->getOilTemperature();
+
     IgnitionModule *im = m_engine->getIgnitionModule();
     im->update(timestep);
 
