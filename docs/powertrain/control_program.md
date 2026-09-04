@@ -107,10 +107,23 @@ Ein Block ohne `name` bleibt unsichtbar.
 
 ## Verhältnis zu ECU und TCU
 
-`set_powertrain()` und `set_control_program()` schließen sich aus. Sind beide
-gesetzt, gewinnt das Skriptprogramm, und die Adaption bleibt aus — sie lernt in
-die ECU/TCU hinein, die dann nicht läuft. Die eingebauten Steuergeräte bleiben
-als Referenz und als der Weg mit Adaption bestehen.
+Beide zusammen ergeben eine **Überlagerung**, kein Entweder-oder.
+
+`set_control_program()` allein ersetzt ECU und TCU vollständig; die Adaption
+bleibt dann aus, weil sie in Steuergeräte hineinlernt, die nicht laufen.
+
+Sind **beide** gesetzt, läuft zuerst die eingebaute ECU/TCU und danach das
+Skriptprogramm auf demselben Satz Stellgrößen. Die Stellgrößen des Programms
+werden dabei nicht mit sicheren Vorgaben vorbelegt, sondern mit dem, was ECU und
+TCU gerade angefordert haben. Ein `actuator`-Block überschreibt also genau
+seinen Kanal, und jeder Kanal ohne Block behält den Wert der TCU — ein Programm
+ohne Ausgänge ist exakt wirkungslos.
+
+Damit lässt sich eine einzelne Größe übernehmen (etwa der Zünddwinkelversatz
+oder ein Kupplungsdruck), ohne Schaltplan, Zustandsmaschine und **Adaption**
+aufzugeben; die Adaption lernt weiter, weil die TCU weiterläuft. Wer die ganze
+Schaltlogik selbst schreiben will, bedient einfach alle Kanäle — oder lässt
+`set_powertrain()` weg.
 
 ---
 

@@ -32,6 +32,7 @@ class PowertrainSystem {
         void detach();
 
         void setController(powertrain::PowertrainController *controller);
+        void setOverlayController(powertrain::PowertrainController *overlay);
         void setAdaptationManager(adaptation::AdaptationManager *manager);
         void setConfigServer(config::ConfigServer *server);
         void setDriveModes(config::DriveModeSet *modes, config::ParameterRegistry *registry);
@@ -63,6 +64,7 @@ class PowertrainSystem {
         void applyCommands();
 
         powertrain::PowertrainController *m_controller;
+        powertrain::PowertrainController *m_overlay;
         adaptation::AdaptationManager *m_adaptation;
         config::ConfigServer *m_server;
         config::ShiftRecorder m_shiftRecorder;

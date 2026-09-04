@@ -8,6 +8,7 @@
 
 PowertrainSystem::PowertrainSystem() {
     m_controller = nullptr;
+    m_overlay = nullptr;
     m_adaptation = nullptr;
     m_server = nullptr;
     m_modes = nullptr;
@@ -30,6 +31,10 @@ void PowertrainSystem::initialize(const Parameters &params) {
 
 void PowertrainSystem::setController(powertrain::PowertrainController *controller) {
     m_controller = controller;
+}
+
+void PowertrainSystem::setOverlayController(powertrain::PowertrainController *overlay) {
+    m_overlay = overlay;
     syncGearbox();
     reset();
 }
@@ -84,6 +89,7 @@ void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
     }
 
     if (m_controller != nullptr) m_controller->registerParameters(registry, "");
+    if (m_overlay != nullptr) m_overlay->registerParameters(registry, "");
 }
 
 bool PowertrainSystem::selectDriveMode(
@@ -160,6 +166,7 @@ void PowertrainSystem::reset() {
     m_shiftRecorder.reset();
 
     if (m_controller != nullptr) m_controller->reset();
+    if (m_overlay != nullptr) m_overlay->reset();
     if (m_adaptation != nullptr) m_adaptation->reset();
 }
 
@@ -349,6 +356,10 @@ void PowertrainSystem::update(double dt) {
 
     sampleState(controlDt);
     m_controller->update(controlDt, m_state, m_inputs, &m_commands);
+
+    if (m_overlay != nullptr) {
+        m_overlay->update(controlDt, m_state, m_inputs, &m_commands);
+    }
 
     if (m_adaptation != nullptr) {
         m_adaptation->update(controlDt, m_state, m_controller->getBus());

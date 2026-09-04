@@ -85,6 +85,9 @@ namespace powertrain {
 
             void initialize();
 
+            inline void setOverlay(bool overlay) { m_overlay = overlay; }
+            inline bool isOverlay() const { return m_overlay; }
+
             inline control::ControlProgram &getProgram() { return m_program; }
             inline const control::ControlProgram &getProgram() const { return m_program; }
 
@@ -103,10 +106,11 @@ namespace powertrain {
                 double dt,
                 const PowertrainState &state,
                 const DriverInputs &inputs);
-            void seedActuators(const PowertrainState &state);
+            void seedActuators(const PowertrainState &state, const ActuatorCommands &commands);
             void applyActuators(ActuatorCommands *commands) const;
 
             control::ControlProgram m_program;
+            bool m_overlay = false;
     };
 
 } /* namespace powertrain */

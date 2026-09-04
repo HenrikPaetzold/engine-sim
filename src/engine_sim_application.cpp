@@ -741,13 +741,20 @@ void EngineSimApplication::installPowertrain(
     m_controlProgram = program;
     m_driveModes = modes;
 
-    powertrain::PowertrainController *controller = (m_controlProgram != nullptr)
-        ? static_cast<powertrain::PowertrainController *>(m_controlProgram)
-        : static_cast<powertrain::PowertrainController *>(m_powertrainUnit);
+    const bool overlayProgram =
+        m_controlProgram != nullptr && m_powertrainUnit != nullptr;
+
+    powertrain::PowertrainController *controller =
+        (m_controlProgram != nullptr && !overlayProgram)
+            ? static_cast<powertrain::PowertrainController *>(m_controlProgram)
+            : static_cast<powertrain::PowertrainController *>(m_powertrainUnit);
+
+    if (m_controlProgram != nullptr) m_controlProgram->setOverlay(overlayProgram);
 
     PowertrainSystem &system = m_simulator->m_powertrain;
     system.initialize(PowertrainSystem::Parameters());
     system.setController(controller);
+    system.setOverlayController(overlayProgram ? m_controlProgram : nullptr);
     system.setDriveModes(&m_driveModes, &m_registry);
 
     if (controller == m_powertrainUnit && m_powertrainUnit != nullptr) {

@@ -253,17 +253,35 @@ void powertrain::ScriptedControlUnit::sampleSignals(
     table.set(signals::StarterRequest, inputs.starterRequest ? 1.0 : 0.0);
 }
 
-void powertrain::ScriptedControlUnit::seedActuators(const PowertrainState &state) {
+void powertrain::ScriptedControlUnit::seedActuators(
+    const PowertrainState &state,
+    const ActuatorCommands &commands)
+{
     control::SignalTable &table = m_program.getOutputs();
     const ActuatorCommands defaults;
+    const ActuatorCommands &seed = m_overlay ? commands : defaults;
 
-    table.set(actuators::ThrottlePlate, defaults.throttlePlate);
-    table.set(actuators::IgnitionCut, defaults.ignitionCutFraction);
-    table.set(actuators::FuelCut, defaults.fuelCutFraction);
-    table.set(actuators::FuelEnrichment, defaults.fuelEnrichment);
-    table.set(actuators::TimingOffset, defaults.timingOffset);
-    table.set(actuators::RevLimit, defaults.revLimit);
-    table.set(actuators::LimiterDuration, defaults.limiterDuration);
+    table.set(actuators::ThrottlePlate, seed.throttlePlate);
+    table.set(actuators::IgnitionCut, seed.ignitionCutFraction);
+    table.set(actuators::FuelCut, seed.fuelCutFraction);
+    table.set(actuators::FuelEnrichment, seed.fuelEnrichment);
+    table.set(actuators::TimingOffset, seed.timingOffset);
+    table.set(actuators::RevLimit, seed.revLimit);
+    table.set(actuators::LimiterDuration, seed.limiterDuration);
+
+    if (m_overlay) {
+        table.set(actuators::TargetGear, commands.targetGear);
+        table.set(actuators::PreselectGear, commands.preselectGear);
+        table.set(actuators::ClutchPressure, commands.clutchPressure[0]);
+        table.set(actuators::ClutchPressure2, commands.clutchPressure[1]);
+        table.set(actuators::LockupPressure, commands.lockupPressure);
+        table.set(actuators::StarterEnabled, commands.starterEnabled ? 1.0 : 0.0);
+        table.set(actuators::IgnitionEnabled, commands.ignitionEnabled ? 1.0 : 0.0);
+        table.set(actuators::GatePosition, commands.gatePosition);
+        table.set(actuators::ParkLock, commands.parkLock ? 1.0 : 0.0);
+        return;
+    }
+
     table.set(actuators::TargetGear, state.gear);
     table.set(actuators::PreselectGear, state.preselectedGear);
     table.set(actuators::ClutchPressure, state.clutchPressure[0]);
@@ -319,7 +337,7 @@ void powertrain::ScriptedControlUnit::update(
     if (commands == nullptr) return;
 
     sampleSignals(dt, state, inputs);
-    seedActuators(state);
+    seedActuators(state, *commands);
 
     m_program.update(dt);
 

@@ -877,3 +877,92 @@ TEST_F(ScriptFixture, TheReverseRatioAndParkLockTorqueReachTheGearbox) {
     ASSERT_TRUE(registry.get("driveline.reverse_ratio", &value));
     EXPECT_NEAR(value, 4.1, 1e-9);
 }
+
+namespace {
+    powertrain::PowertrainState overlayState() {
+        powertrain::PowertrainState state;
+        state.coolantTemperature = units::celcius(90.0);
+        state.engineRunning = true;
+        state.engineSpeed = units::rpm(2500.0);
+        state.engineRpm = 2500.0;
+        state.gear = 1;
+        state.gearCount = 6;
+        state.vehicleSpeed = 20.0;
+
+        return state;
+    }
+}
+
+TEST_F(ScriptFixture, AnOverlayProgramLeavesUntouchedActuatorsAlone) {
+    ASSERT_TRUE(run(
+        "set_powertrain(tcu: transmission_control_unit())\n"
+        "set_control_program(\n"
+        "    control_program()\n"
+        "        .add_output(\n"
+        "            actuator(channel: \"timing_offset\", a: constant(0.25))))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    powertrain::ScriptedControlUnit *program = es_script::Compiler::output()->controlProgram;
+
+    ASSERT_NE(unit, nullptr);
+    ASSERT_NE(program, nullptr);
+
+    program->setOverlay(true);
+
+    powertrain::PowertrainState state = overlayState();
+    powertrain::DriverInputs inputs;
+    inputs.accelerator = 0.4;
+
+    powertrain::ActuatorCommands direct;
+    powertrain::ActuatorCommands overlaid;
+
+    for (int i = 0; i < 200; ++i) {
+        unit->update(1e-3, state, inputs, &direct);
+    }
+
+    unit->reset();
+    program->reset();
+
+    for (int i = 0; i < 200; ++i) {
+        unit->update(1e-3, state, inputs, &overlaid);
+        program->update(1e-3, state, inputs, &overlaid);
+    }
+
+    EXPECT_NEAR(overlaid.throttlePlate, direct.throttlePlate, 1e-9)
+        << "the overlay changed an actuator it does not drive";
+    EXPECT_NEAR(overlaid.clutchPressure[0], direct.clutchPressure[0], 1e-9);
+    EXPECT_EQ(overlaid.targetGear, direct.targetGear);
+
+    EXPECT_NEAR(overlaid.timingOffset, 0.25, 1e-9)
+        << "the overlay did not take over the actuator it drives";
+    EXPECT_NEAR(direct.timingOffset, 0.0, 1e-9);
+}
+
+TEST_F(ScriptFixture, AnOverlayProgramCanTakeOverAClutch) {
+    ASSERT_TRUE(run(
+        "set_powertrain(tcu: transmission_control_unit())\n"
+        "set_control_program(\n"
+        "    control_program()\n"
+        "        .add_output(\n"
+        "            actuator(channel: \"clutch_pressure\", a: constant(0.3))))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    powertrain::ScriptedControlUnit *program = es_script::Compiler::output()->controlProgram;
+
+    ASSERT_NE(unit, nullptr);
+    ASSERT_NE(program, nullptr);
+
+    program->setOverlay(true);
+
+    powertrain::PowertrainState state = overlayState();
+    powertrain::DriverInputs inputs;
+    inputs.accelerator = 0.4;
+
+    powertrain::ActuatorCommands commands;
+    for (int i = 0; i < 200; ++i) {
+        unit->update(1e-3, state, inputs, &commands);
+        program->update(1e-3, state, inputs, &commands);
+    }
+
+    EXPECT_NEAR(commands.clutchPressure[0], 0.3, 1e-9);
+}
