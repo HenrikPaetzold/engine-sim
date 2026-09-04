@@ -157,6 +157,7 @@ void PowertrainSystem::reset() {
     m_time = 0.0;
     m_state = powertrain::PowertrainState();
     m_commands = powertrain::ActuatorCommands();
+    m_shiftRecorder.reset();
 
     if (m_controller != nullptr) m_controller->reset();
     if (m_adaptation != nullptr) m_adaptation->reset();
@@ -169,6 +170,9 @@ void PowertrainSystem::fillTelemetry(config::TelemetrySample *sample) const {
     out.time = m_time;
     out.engineRpm = m_state.engineRpm;
     out.throttlePlate = m_state.throttlePlate;
+    out.pedal = m_inputs.accelerator;
+    out.revLimitSoft = m_commands.softLimitStart;
+    out.revLimitHard = m_commands.revLimit;
     out.indicatedTorque = m_state.indicatedTorque;
     out.coolantTemperature = m_state.coolantTemperature;
     out.oilTemperature = m_state.oilTemperature;
@@ -187,6 +191,26 @@ void PowertrainSystem::fillTelemetry(config::TelemetrySample *sample) const {
         out.shiftIterations = m_adaptation->getShiftIterationCount();
         out.shiftErrorNorm = m_adaptation->getShiftErrorNorm();
     }
+}
+
+void PowertrainSystem::recordShift(double dt) {
+    if (m_controller == nullptr) return;
+
+    const powertrain::PowertrainBus &bus = m_controller->getBus();
+
+    config::ShiftRecorder::Sample sample;
+    sample.time = m_time;
+    sample.clutchPressure = m_commands.clutchPressure[0];
+    sample.engineSpeed = m_state.engineSpeed;
+    sample.torqueRequest = 0.0;
+    sample.torqueReduction = bus.torqueReductionRequest;
+    sample.clutchSlip = m_state.clutchSlipSpeed[0];
+
+    config::TelemetrySample telemetry;
+    if (m_controller != nullptr) m_controller->fillTelemetry(&telemetry);
+    sample.torqueRequest = telemetry.torqueRequest;
+
+    m_shiftRecorder.update(dt, bus.shiftInProgress, m_state.gear, sample);
 }
 
 void PowertrainSystem::publishTelemetry() {
@@ -328,6 +352,7 @@ void PowertrainSystem::update(double dt) {
 
     applyGateMode();
     applyCommands();
+    recordShift(controlDt);
 
     m_telemetryAccumulator += controlDt;
     const double telemetryPeriod =
@@ -336,7 +361,11 @@ void PowertrainSystem::update(double dt) {
     if (m_telemetryAccumulator >= telemetryPeriod) {
         m_telemetryAccumulator = 0.0;
 
-        if (m_server != nullptr) m_server->applyPendingCommands();
+        if (m_server != nullptr) {
+            m_server->applyPendingCommands();
+            m_server->publishShifts(m_shiftRecorder);
+        }
+
         publishTelemetry();
     }
 }

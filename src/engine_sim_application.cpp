@@ -1003,8 +1003,13 @@ void EngineSimApplication::processEngineInput() {
 
     if (powertrainActive()) {
         powertrain::DriverInputs &inputs = m_simulator->m_powertrain.getDriverInputs();
-        inputs.shiftUpRequest = m_engine.IsKeyDown(ysKey::Code::Up);
-        inputs.shiftDownRequest = m_engine.IsKeyDown(ysKey::Code::Down);
+
+        const bool scriptedGate = m_powertrainUnit != nullptr
+            && !m_powertrainUnit->getTransmissionControlUnit().getGate().isDefault();
+        const bool leverMode = scriptedGate && !inputs.manualMode;
+
+        inputs.shiftUpRequest = !leverMode && m_engine.IsKeyDown(ysKey::Code::Up);
+        inputs.shiftDownRequest = !leverMode && m_engine.IsKeyDown(ysKey::Code::Down);
 
         if (m_engine.ProcessKeyDown(ysKey::Code::J)) {
             inputs.manualMode = !inputs.manualMode;
@@ -1017,8 +1022,10 @@ void EngineSimApplication::processEngineInput() {
         const int engagedPosition = m_simulator->m_powertrain.getState().gatePosition;
         if (inputs.gatePosition < 0) inputs.gatePosition = engagedPosition;
 
-        if (m_engine.ProcessKeyDown(ysKey::Code::P)) ++inputs.gatePosition;
-        else if (m_engine.ProcessKeyDown(ysKey::Code::O)) --inputs.gatePosition;
+        if (leverMode) {
+            if (m_engine.ProcessKeyDown(ysKey::Code::Up)) ++inputs.gatePosition;
+            else if (m_engine.ProcessKeyDown(ysKey::Code::Down)) --inputs.gatePosition;
+        }
 
         if (engagedPosition != m_reportedGatePosition) {
             m_reportedGatePosition = engagedPosition;

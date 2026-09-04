@@ -28,6 +28,7 @@ namespace powertrain {
                 double coldStartTorqueCap = 0.6;
 
                 double revLimit = units::rpm(7000.0);
+                double revLimitCold = units::rpm(7000.0);
                 double softLimitBand = units::rpm(300.0);
                 double hardLimitOffset = units::rpm(150.0);
                 double limiterDuration = 0.5 * units::sec;
@@ -84,6 +85,7 @@ namespace powertrain {
             inline double getDriverTorqueRequest() const { return m_driverTorqueRequest; }
             inline double getIdleTorqueRequest() const { return m_idleTorqueRequest; }
             inline EngineState getEngineState() const { return m_engineState; }
+            double effectiveRevLimit(double coolantTemperature) const;
             inline const Parameters &getParameters() const { return m_params; }
 
         protected:

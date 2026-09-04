@@ -2,6 +2,7 @@
 
 #include "../../include/config/parameter_registry.h"
 #include "../../include/config/drive_mode.h"
+#include "../../include/config/shift_recorder.h"
 
 #include "../../dependencies/cpp-httplib/httplib.h"
 
@@ -137,6 +138,9 @@ void config::ConfigServer::refreshState(const TelemetrySample &sample) {
         << "\"time\":" << sample.time
         << ",\"engineRpm\":" << sample.engineRpm
         << ",\"throttlePlate\":" << sample.throttlePlate
+        << ",\"pedal\":" << sample.pedal
+        << ",\"revLimitSoft\":" << sample.revLimitSoft
+        << ",\"revLimitHard\":" << sample.revLimitHard
         << ",\"indicatedTorque\":" << sample.indicatedTorque
         << ",\"torqueRequest\":" << sample.torqueRequest
         << ",\"coolantTemperature\":" << sample.coolantTemperature
@@ -233,6 +237,10 @@ int config::ConfigServer::applyPendingCommands() {
             m_registry->resetToDefaults();
             ++applied;
             break;
+
+        case ParameterCommand::Kind::SetAdaptive:
+            if (m_registry->setAdaptive(command.path, command.value >= 0.5)) ++applied;
+            break;
         }
     }
 
@@ -257,6 +265,11 @@ bool config::ConfigServer::start() {
         res.set_content(exportScript(), "text/plain");
     });
 
+    server->Get("/api/shifts", [this](const httplib::Request &, httplib::Response &res) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        res.set_content(m_shifts.empty() ? "[]" : m_shifts, "application/json");
+    });
+
     server->Get("/api/overrides", [this](const httplib::Request &, httplib::Response &res) {
         res.set_content(exportOverrides(), "text/plain");
     });
@@ -264,6 +277,22 @@ bool config::ConfigServer::start() {
     server->Post("/api/set", [this](const httplib::Request &req, httplib::Response &res) {
         ParameterCommand command;
         command.kind = ParameterCommand::Kind::SetParameter;
+
+        if (!extractString(req.body, "path", &command.path)
+            || !extractNumber(req.body, "value", &command.value))
+        {
+            res.status = 400;
+            res.set_content("{\"ok\":false}", "application/json");
+            return;
+        }
+
+        queueCommand(command);
+        res.set_content("{\"ok\":true}", "application/json");
+    });
+
+    server->Post("/api/adaptive", [this](const httplib::Request &req, httplib::Response &res) {
+        ParameterCommand command;
+        command.kind = ParameterCommand::Kind::SetAdaptive;
 
         if (!extractString(req.body, "path", &command.path)
             || !extractNumber(req.body, "value", &command.value))
@@ -335,6 +364,14 @@ bool config::ConfigServer::start() {
     server->wait_until_ready();
 
     return true;
+}
+
+void config::ConfigServer::publishShifts(const ShiftRecorder &recorder) {
+    std::ostringstream shifts;
+    recorder.serializeJson(shifts);
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_shifts = shifts.str();
 }
 
 void config::ConfigServer::stop() {

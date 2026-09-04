@@ -37,6 +37,10 @@ namespace es_script {
             if (block == nullptr) return -1;
 
             block->m_name = m_blockName;
+            block->m_adaptive = m_adaptive;
+            block->m_adaptMin = m_adaptMin;
+            block->m_adaptMax = m_adaptMax;
+
             const int index = program.addBlock(block);
             (*cache)[this] = index;
 
@@ -144,6 +148,13 @@ namespace es_script {
                 block->m_initial = m_initial;
                 return block;
             }
+            else if (m_kind == "learner") {
+                control::LearnerBlock *block = new control::LearnerBlock;
+                block->m_target = m_target;
+                block->m_rate = m_rate;
+                block->m_threshold = m_threshold;
+                return block;
+            }
             else if (m_kind == "actuator") {
                 control::ActuatorBlock *block = new control::ActuatorBlock;
                 block->m_actuator = unit->getProgram().getOutputs().find(m_channel);
@@ -170,6 +181,11 @@ namespace es_script {
             addInput("rise", &m_riseRate);
             addInput("fall", &m_fallRate);
             addInput("tau", &m_timeConstant);
+            addInput("adaptive", &m_adaptive);
+            addInput("adapt_min", &m_adaptMin);
+            addInput("adapt_max", &m_adaptMax);
+            addInput("target", &m_target);
+            addInput("rate", &m_rate);
 
             addInput("curve", &m_curve, InputTarget::Type::Object);
             addInput("map", &m_map, InputTarget::Type::Object);
@@ -186,6 +202,7 @@ namespace es_script {
         std::string m_kind;
         std::string m_blockName;
         std::string m_channel;
+        std::string m_target;
 
         std::vector<ControlBlockNode *> m_operandNodes;
 
@@ -201,6 +218,10 @@ namespace es_script {
         double m_riseRate = 0.0;
         double m_fallRate = 0.0;
         double m_timeConstant = 0.1;
+        double m_rate = 0.0;
+        double m_adaptMin = 0.0;
+        double m_adaptMax = 0.0;
+        bool m_adaptive = false;
 
         FunctionNode *m_curve = nullptr;
         Map2dNode *m_map = nullptr;

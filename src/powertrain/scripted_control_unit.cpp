@@ -113,28 +113,37 @@ void powertrain::ScriptedControlUnit::registerParameters(
 
     const std::string base = std::string(prefix) + "program.";
 
+    m_program.setRegistry(registry);
+
     for (int i = 0; i < m_program.getBlockCount(); ++i) {
         control::ControlBlock *block = m_program.getBlock(i);
         if (block == nullptr || block->m_name.empty()) continue;
+
+        const auto describe = [&](const std::string &path, double value) {
+            config::ParameterDescriptor d =
+                config::describeScalar(path, -1e9, 1e9, value, "");
+            d.adaptive = block->m_adaptive;
+            d.adaptMin = block->m_adaptive ? block->m_adaptMin : 0.0;
+            d.adaptMax = block->m_adaptive ? block->m_adaptMax : 0.0;
+
+            return d;
+        };
 
         if (control::ConstantBlock *constant =
             dynamic_cast<control::ConstantBlock *>(block))
         {
             registry->registerScalar(
-                config::describeScalar(
-                    base + block->m_name, -1e9, 1e9, constant->m_value, ""),
+                describe(base + block->m_name, constant->m_value),
                 &constant->m_value);
         }
         else if (control::GainBlock *gain =
             dynamic_cast<control::GainBlock *>(block))
         {
             registry->registerScalar(
-                config::describeScalar(
-                    base + block->m_name + ".gain", -1e9, 1e9, gain->m_gain, ""),
+                describe(base + block->m_name + ".gain", gain->m_gain),
                 &gain->m_gain);
             registry->registerScalar(
-                config::describeScalar(
-                    base + block->m_name + ".offset", -1e9, 1e9, gain->m_offset, ""),
+                describe(base + block->m_name + ".offset", gain->m_offset),
                 &gain->m_offset);
         }
         else if (control::PidBlock *pid =
@@ -144,48 +153,40 @@ void powertrain::ScriptedControlUnit::registerParameters(
                 pid->m_controller.getParametersMutable();
 
             registry->registerScalar(
-                config::describeScalar(
-                    base + block->m_name + ".kp", -1e6, 1e6, params.kp, ""),
+                describe(base + block->m_name + ".kp", params.kp),
                 &params.kp);
             registry->registerScalar(
-                config::describeScalar(
-                    base + block->m_name + ".ki", -1e6, 1e6, params.ki, ""),
+                describe(base + block->m_name + ".ki", params.ki),
                 &params.ki);
             registry->registerScalar(
-                config::describeScalar(
-                    base + block->m_name + ".kd", -1e6, 1e6, params.kd, ""),
+                describe(base + block->m_name + ".kd", params.kd),
                 &params.kd);
         }
         else if (control::ClampBlock *clamp =
             dynamic_cast<control::ClampBlock *>(block))
         {
             registry->registerScalar(
-                config::describeScalar(
-                    base + block->m_name + ".min", -1e9, 1e9, clamp->m_min, ""),
+                describe(base + block->m_name + ".min", clamp->m_min),
                 &clamp->m_min);
             registry->registerScalar(
-                config::describeScalar(
-                    base + block->m_name + ".max", -1e9, 1e9, clamp->m_max, ""),
+                describe(base + block->m_name + ".max", clamp->m_max),
                 &clamp->m_max);
         }
         else if (control::RateLimitBlock *rate =
             dynamic_cast<control::RateLimitBlock *>(block))
         {
             registry->registerScalar(
-                config::describeScalar(
-                    base + block->m_name + ".rise", 0.0, 1e9, rate->m_riseRate, "1/s"),
+                describe(base + block->m_name + ".rise", rate->m_riseRate),
                 &rate->m_riseRate);
             registry->registerScalar(
-                config::describeScalar(
-                    base + block->m_name + ".fall", 0.0, 1e9, rate->m_fallRate, "1/s"),
+                describe(base + block->m_name + ".fall", rate->m_fallRate),
                 &rate->m_fallRate);
         }
         else if (control::LowPassBlock *lowPass =
             dynamic_cast<control::LowPassBlock *>(block))
         {
             registry->registerScalar(
-                config::describeScalar(
-                    base + block->m_name + ".tau", 0.0, 1e4, lowPass->m_timeConstant, "s"),
+                describe(base + block->m_name + ".tau", lowPass->m_timeConstant),
                 &lowPass->m_timeConstant);
         }
     }

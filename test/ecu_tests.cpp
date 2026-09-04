@@ -381,3 +381,72 @@ TEST(EngineControlUnitTests, GainsAreReachableThroughTheRegistry) {
     ASSERT_TRUE(registry.set("ecu.limiter.rev_limit", units::rpm(5000.0)));
     EXPECT_NEAR(ecu.getParameters().revLimit, units::rpm(5000.0), 1e-9);
 }
+
+TEST(EngineControlUnitTests, TheColdRevLimitInterpolatesWithWarmup) {
+    powertrain::EngineControlUnit::Parameters params;
+    params.revLimit = units::rpm(7000.0);
+    params.revLimitCold = units::rpm(4000.0);
+    params.coldTemperature = units::celcius(-10.0);
+    params.warmTemperature = units::celcius(80.0);
+
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(params);
+
+    EXPECT_NEAR(
+        ecu.effectiveRevLimit(units::celcius(-10.0)), units::rpm(4000.0), 1e-6);
+    EXPECT_NEAR(
+        ecu.effectiveRevLimit(units::celcius(80.0)), units::rpm(7000.0), 1e-6);
+
+    const double middle = ecu.effectiveRevLimit(units::celcius(35.0));
+    EXPECT_GT(middle, units::rpm(4000.0));
+    EXPECT_LT(middle, units::rpm(7000.0));
+}
+
+TEST(EngineControlUnitTests, BothLimiterThresholdsAreCommanded) {
+    powertrain::EngineControlUnit::Parameters params;
+    params.revLimit = units::rpm(7000.0);
+    params.revLimitCold = units::rpm(7000.0);
+    params.softLimitBand = units::rpm(300.0);
+    params.hardLimitOffset = units::rpm(150.0);
+
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(params);
+
+    powertrain::PowertrainState state;
+    state.coolantTemperature = units::celcius(90.0);
+    state.engineSpeed = units::rpm(3000.0);
+    state.engineRunning = true;
+
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+    ecu.update(1e-3, state, inputs, &commands);
+
+    EXPECT_NEAR(commands.softLimitStart, units::rpm(6700.0), 1e-6);
+    EXPECT_NEAR(commands.revLimit, units::rpm(7150.0), 1e-6);
+    EXPECT_GT(commands.revLimit, commands.softLimitStart);
+}
+
+TEST(EngineControlUnitTests, AColdEngineLimitsLowerThanAWarmOne) {
+    powertrain::EngineControlUnit::Parameters params;
+    params.revLimit = units::rpm(7000.0);
+    params.revLimitCold = units::rpm(4000.0);
+
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(params);
+
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands cold, warm;
+
+    powertrain::PowertrainState state;
+    state.engineSpeed = units::rpm(3000.0);
+    state.engineRunning = true;
+
+    state.coolantTemperature = units::celcius(-10.0);
+    ecu.update(1e-3, state, inputs, &cold);
+
+    state.coolantTemperature = units::celcius(90.0);
+    ecu.update(1e-3, state, inputs, &warm);
+
+    EXPECT_LT(cold.revLimit, warm.revLimit);
+    EXPECT_LT(cold.softLimitStart, warm.softLimitStart);
+}

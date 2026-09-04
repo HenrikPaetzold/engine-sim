@@ -51,6 +51,7 @@ namespace es_script {
             addInput("cold_start_timing_retard", &m_parameters.coldStartTimingRetard);
             addInput("cold_start_torque_cap", &m_parameters.coldStartTorqueCap);
             addInput("rev_limit", &m_parameters.revLimit);
+            addInput("rev_limit_cold", &m_parameters.revLimitCold);
             addInput("soft_limit_band", &m_parameters.softLimitBand);
             addInput("hard_limit_offset", &m_parameters.hardLimitOffset);
             addInput("overrun_cut_speed", &m_parameters.overrunCutSpeed);

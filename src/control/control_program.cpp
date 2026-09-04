@@ -128,6 +128,7 @@ void control::ControlProgram::update(double dt) {
     context.values = m_values.data();
     context.inputs = &m_inputs;
     context.outputs = &m_outputs;
+    context.registry = m_registry;
     context.dt = dt;
 
     for (int index : m_order) {

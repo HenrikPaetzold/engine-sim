@@ -11,6 +11,10 @@
 
 class Function;
 
+namespace config {
+    class ParameterRegistry;
+}
+
 namespace control {
 
     class SignalTable;
@@ -19,6 +23,7 @@ namespace control {
         const double *values = nullptr;
         const SignalTable *inputs = nullptr;
         SignalTable *outputs = nullptr;
+        config::ParameterRegistry *registry = nullptr;
         double dt = 0.0;
     };
 
@@ -47,6 +52,10 @@ namespace control {
             std::string m_name;
             int m_index;
             double m_output;
+
+            bool m_adaptive = false;
+            double m_adaptMin = 0.0;
+            double m_adaptMax = 0.0;
 
         protected:
             std::vector<int> m_operands;
@@ -207,6 +216,19 @@ namespace control {
 
         protected:
             double m_previous = 0.0;
+    };
+
+    class LearnerBlock : public ControlBlock {
+        public:
+            virtual void reset() override;
+            virtual double evaluate(const BlockContext &context) override;
+
+            std::string m_target;
+            double m_rate = 0.0;
+            double m_threshold = 0.5;
+
+        protected:
+            double m_value = 0.0;
     };
 
     class ActuatorBlock : public ControlBlock {

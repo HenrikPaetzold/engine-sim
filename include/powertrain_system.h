@@ -5,6 +5,7 @@
 #include "external_throttle.h"
 #include "config/parameter_registry.h"
 #include "config/config_server.h"
+#include "config/shift_recorder.h"
 #include "adaptation/adaptation_manager.h"
 #include "config/drive_mode.h"
 
@@ -50,10 +51,12 @@ class PowertrainSystem {
         inline const powertrain::DriverInputs &getDriverInputs() const { return m_inputs; }
         inline const powertrain::PowertrainState &getState() const { return m_state; }
         inline const powertrain::ActuatorCommands &getCommands() const { return m_commands; }
+        inline const config::ShiftRecorder &getShiftRecorder() const { return m_shiftRecorder; }
 
         void sampleState(double dt);
         void syncGearbox();
         void applyGateMode();
+        void recordShift(double dt);
         void fillTelemetry(config::TelemetrySample *sample) const;
 
     protected:
@@ -62,6 +65,7 @@ class PowertrainSystem {
         powertrain::PowertrainController *m_controller;
         adaptation::AdaptationManager *m_adaptation;
         config::ConfigServer *m_server;
+        config::ShiftRecorder m_shiftRecorder;
         config::DriveModeSet *m_modes;
         config::ParameterRegistry *m_registry;
         std::string m_activeMode;

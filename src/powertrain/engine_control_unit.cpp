@@ -197,6 +197,11 @@ powertrain::EngineState powertrain::EngineControlUnit::resolveState(
     return EngineState::Running;
 }
 
+double powertrain::EngineControlUnit::effectiveRevLimit(double coolantTemperature) const {
+    const double warm = warmupFraction(coolantTemperature);
+    return m_params.revLimitCold + (m_params.revLimit - m_params.revLimitCold) * warm;
+}
+
 void powertrain::EngineControlUnit::update(
     double dt,
     const PowertrainState &state,
@@ -244,7 +249,8 @@ void powertrain::EngineControlUnit::update(
 
     double plate = std::clamp(m_feedforwardPlate + correction, 0.0, 1.0);
 
-    const double softLimitStart = m_params.revLimit - m_params.softLimitBand;
+    const double revLimit = effectiveRevLimit(state.coolantTemperature);
+    const double softLimitStart = revLimit - m_params.softLimitBand;
     double ignitionCut = 0.0;
     if (m_params.softLimitBand > 0.0 && state.engineSpeed > softLimitStart) {
         ignitionCut = std::clamp(
@@ -260,7 +266,7 @@ void powertrain::EngineControlUnit::update(
     }
 
     double fuelCut = 0.0;
-    if (state.engineSpeed > m_params.revLimit + m_params.hardLimitOffset) fuelCut = 1.0;
+    if (state.engineSpeed > revLimit + m_params.hardLimitOffset) fuelCut = 1.0;
 
     const bool coasting = (pedal <= 0.0) && (state.gear != -1);
     const bool overrun = m_overrunCut.update(state.engineSpeed) && coasting;
@@ -293,7 +299,8 @@ void powertrain::EngineControlUnit::update(
 
     m_commandedPlate = plate;
     commands->throttlePlate = plate;
-    commands->revLimit = m_params.revLimit + m_params.hardLimitOffset;
+    commands->revLimit = revLimit + m_params.hardLimitOffset;
+    commands->softLimitStart = softLimitStart;
     commands->limiterDuration = m_params.limiterDuration;
     commands->ignitionCutFraction = ignitionCut;
     commands->fuelCutFraction = std::clamp(fuelCut, 0.0, 1.0);
@@ -366,6 +373,10 @@ void powertrain::EngineControlUnit::registerParameters(
         describe(base + "limiter.rev_limit", units::rpm(1000.0), units::rpm(20000.0),
             m_params.revLimit, "rad/s"),
         &m_params.revLimit);
+    registry->registerScalar(
+        describe(base + "limiter.rev_limit_cold", units::rpm(1000.0), units::rpm(20000.0),
+            m_params.revLimitCold, "rad/s"),
+        &m_params.revLimitCold);
     registry->registerScalar(
         describe(base + "limiter.soft_band", 0.0, units::rpm(2000.0),
             m_params.softLimitBand, "rad/s"),

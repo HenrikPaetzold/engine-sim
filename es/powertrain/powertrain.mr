@@ -54,6 +54,7 @@ public node engine_control_unit => __engine_sim__engine_control_unit {
     input cold_start_timing_retard [float]: 8 * units.deg;
     input cold_start_torque_cap [float]: 0.6;
     input rev_limit [float]: 7000 * units.rpm;
+    input rev_limit_cold [float]: 7000 * units.rpm;
     input soft_limit_band [float]: 300 * units.rpm;
     input hard_limit_offset [float]: 150 * units.rpm;
     input overrun_cut_speed [float]: 2000 * units.rpm;

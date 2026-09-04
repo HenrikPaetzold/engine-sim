@@ -34,9 +34,11 @@ namespace powertrain {
             int clampIndex(int index) const;
 
             inline bool isEmpty() const { return m_positions.empty(); }
+            inline bool isDefault() const { return m_isDefault; }
 
         protected:
             std::vector<GatePosition> m_positions;
+            bool m_isDefault = false;
     };
 
 } /* namespace powertrain */

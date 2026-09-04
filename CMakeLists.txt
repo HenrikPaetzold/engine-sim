@@ -60,6 +60,7 @@ add_library(engine-sim STATIC
     src/adaptation/adaptation_manager.cpp
     src/adaptation/rls_estimator.cpp
     src/config/config_server.cpp
+    src/config/shift_recorder.cpp
     src/config/drive_mode.cpp
     src/config/parameter_registry.cpp
     src/control/iterative_learning.cpp
@@ -127,6 +128,7 @@ add_library(engine-sim STATIC
     include/adaptation/adaptation_manager.h
     include/adaptation/rls_estimator.h
     include/config/config_server.h
+    include/config/shift_recorder.h
     include/config/drive_mode.h
     include/config/parameter_registry.h
     include/control/hysteresis.h
@@ -404,6 +406,7 @@ add_executable(engine-sim-test
     test/driveline_tests.cpp
     test/range_tests.cpp
     test/control_program_tests.cpp
+    test/learner_tests.cpp
     test/adaptation_tests.cpp
     test/drive_mode_tests.cpp
     test/config_server_tests.cpp

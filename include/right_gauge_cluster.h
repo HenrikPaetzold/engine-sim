@@ -32,10 +32,15 @@ class RightGaugeCluster : public UiElement {
     private:
         double getRpm() const;
         double getRedline() const;
+        double getSoftLimit() const;
+        double getHardLimit() const;
         double getSpeed() const;
         double getManifoldPressure() const;
 
     protected:
+        double m_softLimit = 0.0;
+        double m_hardLimit = 0.0;
+        bool m_limitsPrimed = false;
         Engine *m_engine;
 
         void renderTachSpeedCluster(const Bounds &bounds);

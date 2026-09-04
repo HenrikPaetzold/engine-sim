@@ -164,6 +164,33 @@ void RightGaugeCluster::destroy() {
 }
 
 void RightGaugeCluster::update(float dt) {
+    if (m_simulator != nullptr && m_simulator->m_powertrain.isActive()) {
+        const powertrain::ActuatorCommands &commands =
+            m_simulator->m_powertrain.getCommands();
+
+        const double soft = commands.softLimitStart;
+        const double hard = commands.revLimit;
+
+        if (soft > 0.0 && hard > 0.0) {
+            if (!m_limitsPrimed) {
+                m_softLimit = soft;
+                m_hardLimit = hard;
+                m_limitsPrimed = true;
+            }
+            else {
+                const double tau = 1.5;
+                const double alpha = dt / (tau + dt);
+                m_softLimit += alpha * (soft - m_softLimit);
+                m_hardLimit += alpha * (hard - m_hardLimit);
+            }
+        }
+    }
+    else {
+        m_limitsPrimed = false;
+        m_softLimit = 0.0;
+        m_hardLimit = 0.0;
+    }
+
     m_combusionChamberStatus->m_engine = m_engine;
     m_throttleDisplay->m_engine = m_engine;
     m_afrCluster->m_engine = m_engine;
@@ -200,10 +227,8 @@ void RightGaugeCluster::renderTachSpeedCluster(const Bounds &bounds) {
     constexpr float shortenAngle = (float)units::angle(1.0, units::deg);
     const float maxRpm =
         (float)std::ceil(units::toRpm(getRedline() * 1.25) / 1000.0) * 1000.0f;
-    const float redline =
-        (float)std::ceil(units::toRpm(getRedline()) / 500.0) * 500.0f;
-    const float redlineWarning =
-        (float)std::floor(units::toRpm(getRedline() * 0.9) / 500.0) * 500.0f;
+    const float redline = (float)units::toRpm(getHardLimit());
+    const float redlineWarning = (float)units::toRpm(getSoftLimit());
     m_tachometer->m_gauge->m_max = (int)maxRpm;
     m_tachometer->m_gauge->setBandCount(3);
     m_tachometer->m_gauge->setBand(
@@ -303,6 +328,14 @@ double RightGaugeCluster::getRpm() const {
     return (m_engine != nullptr)
         ? m_engine->getRpm()
         : 0;
+}
+
+double RightGaugeCluster::getSoftLimit() const {
+    return (m_softLimit > 0.0) ? m_softLimit : getRedline() * 0.9;
+}
+
+double RightGaugeCluster::getHardLimit() const {
+    return (m_hardLimit > 0.0) ? m_hardLimit : getRedline();
 }
 
 double RightGaugeCluster::getRedline() const {

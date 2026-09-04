@@ -16,10 +16,12 @@ powertrain::SelectorGate::~SelectorGate() {
 
 void powertrain::SelectorGate::clear() {
     m_positions.clear();
+    m_isDefault = false;
 }
 
 void powertrain::SelectorGate::add(const GatePosition &position) {
     m_positions.push_back(position);
+    m_isDefault = false;
 }
 
 void powertrain::SelectorGate::buildDefault() {
@@ -48,6 +50,8 @@ void powertrain::SelectorGate::buildDefault() {
     drive.name = "D";
     drive.engagement = GateEngagement::Forward;
     add(drive);
+
+    m_isDefault = true;
 }
 
 int powertrain::SelectorGate::getCount() const {

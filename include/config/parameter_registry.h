@@ -57,6 +57,7 @@ namespace config {
 
             bool adapt(const std::string &path, double delta);
             bool isAdaptive(const std::string &path) const;
+            bool setAdaptive(const std::string &path, bool adaptive);
 
             void resetToDefaults();
 

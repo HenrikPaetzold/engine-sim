@@ -1,0 +1,132 @@
+# Adaption im Skript · Kalibrierung im Browser
+
+## Adaption ist keine C++-Sache mehr
+
+Vorher waren genau drei Parameter adaptiv, alle fest verdrahtet: `ecu.throttle_map`,
+`ecu.idle.trim`, `tcu.upshift_map`. Ein Block im Blockschaltbild wurde als einfacher
+Skalar registriert und vom `AdaptationManager` nie angefasst — Stufe B konnte regeln,
+aber nicht lernen.
+
+Jetzt deklariert das Skript beides selbst.
+
+### Ein Block kann adaptiv sein
+
+```
+gain(name: "pedal", a: signal(channel: "accelerator"),
+     gain: 1.0, adaptive: true, adapt_min: 0.5, adapt_max: 1.5)
+```
+
+Die Flaggen wandern in den `ParameterDescriptor`. Damit greift die vorhandene
+Schutzlogik unverändert: `ParameterRegistry::adapt()` verweigert nicht-adaptive Pfade
+und klemmt gegen `adaptMin`/`adaptMax`.
+
+### Der `learner`-Block
+
+```
+learner(target: "program.pedal.gain",
+        error:  <block>,
+        rate:   0.05,
+        enable: <block>)
+```
+
+Pro Takt: `registry.adapt(target, −rate · error · dt)`, aber nur wenn `enable ≥ 0.5`.
+Ausgang ist der aktuelle Zielwert, damit er plottbar und rückkoppelbar ist.
+
+Weil das Ziel ein **Registry-Pfad** ist, erreicht der Lerner auch ECU- und
+TCU-Parameter, nicht nur eigene Blöcke — dieselbe universelle Schreibfläche, die
+Fahrmodi, Browser und Export benutzen. Freigabebedingungen baust du aus
+`greater_than`, `timer` und `latch`, genau wie der `AdaptationManager` es in C++ tut:
+
+```
+learner(target: "ecu.idle.trim", rate: 0.02,
+        error:  sum(a: signal(channel: "engine_speed"), b: gain(a: idle_target, gain: -1)),
+        enable: greater_than(a: signal(channel: "coolant_temperature"),
+                             b: constant(80 + units.K0), band: 2))
+```
+
+Ohne Registry ist der Block ein harmloses No-Op — geprüft.
+
+### Fix und adaptiv zur Laufzeit
+
+Jede Parameterzeile im Browser hat ein Häkchen. `POST /api/adaptive` geht durch
+dieselbe threadsichere Kommandoqueue wie `/api/set`. Damit kannst du einen Lerner
+einfrieren, von Hand einen anderen Wert setzen und wieder freigeben — und zusehen,
+wie er ihn erneut einfängt.
+
+---
+
+## Der Wählhebel liegt auf den Pfeiltasten
+
+`O` und `P` sind weg. `SelectorGate::isDefault()` unterscheidet eine geskriptete
+Gasse von der automatisch erzeugten:
+
+| Lage | Hoch / Runter |
+|---|---|
+| Geskriptete Gasse **und** Automatikmodus | eine Raste durch die Gasse |
+| Handmodus (`J`) | Gänge tippen, Raste bleibt stehen |
+| Keine geskriptete Gasse | Gänge, wie immer |
+
+`J` ist der Kipphebel in die M-Gasse. `K` bremst weiterhin.
+
+---
+
+## Der Drehzahlmesser zeigt, was die ECU denkt
+
+Vorher leiteten sich alle drei Bänder aus **einer** statischen Zahl ab
+(`Engine::getRedline()`), das orange Band aus einer 0,9-Faustregel ohne
+physikalische Bedeutung.
+
+Jetzt kommandiert die ECU beide Schwellen:
+
+```
+softLimitStart = effektiveRevLimit − softLimitBand    // Zündung blendet aus
+revLimit       = effektiveRevLimit + hardLimitOffset  // harter Kraftstoff-Cut
+```
+
+und der Drehzahlmesser folgt ihnen mit 1,5 s Zeitkonstante, damit ein Moduswechsel
+als Gleiten sichtbar wird statt als Sprung. **Die Skala bleibt beim Skriptwert** —
+eine bestimmte Drehzahl liegt damit immer an derselben Stelle, während die Bänder
+wandern. Ohne Steuergerät bleibt alles wie zuvor.
+
+### Die kalte Drehzahlgrenze
+
+`revLimitCold` interpoliert über dieselbe `warmupFraction`, die schon
+Leerlaufdrehzahl, Anfettung, Zündwinkel und Momentendeckel steuert:
+
+```
+effektiveRevLimit = revLimitCold + (revLimit − revLimitCold) · warm
+```
+
+Beim Kaltstart sitzt der Begrenzer damit wirklich tiefer und wandert über die
+Warmlaufphase nach oben — sichtbar am Zifferblatt.
+
+---
+
+## Fünf Kalibrierungsansichten im Browser
+
+Die Kennfelddaten lagen längst auf der Leitung: `/api/schema` überträgt für alle
+sechs Maps Achsen *und* Werte. Die Oberfläche hat sie an einer Zeile weggeworfen.
+
+| Ansicht | Was sie beantwortet |
+|---|---|
+| **Shift map** | Geschwindigkeit × Pedal, Hochschaltlinien durchgezogen, Rückschaltlinien gestrichelt, eine Farbe je Gang. Der Abstand eines Paares **ist** die Hysterese. Sport schiebt die Schar nach rechts, Eco nach links. |
+| **Throttle map** | Drehzahl × Sollmoment als Heatmap, Farbe ist die Klappe. Umschaltbar auf **Delta**: Differenz zum ersten gesehenen Kennfeld, divergierende Skala — da siehst du dem RLS beim Lernen zu. |
+| **Pedal** | Pedalweg gegen Momentenanteil. **Halten** friert die Kurve ein, dann Modus wechseln und vergleichen. |
+| **Operating points** | Drehzahl × Moment, über die Fahrt akkumuliert, nach Gang eingefärbt. Die Ökonomie-Ansicht. |
+| **Shift scope** | Die letzten 8 Schaltungen auf einer Zeitbasis, ältere blasser. Kupplungsdruck und Schlupf. Darin sieht man das ILC konvergieren. |
+
+### Warum das Schalt-Oszilloskop C++ braucht
+
+20 Hz Telemetrie sind sechs Punkte pro Schaltung. `config::ShiftRecorder` schreibt
+deshalb im Reglertakt mit, ausgelöst von der steigenden Flanke von
+`PowertrainBus::shiftInProgress`, und dezimiert auf **512 Stützstellen je Aufnahme**
+(≈ 340 Hz) bei einem Ring der **letzten 8 Aufnahmen**. Damit ist der Speicher fest
+und die JSON-Größe beherrschbar.
+
+Das Fenster ist bewusst eine feste Dauer ab Schaltbeginn, nicht bis Schaltende —
+sonst hätten die Aufnahmen keine gemeinsame Zeitbasis und ließen sich nicht
+überlagern.
+
+Übertragen über `GET /api/shifts`, serialisiert im `publish()`-Pfad in einen
+vorbereiteten String — dasselbe Muster wie `/api/export`, damit der Serverthread die
+Simulationsdaten nie direkt liest.

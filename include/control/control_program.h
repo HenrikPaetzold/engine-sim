@@ -28,6 +28,8 @@ namespace control {
             void reset();
             void update(double dt);
 
+            inline void setRegistry(config::ParameterRegistry *registry) { m_registry = registry; }
+
             inline SignalTable &getInputs() { return m_inputs; }
             inline const SignalTable &getInputs() const { return m_inputs; }
             inline SignalTable &getOutputs() { return m_outputs; }
@@ -46,6 +48,7 @@ namespace control {
             SignalTable m_inputs;
             SignalTable m_outputs;
 
+            config::ParameterRegistry *m_registry = nullptr;
             std::string m_error;
             bool m_compiled;
     };

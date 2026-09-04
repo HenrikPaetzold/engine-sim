@@ -12,6 +12,7 @@ namespace powertrain {
         double fuelEnrichment = 1.0;
         double timingOffset = 0.0;
         double revLimit = 0.0;
+        double softLimitStart = 0.0;
         double limiterDuration = 0.0;
 
         GateEngagement engagement = GateEngagement::Neutral;

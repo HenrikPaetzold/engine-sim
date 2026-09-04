@@ -31,6 +31,11 @@ public node control_block => __engine_sim__control_block {
     input rise [float]: 0.0;
     input fall [float]: 0.0;
     input tau [float]: 0.1;
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
+    input target [string]: "";
+    input rate [float]: 0.0;
 
     input curve [function_channel]: function();
     input map [map_2d_channel]: map_2d();
@@ -54,10 +59,13 @@ public node signal {
 
 public node constant {
     input value [float]: 0.0;
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     input name [string]: "";
 
     alias output __out [control_block_channel]:
-        control_block(kind: "constant", value: value, name: name);
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "constant", value: value, name: name);
 }
 
 public node sum {
@@ -108,10 +116,13 @@ public node gain {
     input a [control_block_channel];
     input gain [float]: 1.0;
     input offset [float]: 0.0;
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     input name [string]: "";
 
     alias output __out [control_block_channel]:
-        control_block(kind: "gain", gain: gain, offset: offset, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "gain", gain: gain, offset: offset, name: name)
             .add_input(a);
 }
 
@@ -119,10 +130,13 @@ public node clamp {
     input a [control_block_channel];
     input min [float]: 0.0;
     input max [float]: 1.0;
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     input name [string]: "";
 
     alias output __out [control_block_channel]:
-        control_block(kind: "clamp", min: min, max: max, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "clamp", min: min, max: max, name: name)
             .add_input(a);
 }
 
@@ -153,10 +167,13 @@ public node pid {
     input measurement [control_block_channel];
     input feedforward [control_block_channel]: constant(0.0);
     input controller [pid_controller_channel];
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     input name [string]: "";
 
     alias output __out [control_block_channel]:
-        control_block(kind: "pid", controller: controller, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "pid", controller: controller, name: name)
             .add_input(setpoint)
             .add_input(measurement)
             .add_input(feedforward);
@@ -166,20 +183,26 @@ public node rate_limit {
     input a [control_block_channel];
     input rise [float]: 0.0;
     input fall [float]: 0.0;
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     input name [string]: "";
 
     alias output __out [control_block_channel]:
-        control_block(kind: "rate_limit", rise: rise, fall: fall, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "rate_limit", rise: rise, fall: fall, name: name)
             .add_input(a);
 }
 
 public node low_pass {
     input a [control_block_channel];
     input tau [float]: 0.1;
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     input name [string]: "";
 
     alias output __out [control_block_channel]:
-        control_block(kind: "low_pass", tau: tau, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "low_pass", tau: tau, name: name)
             .add_input(a);
 }
 
@@ -251,6 +274,21 @@ public node delay {
     alias output __out [control_block_channel]:
         control_block(kind: "delay", initial: initial, name: name)
             .add_input(a);
+}
+
+public node learner {
+    input target [string];
+    input error [control_block_channel];
+    input rate [float]: 0.05;
+    input enable [control_block_channel]: constant(1.0);
+    input threshold [float]: 0.5;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "learner", target: target, rate: rate,
+                      threshold: threshold, name: name)
+            .add_input(error)
+            .add_input(enable);
 }
 
 public node actuator {

@@ -224,6 +224,15 @@ bool config::ParameterRegistry::adapt(const std::string &path, double delta) {
     return true;
 }
 
+bool config::ParameterRegistry::setAdaptive(const std::string &path, bool adaptive) {
+    Entry *entry = find(path);
+    if (entry == nullptr) return false;
+
+    entry->descriptor.adaptive = adaptive;
+
+    return true;
+}
+
 void config::ParameterRegistry::resetToDefaults() {
     for (Entry &entry : m_entries) {
         if (entry.descriptor.type == ParameterType::Map) continue;

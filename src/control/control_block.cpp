@@ -1,6 +1,7 @@
 #include "../../include/control/control_block.h"
 
 #include "../../include/control/signal_table.h"
+#include "../../include/config/parameter_registry.h"
 #include "../../include/function.h"
 
 #include <algorithm>
@@ -230,6 +231,24 @@ double control::DelayBlock::evaluate(const BlockContext &context) {
 
 void control::DelayBlock::latch(const BlockContext &context) {
     m_previous = operandValue(context, 0);
+}
+
+void control::LearnerBlock::reset() {
+    ControlBlock::reset();
+    m_value = 0.0;
+}
+
+double control::LearnerBlock::evaluate(const BlockContext &context) {
+    if (context.registry == nullptr || m_target.empty()) return m_value;
+
+    if (getOperandCount() < 2 || operandValue(context, 1, 1.0) >= m_threshold) {
+        const double error = operandValue(context, 0);
+        context.registry->adapt(m_target, -m_rate * error * context.dt);
+    }
+
+    context.registry->get(m_target, &m_value);
+
+    return m_value;
 }
 
 double control::ActuatorBlock::evaluate(const BlockContext &context) {

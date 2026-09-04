@@ -32,8 +32,8 @@ header {
 }
 h1 { font-size: 14px; margin: 0; font-weight: 600; letter-spacing: .04em; }
 #status { color: var(--muted); }
-main { display: grid; grid-template-columns: minmax(320px, 1fr) 380px; gap: 0; }
-@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+main { display: grid; grid-template-columns: minmax(320px, 1fr) 560px; gap: 0; }
+@media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
 #params { padding: 12px 18px; }
 #side { border-left: 1px solid var(--line); padding: 12px 18px; }
 @media (max-width: 900px) { #side { border-left: none; border-top: 1px solid var(--line); } }
@@ -44,7 +44,7 @@ main { display: grid; grid-template-columns: minmax(320px, 1fr) 380px; gap: 0; }
 }
 .row {
     display: grid;
-    grid-template-columns: 1fr 150px 90px;
+    grid-template-columns: 1fr 18px 130px 82px;
     gap: 10px;
     align-items: center;
     padding: 3px 0;
@@ -56,6 +56,23 @@ main { display: grid; grid-template-columns: minmax(320px, 1fr) 380px; gap: 0; }
     color: var(--learn);
     font-size: 10px;
 }
+#tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+#tabs button {
+    background: var(--panel); color: var(--muted);
+    border: 1px solid var(--line); border-radius: 3px;
+    padding: 4px 9px; font: inherit; font-size: 11px; cursor: pointer;
+}
+#tabs button.on { color: var(--text); border-color: var(--accent); }
+#view { width: 100%; height: auto; display: block; background: var(--panel);
+        border: 1px solid var(--line); border-radius: 3px; }
+#viewNote { color: var(--muted); font-size: 11px; margin-top: 6px; min-height: 1.5em; }
+#viewTools { display: flex; gap: 6px; margin-top: 6px; }
+#viewTools button {
+    background: var(--panel); color: var(--muted);
+    border: 1px solid var(--line); border-radius: 3px;
+    padding: 3px 8px; font: inherit; font-size: 11px; cursor: pointer;
+}
+.row input[type=checkbox] { accent-color: var(--learn); justify-self: end; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
 input[type=number] {
     width: 100%;
@@ -95,6 +112,13 @@ pre {
 <main>
     <section id="params"></section>
     <aside id="side">
+        <div class="group">
+            <h2>Calibration</h2>
+            <div id="tabs"></div>
+            <canvas id="view" width="720" height="420"></canvas>
+            <div id="viewTools"></div>
+            <div id="viewNote"></div>
+        </div>
         <div class="group">
             <h2>Drive mode</h2>
             <div id="modes"></div>
@@ -173,6 +197,18 @@ function buildParameters() {
             label.textContent = labelOf(p.path, name);
             label.title = p.path;
             row.appendChild(label);
+
+            const learn = document.createElement("input");
+            learn.type = "checkbox";
+            learn.checked = !!p.adaptive;
+            learn.title = "let the adaption write this parameter";
+            learn.addEventListener("change", () => {
+                p.adaptive = learn.checked;
+                row.className = "row" + (learn.checked ? " adaptive" : "");
+                api("/api/adaptive", { path: p.path, value: learn.checked ? 1 : 0 })
+                    .catch(() => {});
+            });
+            row.appendChild(learn);
 
             const slider = document.createElement("input");
             slider.type = "range";
@@ -343,6 +379,338 @@ function plot() {
     ctx.fillText("pid correction \u00b1" + correctionPeak.toFixed(3), 8, band + 20);
 }
 
+
+// ---- calibration views -------------------------------------------------
+
+const views = {};
+let activeView = "shiftmap";
+let throttleBaseline = null;
+let pedalHold = null;
+const cloud = [];
+const CLOUD = 4000;
+
+function mapOf(path) {
+    if (state.schema == null) return null;
+    for (const p of state.schema.registry.parameters) {
+        if (p.path === path && p.type === "map") return p;
+    }
+    return null;
+}
+
+function mapValue(m, i, j) {
+    return m.values[j * m.xAxis.length + i];
+}
+
+function frame(ctx, w, h, xLabel, yLabel) {
+    const pad = { l: 52, r: 12, t: 12, b: 30 };
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = "#2b3038";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(pad.l, pad.t, w - pad.l - pad.r, h - pad.t - pad.b);
+    ctx.fillStyle = "#8b93a1";
+    ctx.font = "11px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(xLabel, (pad.l + w - pad.r) / 2, h - 8);
+    ctx.save();
+    ctx.translate(14, (pad.t + h - pad.b) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(yLabel, 0, 0);
+    ctx.restore();
+    return {
+        pad,
+        x: (t) => pad.l + t * (w - pad.l - pad.r),
+        y: (t) => (h - pad.b) - t * (h - pad.t - pad.b)
+    };
+}
+
+function axisTicks(ctx, box, w, h, xMax, yMax, yUnit) {
+    ctx.fillStyle = "#8b93a1";
+    ctx.textAlign = "right";
+    for (let k = 0; k <= 4; ++k) {
+        const t = k / 4;
+        ctx.fillText(n(yMax * t, yUnit), box.pad.l - 6, box.y(t) + 4);
+    }
+    ctx.textAlign = "center";
+    for (let k = 0; k <= 4; ++k) {
+        const t = k / 4;
+        ctx.fillText(n(xMax * t, 0), box.x(t), h - box.pad.b + 14);
+    }
+}
+
+const GEAR_COLORS = ["#6fb2ff", "#7ddc9a", "#fdbd2e", "#ff8f6f", "#c48fff", "#5fd8d8"];
+
+views.shiftmap = {
+    label: "Shift map",
+    note: "solid = upshift, dashed = downshift. the gap between a pair is the hysteresis.",
+    draw(ctx, w, h) {
+        const up = mapOf("tcu.upshift_map");
+        const down = mapOf("tcu.downshift_map");
+        if (up == null) { frame(ctx, w, h, "", ""); return; }
+
+        let peak = 1;
+        for (const m of [up, down]) {
+            if (m != null) for (const v of m.values) peak = Math.max(peak, v);
+        }
+        peak = Math.ceil(peak * 3.6 / 20) * 20;
+
+        const box = frame(ctx, w, h, "speed  km/h", "pedal");
+        axisTicks(ctx, box, w, h, peak, 1, 2);
+
+        const series = (m, dash) => {
+            if (m == null) return;
+            ctx.setLineDash(dash);
+            ctx.lineWidth = 2;
+            for (let g = 0; g < m.yAxis.length; ++g) {
+                ctx.strokeStyle = GEAR_COLORS[g % GEAR_COLORS.length];
+                ctx.beginPath();
+                let started = false;
+                for (let i = 0; i < m.xAxis.length; ++i) {
+                    const v = mapValue(m, i, g) * 3.6;
+                    if (v <= 0) continue;
+                    const px = box.x(v / peak);
+                    const py = box.y(m.xAxis[i]);
+                    if (!started) { ctx.moveTo(px, py); started = true; }
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+        };
+
+        series(up, []);
+        series(down, [4, 3]);
+
+        const t = state.telemetry;
+        if (t.vehicleSpeed != null) {
+            ctx.fillStyle = "#dfe3ea";
+            ctx.beginPath();
+            ctx.arc(
+                box.x(Math.min(Math.abs(t.vehicleSpeed) * 3.6 / peak, 1)),
+                box.y(Math.min(t.pedal || 0, 1)), 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+};
+
+views.throttlemap = {
+    label: "Throttle map",
+    note: "engine speed vs requested torque, colour is the plate. delta shows what the estimator learned.",
+    tools: [
+        ["absolute / delta", () => { views.throttlemap.delta = !views.throttlemap.delta; }],
+        ["reset baseline", () => { throttleBaseline = null; }]
+    ],
+    delta: false,
+    draw(ctx, w, h) {
+        const m = mapOf("ecu.throttle_map");
+        if (m == null) { frame(ctx, w, h, "", ""); return; }
+        if (throttleBaseline == null) throttleBaseline = m.values.slice();
+
+        const box = frame(ctx, w, h, "engine speed  rpm", "torque  Nm");
+        const xMax = m.xAxis[m.xAxis.length - 1];
+        const yMax = m.yAxis[m.yAxis.length - 1];
+        axisTicks(ctx, box, w, h, xMax * 60 / (2 * Math.PI), yMax, 0);
+
+        const cw = (w - box.pad.l - box.pad.r) / m.xAxis.length;
+        const ch = (h - box.pad.t - box.pad.b) / m.yAxis.length;
+
+        for (let j = 0; j < m.yAxis.length; ++j) {
+            for (let i = 0; i < m.xAxis.length; ++i) {
+                const v = mapValue(m, i, j);
+                let colour;
+                if (views.throttlemap.delta) {
+                    const d = v - (throttleBaseline[j * m.xAxis.length + i] || 0);
+                    const k = Math.max(-1, Math.min(1, d * 6));
+                    colour = k >= 0
+                        ? "rgba(125,220,154," + k.toFixed(3) + ")"
+                        : "rgba(255,143,111," + (-k).toFixed(3) + ")";
+                }
+                else {
+                    const k = Math.max(0, Math.min(1, v));
+                    colour = "rgba(111,178,255," + k.toFixed(3) + ")";
+                }
+                ctx.fillStyle = colour;
+                ctx.fillRect(
+                    box.pad.l + i * cw,
+                    (h - box.pad.b) - (j + 1) * ch,
+                    Math.ceil(cw), Math.ceil(ch));
+            }
+        }
+
+        const t = state.telemetry;
+        if (t.engineRpm != null && xMax > 0 && yMax > 0) {
+            const sx = units_rpm(t.engineRpm) / xMax;
+            ctx.strokeStyle = "#dfe3ea";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(
+                box.x(Math.max(0, Math.min(sx, 1))),
+                box.y(Math.max(0, Math.min((t.torqueRequest || 0) / yMax, 1))),
+                4, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+};
+
+function units_rpm(rpm) { return rpm * 2 * Math.PI / 60; }
+
+views.pedal = {
+    label: "Pedal",
+    note: "pedal travel against requested torque fraction. hold freezes the curve so you can switch modes and compare.",
+    tools: [
+        ["hold", () => {
+            const m = mapOf("ecu.pedal_map");
+            pedalHold = (m == null) ? null : { x: m.xAxis.slice(), v: m.values.slice() };
+        }],
+        ["clear", () => { pedalHold = null; }]
+    ],
+    draw(ctx, w, h) {
+        const m = mapOf("ecu.pedal_map");
+        if (m == null) { frame(ctx, w, h, "", ""); return; }
+
+        const box = frame(ctx, w, h, "pedal", "torque fraction");
+        axisTicks(ctx, box, w, h, 1, 1, 2);
+
+        const curve = (xs, vs, colour, dash) => {
+            ctx.setLineDash(dash);
+            ctx.strokeStyle = colour;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < xs.length; ++i) {
+                const px = box.x(xs[i]);
+                const py = box.y(Math.max(0, Math.min(vs[i], 1)));
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        };
+
+        if (pedalHold != null) curve(pedalHold.x, pedalHold.v, "#8b93a1", [4, 3]);
+        curve(m.xAxis, m.values, "#6fb2ff", []);
+
+        const t = state.telemetry;
+        if (t.pedal != null) {
+            ctx.fillStyle = "#dfe3ea";
+            ctx.beginPath();
+            ctx.arc(box.x(Math.min(t.pedal, 1)), box.y(0), 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+};
+
+views.cloud = {
+    label: "Operating points",
+    note: "where the powertrain actually spends its time, coloured by gear.",
+    tools: [["clear", () => { cloud.length = 0; }]],
+    draw(ctx, w, h) {
+        const box = frame(ctx, w, h, "engine speed  rpm", "torque  Nm");
+
+        let rpmMax = 1000, torqueMax = 50;
+        for (const p of cloud) {
+            rpmMax = Math.max(rpmMax, p.rpm);
+            torqueMax = Math.max(torqueMax, Math.abs(p.torque));
+        }
+        rpmMax = Math.ceil(rpmMax / 1000) * 1000;
+        torqueMax = Math.ceil(torqueMax / 50) * 50;
+        axisTicks(ctx, box, w, h, rpmMax, torqueMax, 0);
+
+        for (const p of cloud) {
+            ctx.fillStyle = GEAR_COLORS[Math.max(0, p.gear) % GEAR_COLORS.length];
+            ctx.globalAlpha = 0.35;
+            ctx.fillRect(
+                box.x(p.rpm / rpmMax) - 1,
+                box.y(Math.abs(p.torque) / torqueMax) - 1, 2, 2);
+        }
+        ctx.globalAlpha = 1;
+    }
+};
+
+views.shifts = {
+    label: "Shift scope",
+    note: "the last shifts on one time base. older ones are paler — watch them get smoother.",
+    data: [],
+    draw(ctx, w, h) {
+        const box = frame(ctx, w, h, "time since shift start  s", "clutch / slip");
+        const runs = views.shifts.data;
+        if (runs.length === 0) {
+            ctx.fillStyle = "#8b93a1";
+            ctx.textAlign = "center";
+            ctx.fillText("no shift recorded yet", w / 2, h / 2);
+            return;
+        }
+
+        let tMax = 0.1, slipMax = 1;
+        for (const r of runs) {
+            for (const s of r.samples) {
+                tMax = Math.max(tMax, s[0]);
+                slipMax = Math.max(slipMax, Math.abs(s[5]));
+            }
+        }
+        axisTicks(ctx, box, w, h, tMax, 1, 2);
+
+        runs.forEach((r, index) => {
+            const age = (index + 1) / runs.length;
+            ctx.lineWidth = index === runs.length - 1 ? 2 : 1;
+
+            const line = (channel, scale, colour) => {
+                ctx.globalAlpha = 0.25 + 0.75 * age;
+                ctx.strokeStyle = colour;
+                ctx.beginPath();
+                r.samples.forEach((s, i) => {
+                    const px = box.x(s[0] / tMax);
+                    const py = box.y(Math.max(0, Math.min(Math.abs(s[channel]) / scale, 1)));
+                    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                });
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            };
+
+            line(1, 1, "#6fb2ff");
+            line(5, slipMax, "#ff8f6f");
+        });
+    }
+};
+
+function buildTabs() {
+    const bar = document.getElementById("tabs");
+    bar.textContent = "";
+
+    for (const key of Object.keys(views)) {
+        const button = document.createElement("button");
+        button.textContent = views[key].label;
+        button.className = key === activeView ? "on" : "";
+        button.addEventListener("click", () => {
+            activeView = key;
+            buildTabs();
+            drawView();
+        });
+        bar.appendChild(button);
+    }
+
+    const tools = document.getElementById("viewTools");
+    tools.textContent = "";
+    for (const [label, action] of (views[activeView].tools || [])) {
+        const button = document.createElement("button");
+        button.textContent = label;
+        button.addEventListener("click", () => { action(); drawView(); });
+        tools.appendChild(button);
+    }
+
+    document.getElementById("viewNote").textContent = views[activeView].note;
+}
+
+function drawView() {
+    const canvas = document.getElementById("view");
+    const ctx = canvas.getContext("2d");
+    views[activeView].draw(ctx, canvas.width, canvas.height);
+}
+
+async function pollShifts() {
+    try {
+        views.shifts.data = await api("/api/shifts");
+    }
+    catch (error) { /* keep what we have */ }
+}
+
 async function poll() {
     try {
         const data = await api("/api/state");
@@ -355,6 +723,17 @@ async function poll() {
         applyValues();
         renderTelemetry();
         plot();
+
+        if (state.telemetry.engineRpm > 1) {
+            cloud.push({
+                rpm: state.telemetry.engineRpm,
+                torque: state.telemetry.indicatedTorque,
+                gear: state.telemetry.gear
+            });
+            while (cloud.length > CLOUD) cloud.shift();
+        }
+
+        drawView();
 
         document.getElementById("status").textContent =
             "connected · t=" + n(data.telemetry.time, 1) + "s";
@@ -373,6 +752,9 @@ async function pollExport() {
         const overrides = await api("/api/overrides");
         document.getElementById("overrides").textContent =
             overrides.trim() || "everything is at its script value";
+
+        state.schema = await api("/api/schema");
+        await pollShifts();
     }
     catch (error) { /* keep the previous contents */ }
 }
@@ -385,6 +767,8 @@ async function main() {
     state.schema = await api("/api/schema");
     buildParameters();
     buildModes();
+    buildTabs();
+    await pollShifts();
 
     setInterval(poll, 100);
     setInterval(pollExport, 2000);

@@ -16,6 +16,9 @@ namespace config {
         double time = 0.0;
         double engineRpm = 0.0;
         double throttlePlate = 0.0;
+        double pedal = 0.0;
+        double revLimitSoft = 0.0;
+        double revLimitHard = 0.0;
         double indicatedTorque = 0.0;
         double torqueRequest = 0.0;
         double coolantTemperature = 0.0;
@@ -45,13 +48,16 @@ namespace config {
         enum class Kind {
             SetParameter,
             SelectMode,
-            ResetDefaults
+            ResetDefaults,
+            SetAdaptive
         };
 
         Kind kind = Kind::SetParameter;
         std::string path;
         double value = 0.0;
     };
+
+    class ShiftRecorder;
 
     class ConfigServer {
         public:
@@ -76,6 +82,7 @@ namespace config {
             int getBoundPort() const;
 
             void publish(const TelemetrySample &sample);
+            void publishShifts(const ShiftRecorder &recorder);
             int applyPendingCommands();
 
             std::string schemaJson() const;
@@ -98,6 +105,7 @@ namespace config {
             std::string m_state;
             std::string m_export;
             std::string m_overrides;
+            std::string m_shifts;
 
             std::vector<ParameterCommand> m_commands;
 
