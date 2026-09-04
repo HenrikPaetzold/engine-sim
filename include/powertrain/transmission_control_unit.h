@@ -53,6 +53,11 @@ namespace powertrain {
                 double shiftTorqueCut = 1.00;
                 double overlapHold = 0.15;
                 double kickdownThreshold = 0.85;
+                double kickdownPedalRate = 0.0;
+                double kickdownPedalFloor = 0.25;
+                double kickdownFilter = 0.08;
+                double kickdownRevMargin = units::rpm(500.0);
+                double kickdownTargetSpeed = units::rpm(6200.0);
                 double speedMatchTolerance = units::rpm(120.0);
 
                 double launchSlipTarget = units::rpm(1000.0);
@@ -99,6 +104,7 @@ namespace powertrain {
             inline int getCompletedShiftCount() const { return m_completedShifts; }
             inline control::Map2d &getDownshiftMap() { return m_downshiftMap; }
             inline control::Map2d &getLockupMap() { return m_lockupMap; }
+            inline control::Map2d &getKickdownMap() { return m_kickdownMap; }
             inline control::Map2d &getOverlapShape() { return m_overlapShape; }
             inline control::Map2d &getEngageShape() { return m_engageShape; }
 
@@ -129,10 +135,18 @@ namespace powertrain {
             void markAuthoredMaps(bool upshift, bool downshift, bool lockup);
 
             double engineSpeedForGear(int gear, double vehicleSpeed) const;
+            double kickdownTarget(double pedal) const;
+            int kickdownGear(double pedal, double vehicleSpeed) const;
+            inline double getPedalRate() const { return m_pedalRate; }
             int scheduleGear(
                 int currentGear,
                 double pedal,
                 double vehicleSpeed) const;
+            int scheduleGear(
+                int currentGear,
+                double pedal,
+                double vehicleSpeed,
+                bool kickdown) const;
 
         protected:
             void buildDefaultMaps();
@@ -170,8 +184,13 @@ namespace powertrain {
             control::Map2d m_upshiftMap;
             control::Map2d m_downshiftMap;
             control::Map2d m_lockupMap;
+            control::Map2d m_kickdownMap;
             control::Map2d m_overlapShape;
             control::Map2d m_engageShape;
+            double m_pedalFiltered;
+            double m_pedalRate;
+            double m_revLimit;
+            bool m_kickdownArmed;
             bool m_upshiftAuthored;
             bool m_downshiftAuthored;
             bool m_lockupAuthored;

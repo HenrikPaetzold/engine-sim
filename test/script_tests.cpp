@@ -632,6 +632,53 @@ TEST_F(ScriptFixture, TheStarterSpeedPresetRisesWithTemperature) {
     EXPECT_NEAR(map.sample(units::celcius(-20.0), 0.0), units::rpm(140.0), 1e-6);
 }
 
+TEST_F(ScriptFixture, TheKickdownIsScriptedAndModeDependent) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    tcu: transmission_control_unit(\n"
+        "        kickdown_pedal_rate: 3.0,\n"
+        "        kickdown_map: map_2d()\n"
+        "            .add_map_sample(x: 0.0, value: 3000 * units.rpm)\n"
+        "            .add_map_sample(x: 1.0, value: 4000 * units.rpm)))\n"
+        "add_drive_mode(drive_mode(name: \"comfort\")\n"
+        "    .set(\"tcu.kickdown.pedal_rate\", 50.0))\n"
+        "add_drive_mode(drive_mode(name: \"sport_plus\")\n"
+        "    .set(\"tcu.kickdown.pedal_rate\", 2.0)\n"
+        "    .set_map(path: \"tcu.kickdown_map\", map: map_2d()\n"
+        "        .add_map_sample(x: 0.0, value: 6000 * units.rpm)\n"
+        "        .add_map_sample(x: 1.0, value: 7000 * units.rpm)))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    config::ParameterRegistry registry;
+    unit->registerParameters(&registry, "");
+
+    config::DriveModeSet modes = es_script::Compiler::output()->driveModes;
+    powertrain::TransmissionControlUnit &tcu = unit->getTransmissionControlUnit();
+
+    EXPECT_NEAR(tcu.getParameters().kickdownPedalRate, 3.0, 1e-9)
+        << "the scripted pedal rate did not reach the control unit";
+    EXPECT_NEAR(tcu.kickdownTarget(1.0), units::rpm(4000.0), 1e-6);
+
+    ASSERT_TRUE(modes.select("sport_plus", &registry));
+    EXPECT_NEAR(tcu.getParameters().kickdownPedalRate, 2.0, 1e-9);
+    EXPECT_NEAR(tcu.kickdownTarget(1.0), units::rpm(7000.0), 1e-6)
+        << "the sport schedule did not reach the live map";
+
+    const int eager = tcu.scheduleGear(4, 1.0, 30.0, true);
+
+    ASSERT_TRUE(modes.select("comfort", &registry));
+    EXPECT_NEAR(tcu.getParameters().kickdownPedalRate, 50.0, 1e-9)
+        << "comfort did not switch the stab trigger off";
+    EXPECT_NEAR(tcu.kickdownTarget(1.0), units::rpm(4000.0), 1e-6)
+        << "the map was not restored to the script value";
+
+    const int calm = tcu.scheduleGear(4, 1.0, 30.0, true);
+
+    EXPECT_LT(eager, calm) << "sport did not reach a lower gear than comfort";
+}
+
 namespace {
     void runProgram(
         powertrain::ScriptedControlUnit *unit,

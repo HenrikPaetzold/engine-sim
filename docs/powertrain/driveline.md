@@ -202,6 +202,43 @@ add_drive_mode(drive_mode(name: "sport_plus")
         .add_map_sample(x: 1.0,  y: 0.0, value: 1.0)))
 ```
 
+### Kickdown: Ziel statt fester Drehzahl
+
+Der Kickdown suchte den niedrigsten Gang, dessen Drehzahl unter **fest
+verdrahteten 6200 rpm** blieb. Die Zahl hing weder am Drehzahlbegrenzer noch an
+einem Skripteingang: ein Diesel mit 4500 rpm Abregelung griff damit in einen
+Gang, den er nicht drehen kann, ein Motorradmotor nutzte seinen Bereich nie.
+
+Jetzt gibt `tcu.kickdown_map` (x = Pedal) die **Solldrehzahl nach der
+Rückschaltung** vor, und die TCU wählt den niedrigsten Gang, der sie nicht
+überschreitet. Das ist übersetzungsunabhängig und damit für jede Motorbauart
+richtig. Zusätzlich wird hart gegen den Drehzahlbegrenzer der ECU begrenzt
+(`kickdown_rev_margin` als Abstand darunter) — eine Fehlbedatung kann den Motor
+nicht überdrehen.
+
+Als zweiter Auslöser dient ein gefilterter **Pedalgradient**: steigt das Pedal
+schneller als `kickdown_pedal_rate` und liegt über `kickdown_pedal_floor`, löst
+derselbe Mehrfachsprung aus, ohne dass die Absolutschwelle erreicht sein muss.
+Ein energischer kurzer Gasstoß schaltet also zurück, langsames Durchtreten nicht.
+Die Vorgabe ist 0, der Gradient also aus — bestehende Skripte verhalten sich
+unverändert.
+
+Beides ist registriert und damit **pro Fahrmodus** verschiebbar:
+
+```
+add_drive_mode(drive_mode(name: "sport_plus")
+    .set("tcu.kickdown.pedal_rate", 2.0)
+    .set_map(path: "tcu.kickdown_map", map: map_2d()
+        .add_map_sample(x: 0.0, value: 6000 * units.rpm)
+        .add_map_sample(x: 1.0, value: 7000 * units.rpm)))
+
+add_drive_mode(drive_mode(name: "comfort")
+    .set("tcu.kickdown.pedal_rate", 50.0))
+```
+
+Mit der Standardfilterung von 80 ms liegt die höchstmögliche beobachtbare Rate
+bei etwa 12,5 1/s; ein Wert darüber schaltet den Gasstoß-Auslöser also ab.
+
 ### Wandler: Kennfeld und Schlupfregler
 
 `m_lockupMap` hat dieselbe Form wie die Schaltkennfelder (x = Pedal, y = Gang),

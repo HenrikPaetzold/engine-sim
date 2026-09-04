@@ -661,3 +661,144 @@ TEST(ShiftShapeTests, TheShapeIsPedalDependent) {
     EXPECT_GT(shape.sample(0.25, 1.0), shape.sample(0.25, 0.0))
         << "the pedal axis has no effect on the shape";
 }
+
+// --- Kickdown -------------------------------------------------------------
+
+namespace {
+    powertrain::TransmissionControlUnit::Parameters kickdownParameters() {
+        powertrain::TransmissionControlUnit::Parameters params;
+        params.gearCount = 6;
+        params.minGearTime = 0.1;
+
+        return params;
+    }
+
+    void setKickdownTarget(
+        powertrain::TransmissionControlUnit &tcu,
+        double target)
+    {
+        control::Map2d &map = tcu.getKickdownMap();
+        for (int i = 0; i < map.getXCount(); ++i) map.setValue(i, 0, target);
+    }
+}
+
+TEST(KickdownTests, TheTargetSpeedDecidesHowFarItDropsBack) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(kickdownParameters());
+
+    const double speed = 30.0;
+
+    setKickdownTarget(tcu, units::rpm(4500.0));
+    const int calm = tcu.scheduleGear(4, 1.0, speed, true);
+
+    setKickdownTarget(tcu, units::rpm(6500.0));
+    const int eager = tcu.scheduleGear(4, 1.0, speed, true);
+
+    EXPECT_LT(calm, 4) << "no downshift at all";
+    EXPECT_LT(eager, calm) << "the higher target did not reach deeper";
+
+    EXPECT_LE(tcu.engineSpeedForGear(calm, speed), units::rpm(4500.0))
+        << "the chosen gear overshoots the target speed";
+}
+
+TEST(KickdownTests, ALowRevvingEngineIsNotOverrevved) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(kickdownParameters());
+
+    setKickdownTarget(tcu, units::rpm(6200.0));
+
+    powertrain::PowertrainState state = drivingState(4, 30.0);
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    commands.revLimit = units::rpm(4500.0);
+    inputs.manualMode = true;
+    tcu.update(1e-3, state, inputs, &commands);
+
+    const int gear = tcu.scheduleGear(4, 1.0, 30.0, true);
+
+    EXPECT_LE(
+        tcu.engineSpeedForGear(gear, 30.0),
+        units::rpm(4500.0))
+        << "the kickdown ignored the rev limiter";
+}
+
+TEST(KickdownTests, AStabOnThePedalTriggersWithoutTheThreshold) {
+    powertrain::TransmissionControlUnit::Parameters params = kickdownParameters();
+    params.kickdownPedalRate = 3.0;
+    params.kickdownPedalFloor = 0.2;
+    params.kickdownThreshold = 0.85;
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(params);
+    setKickdownTarget(tcu, units::rpm(6000.0));
+
+    powertrain::PowertrainState state = drivingState(4, 30.0);
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.manualMode = true;
+    inputs.accelerator = 0.0;
+    step(tcu, state, inputs, commands, 400);
+
+    inputs.manualMode = false;
+    inputs.accelerator = 0.6;
+    state.gear = 4;
+
+    int gear = 4;
+    for (int i = 0; i < 200; ++i) {
+        tcu.update(1e-3, state, inputs, &commands);
+        if (tcu.getTargetGear() < gear) gear = tcu.getTargetGear();
+    }
+
+    EXPECT_LT(gear, 4)
+        << "a quick stab below the threshold did not drop a gear";
+}
+
+TEST(KickdownTests, ASlowPedalBelowTheThresholdDoesNotTrigger) {
+    powertrain::TransmissionControlUnit::Parameters params = kickdownParameters();
+    params.kickdownPedalRate = 3.0;
+    params.kickdownPedalFloor = 0.2;
+    params.kickdownThreshold = 0.85;
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(params);
+    setKickdownTarget(tcu, units::rpm(6000.0));
+
+    powertrain::PowertrainState state = drivingState(4, 30.0);
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.manualMode = true;
+    inputs.accelerator = 0.0;
+    step(tcu, state, inputs, commands, 400);
+
+    inputs.manualMode = false;
+
+    for (int i = 0; i < 1200; ++i) {
+        inputs.accelerator = std::min(0.6, i * 0.0005);
+        state.gear = 4;
+        tcu.update(1e-3, state, inputs, &commands);
+        EXPECT_GE(tcu.getPedalRate(), 0.0);
+    }
+
+    EXPECT_LT(tcu.getPedalRate(), 3.0)
+        << "a slow pedal was mistaken for a stab";
+}
+
+TEST(KickdownTests, TheKickdownIsReachableFromTheRegistry) {
+    config::ParameterRegistry registry;
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(kickdownParameters());
+    tcu.registerParameters(&registry, "");
+
+    for (const char *path : {
+        "tcu.kickdown_map",
+        "tcu.kickdown.pedal_rate",
+        "tcu.kickdown.pedal_floor",
+        "tcu.kickdown.rev_margin" })
+    {
+        EXPECT_TRUE(registry.contains(path)) << path;
+    }
+}

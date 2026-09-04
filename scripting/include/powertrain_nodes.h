@@ -135,6 +135,10 @@ namespace es_script {
             if (downshift) m_downshiftMap->generate(&tcu->getDownshiftMap());
             if (lockup) m_lockupMap->generate(&tcu->getLockupMap());
 
+            if (m_kickdownMap != nullptr && !m_kickdownMap->isEmpty()) {
+                m_kickdownMap->generate(&tcu->getKickdownMap());
+            }
+
             tcu->markAuthoredMaps(upshift, downshift, lockup);
         }
 
@@ -161,6 +165,11 @@ namespace es_script {
             addInput("clutch_engage_time", &m_parameters.clutchEngageTime);
             addInput("min_gear_time", &m_parameters.minGearTime);
             addInput("kickdown_threshold", &m_parameters.kickdownThreshold);
+            addInput("kickdown_pedal_rate", &m_parameters.kickdownPedalRate);
+            addInput("kickdown_pedal_floor", &m_parameters.kickdownPedalFloor);
+            addInput("kickdown_filter", &m_parameters.kickdownFilter);
+            addInput("kickdown_rev_margin", &m_parameters.kickdownRevMargin);
+            addInput("kickdown_target_speed", &m_parameters.kickdownTargetSpeed);
             addInput("launch_slip_target", &m_parameters.launchSlipTarget);
             addInput("launch_lock_slip", &m_parameters.launchLockSlip);
             addInput("stall_protect_speed", &m_parameters.stallProtectSpeed);
@@ -171,6 +180,7 @@ namespace es_script {
             addInput("upshift_map", &m_upshiftMap, InputTarget::Type::Object);
             addInput("downshift_map", &m_downshiftMap, InputTarget::Type::Object);
             addInput("lockup_map", &m_lockupMap, InputTarget::Type::Object);
+            addInput("kickdown_map", &m_kickdownMap, InputTarget::Type::Object);
             addInput("overlap_shape", &m_overlapShape, InputTarget::Type::Object);
             addInput("engage_shape", &m_engageShape, InputTarget::Type::Object);
             addInput("lockup_controller", &m_lockupController, InputTarget::Type::Object);
@@ -191,6 +201,7 @@ namespace es_script {
         Map2dNode *m_upshiftMap = nullptr;
         Map2dNode *m_downshiftMap = nullptr;
         Map2dNode *m_lockupMap = nullptr;
+        Map2dNode *m_kickdownMap = nullptr;
         Map2dNode *m_overlapShape = nullptr;
         Map2dNode *m_engageShape = nullptr;
         PidControllerNode *m_lockupController = nullptr;

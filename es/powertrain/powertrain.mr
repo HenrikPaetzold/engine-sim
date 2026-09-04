@@ -92,6 +92,11 @@ public node transmission_control_unit => __engine_sim__transmission_control_unit
     input clutch_engage_time [float]: 0.30 * units.sec;
     input min_gear_time [float]: 0.80 * units.sec;
     input kickdown_threshold [float]: 0.85;
+    input kickdown_pedal_rate [float]: 0.0;
+    input kickdown_pedal_floor [float]: 0.25;
+    input kickdown_filter [float]: 0.08 * units.sec;
+    input kickdown_rev_margin [float]: 500 * units.rpm;
+    input kickdown_target_speed [float]: 6200 * units.rpm;
     input launch_slip_target [float]: 1000 * units.rpm;
     input launch_lock_slip [float]: 60 * units.rpm;
     input stall_protect_speed [float]: 650 * units.rpm;
@@ -102,6 +107,7 @@ public node transmission_control_unit => __engine_sim__transmission_control_unit
     input upshift_map [map_2d_channel]: map_2d();
     input downshift_map [map_2d_channel]: map_2d();
     input lockup_map [map_2d_channel]: map_2d();
+    input kickdown_map [map_2d_channel]: map_2d();
     input overlap_shape [map_2d_channel]: map_2d();
     input engage_shape [map_2d_channel]: map_2d();
     input lockup_controller [pid_controller_channel]: pid_controller(kp: 0.004, ki: 0.9, min: 0.0, max: 1.0);

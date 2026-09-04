@@ -56,6 +56,10 @@ powertrain::TransmissionControlUnit::TransmissionControlUnit() {
     m_previousShiftDown = false;
     m_gateIndex = 0;
     m_positionRefused = false;
+    m_pedalFiltered = 0.0;
+    m_pedalRate = 0.0;
+    m_revLimit = 0.0;
+    m_kickdownArmed = false;
     m_upshiftAuthored = false;
     m_downshiftAuthored = false;
     m_lockupAuthored = false;
@@ -119,6 +123,15 @@ void powertrain::TransmissionControlUnit::buildDefaultMaps() {
     m_upshiftMap.initialize(PedalPoints, gears, 0.0);
     m_downshiftMap.initialize(PedalPoints, gears, 0.0);
     m_lockupMap.initialize(PedalPoints, gears, 0.0);
+    m_kickdownMap.initialize(PedalPoints, 1, 0.0);
+
+    for (int i = 0; i < PedalPoints; ++i) {
+        const double pedal = static_cast<double>(i) / (PedalPoints - 1);
+        m_kickdownMap.setXAxis(i, pedal);
+        m_kickdownMap.setValue(i, 0, m_params.kickdownTargetSpeed);
+    }
+
+    m_kickdownMap.setYAxis(0, 0.0);
 
     for (int i = 0; i < PedalPoints; ++i) {
         const double pedal = static_cast<double>(i) / (PedalPoints - 1);
@@ -243,6 +256,10 @@ void powertrain::TransmissionControlUnit::reset() {
     m_activeClutch = 0;
     m_clutchGear[0] = -1;
     m_clutchGear[1] = -1;
+
+    m_pedalFiltered = 0.0;
+    m_pedalRate = 0.0;
+    m_kickdownArmed = false;
 }
 
 double powertrain::TransmissionControlUnit::engineSpeedForGear(
@@ -257,23 +274,62 @@ double powertrain::TransmissionControlUnit::engineSpeedForGear(
     return wheelSpeed * m_params.finalDrive * m_params.gearRatios[gear];
 }
 
+double powertrain::TransmissionControlUnit::kickdownTarget(double pedal) const {
+    const double clampedPedal = std::clamp(pedal, 0.0, 1.0);
+
+    double target = m_kickdownMap.isInitialized()
+        ? m_kickdownMap.sample(clampedPedal, 0.0)
+        : m_params.kickdownTargetSpeed;
+
+    if (target <= 0.0) target = m_params.kickdownTargetSpeed;
+
+    if (m_revLimit > 0.0) {
+        target = std::min(target, m_revLimit - m_params.kickdownRevMargin);
+    }
+
+    return std::max(target, 0.0);
+}
+
+int powertrain::TransmissionControlUnit::kickdownGear(
+    double pedal,
+    double vehicleSpeed) const
+{
+    const double target = kickdownTarget(pedal);
+    const double speed = std::abs(vehicleSpeed);
+
+    for (int g = 0; g < m_params.gearCount; ++g) {
+        if (engineSpeedForGear(g, speed) <= target) return g;
+    }
+
+    return -1;
+}
+
 int powertrain::TransmissionControlUnit::scheduleGear(
     int currentGear,
     double pedal,
     double vehicleSpeed) const
+{
+    return scheduleGear(
+        currentGear,
+        pedal,
+        vehicleSpeed,
+        std::clamp(pedal, 0.0, 1.0) >= m_params.kickdownThreshold);
+}
+
+int powertrain::TransmissionControlUnit::scheduleGear(
+    int currentGear,
+    double pedal,
+    double vehicleSpeed,
+    bool kickdown) const
 {
     if (currentGear < 0) return currentGear;
 
     const double clampedPedal = std::clamp(pedal, 0.0, 1.0);
     const double speed = std::abs(vehicleSpeed);
 
-    if (clampedPedal >= m_params.kickdownThreshold) {
-        for (int g = 0; g < m_params.gearCount; ++g) {
-            if (engineSpeedForGear(g, speed) <= units::rpm(6200.0)) {
-                if (g < currentGear) return g;
-                break;
-            }
-        }
+    if (kickdown) {
+        const int target = kickdownGear(clampedPedal, speed);
+        if (target >= 0 && target < currentGear) return target;
     }
 
     if (currentGear + 1 < m_params.gearCount) {
@@ -672,6 +728,20 @@ void powertrain::TransmissionControlUnit::update(
     m_bus.resetTransmissionRequests();
     m_gearTimer.advance(dt);
 
+    if (commands != nullptr && commands->revLimit > 0.0) {
+        m_revLimit = commands->revLimit;
+    }
+
+    const double pedalNow = std::clamp(inputs.accelerator, 0.0, 1.0);
+    if (dt > 0.0) {
+        const double tau = std::max(m_params.kickdownFilter, dt);
+        const double alpha = dt / tau;
+        const double previous = m_pedalFiltered;
+
+        m_pedalFiltered += (pedalNow - m_pedalFiltered) * std::min(alpha, 1.0);
+        m_pedalRate = (m_pedalFiltered - previous) / dt;
+    }
+
     resolvePosition(state, inputs);
 
     const GateEngagement engagement = getEngagement();
@@ -701,8 +771,19 @@ void powertrain::TransmissionControlUnit::update(
             }
         }
         else {
+            const bool stab =
+                m_params.kickdownPedalRate > 0.0
+                && m_pedalRate >= m_params.kickdownPedalRate
+                && pedalNow >= m_params.kickdownPedalFloor;
+
+            const bool kickdown =
+                stab || pedalNow >= m_params.kickdownThreshold;
+
             if (m_currentGear < 0 && inputs.accelerator > 0.0) requested = 0;
-            else requested = scheduleGear(m_currentGear, inputs.accelerator, state.vehicleSpeed);
+            else {
+                requested = scheduleGear(
+                    m_currentGear, inputs.accelerator, state.vehicleSpeed, kickdown);
+            }
 
             if (requested > 0
                 && engineSpeedForGear(requested, std::abs(state.vehicleSpeed))
@@ -814,6 +895,25 @@ void powertrain::TransmissionControlUnit::registerParameters(
         describe(base + "shift.kickdown_threshold", 0.0, 1.0,
             m_params.kickdownThreshold, ""),
         &m_params.kickdownThreshold);
+    registry->registerScalar(
+        describe(base + "kickdown.pedal_rate", 0.0, 200.0,
+            m_params.kickdownPedalRate, "1/s"),
+        &m_params.kickdownPedalRate);
+    registry->registerScalar(
+        describe(base + "kickdown.pedal_floor", 0.0, 1.0,
+            m_params.kickdownPedalFloor, ""),
+        &m_params.kickdownPedalFloor);
+    registry->registerScalar(
+        describe(base + "kickdown.filter", 0.005, 1.0,
+            m_params.kickdownFilter, "s"),
+        &m_params.kickdownFilter);
+    registry->registerScalar(
+        describe(base + "kickdown.rev_margin", 0.0, units::rpm(3000.0),
+            m_params.kickdownRevMargin, "rad/s"),
+        &m_params.kickdownRevMargin);
+    registry->registerMap(
+        describe(base + "kickdown_map", 0.0, units::rpm(20000.0), 0.0, "rad/s"),
+        &m_kickdownMap);
     registry->registerScalar(
         describe(base + "shift.torque_cut", 0.0, 1.0, m_params.shiftTorqueCut, ""),
         &m_params.shiftTorqueCut);
