@@ -523,6 +523,73 @@ TEST_F(ScriptFixture, ADriveModeCarriesAWholeShiftMap) {
         << "the baseline was not restored";
 }
 
+TEST_F(ScriptFixture, TwoModesGiveTheSameGearboxTwoShiftCharacters) {
+    ASSERT_TRUE(run(
+        "set_powertrain(tcu: transmission_control_unit(preselect: true, torque_interrupt: false))\n"
+        "add_drive_mode(drive_mode(name: \"comfort\")\n"
+        "    .set(\"tcu.shift.clutch_overlap_time\", 0.30)\n"
+        "    .set_map(\n"
+        "        path: \"tcu.overlap_shape\",\n"
+        "        map: map_2d()\n"
+        "            .add_map_sample(x: 0.0,  y: 0.0, value: 0.0)\n"
+        "            .add_map_sample(x: 0.5,  y: 0.0, value: 0.5)\n"
+        "            .add_map_sample(x: 1.0,  y: 0.0, value: 1.0)\n"
+        "            .add_map_sample(x: 0.0,  y: 1.0, value: 0.0)\n"
+        "            .add_map_sample(x: 0.5,  y: 1.0, value: 0.5)\n"
+        "            .add_map_sample(x: 1.0,  y: 1.0, value: 1.0)))\n"
+        "add_drive_mode(drive_mode(name: \"sport_plus\")\n"
+        "    .set(\"tcu.shift.clutch_overlap_time\", 0.08)\n"
+        "    .set_map(\n"
+        "        path: \"tcu.overlap_shape\",\n"
+        "        map: map_2d()\n"
+        "            .add_map_sample(x: 0.0,  y: 0.0, value: 0.0)\n"
+        "            .add_map_sample(x: 0.25, y: 0.0, value: 1.0)\n"
+        "            .add_map_sample(x: 1.0,  y: 0.0, value: 1.0)\n"
+        "            .add_map_sample(x: 0.0,  y: 1.0, value: 0.0)\n"
+        "            .add_map_sample(x: 0.25, y: 1.0, value: 1.0)\n"
+        "            .add_map_sample(x: 1.0,  y: 1.0, value: 1.0)))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    config::ParameterRegistry registry;
+    unit->registerParameters(&registry, "");
+
+    config::DriveModeSet modes = es_script::Compiler::output()->driveModes;
+    powertrain::TransmissionControlUnit &tcu = unit->getTransmissionControlUnit();
+
+    ASSERT_TRUE(modes.select("comfort", &registry));
+    const double comfortRise = tcu.getOverlapShape().sample(0.25, 0.5);
+    const double comfortTime = tcu.getParameters().clutchOverlapTime;
+
+    ASSERT_TRUE(modes.select("sport_plus", &registry));
+    const double sportRise = tcu.getOverlapShape().sample(0.25, 0.5);
+    const double sportTime = tcu.getParameters().clutchOverlapTime;
+
+    EXPECT_NEAR(comfortRise, 0.25, 1e-6);
+    EXPECT_NEAR(sportRise, 1.0, 1e-6)
+        << "the sport shape did not reach the live map";
+    EXPECT_LT(sportTime, comfortTime);
+
+    ASSERT_TRUE(modes.select("comfort", &registry));
+    EXPECT_NEAR(tcu.getOverlapShape().sample(0.25, 0.5), 0.25, 1e-6)
+        << "switching back did not restore the comfort shape";
+}
+
+TEST_F(ScriptFixture, WithoutAShapeTheRampStaysLinear) {
+    ASSERT_TRUE(run("set_powertrain(tcu: transmission_control_unit())\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    control::Map2d &shape =
+        unit->getTransmissionControlUnit().getOverlapShape();
+
+    for (double t = 0.0; t <= 1.0; t += 0.125) {
+        EXPECT_NEAR(shape.sample(t, 0.5), t, 1e-9) << "phase " << t;
+    }
+}
+
 namespace {
     void runProgram(
         powertrain::ScriptedControlUnit *unit,

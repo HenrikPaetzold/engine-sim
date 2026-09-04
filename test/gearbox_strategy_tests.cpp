@@ -563,3 +563,101 @@ TEST(GearScheduleTests, AnAuthoredMapSurvivesTheGearboxSync) {
     EXPECT_GT(tcu.getDownshiftMap().sample(0.5, 7.0), 0.0)
         << "the unscripted map was not rebuilt for the new gears";
 }
+
+// --- Schaltcharakter ------------------------------------------------------
+
+namespace {
+    double overlapRise(
+        powertrain::TransmissionControlUnit &tcu,
+        powertrain::PowertrainState &state,
+        powertrain::DriverInputs &inputs,
+        powertrain::ActuatorCommands &commands,
+        double *peakStep)
+    {
+        step(tcu, state, inputs, commands, 400);
+        tcu.beginShiftForTest(2);
+
+        const int oncomingClutch = tcu.clutchForGear(2);
+
+        double previous = 0.0;
+        double biggest = 0.0;
+        int ticks = 0;
+
+        while (tcu.getShiftState() == powertrain::ShiftState::ClutchOverlap
+            && ticks < 20000)
+        {
+            step(tcu, state, inputs, commands, 1);
+            const double oncoming = commands.clutchPressure[oncomingClutch];
+            biggest = std::max(biggest, std::abs(oncoming - previous));
+            previous = oncoming;
+            ++ticks;
+        }
+
+        *peakStep = biggest;
+
+        return static_cast<double>(ticks);
+    }
+}
+
+TEST(ShiftShapeTests, TheDefaultShapeIsTheLinearRamp) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(dctParameters());
+
+    const control::Map2d &shape = tcu.getOverlapShape();
+    ASSERT_TRUE(shape.isInitialized());
+
+    for (double t = 0.0; t <= 1.0; t += 0.125) {
+        EXPECT_NEAR(shape.sample(t, 0.5), t, 1e-9) << "phase " << t;
+    }
+}
+
+TEST(ShiftShapeTests, ASteepShapeEngagesHarderThanTheLinearRamp) {
+    powertrain::PowertrainState state = drivingState(1, 20.0);
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.manualMode = true;
+    inputs.accelerator = 0.5;
+
+    powertrain::TransmissionControlUnit soft;
+    soft.initialize(dctParameters());
+
+    double softStep = 0.0;
+    overlapRise(soft, state, inputs, commands, &softStep);
+
+    powertrain::TransmissionControlUnit crisp;
+    crisp.initialize(dctParameters());
+
+    control::Map2d &crispShape = crisp.getOverlapShape();
+    for (int j = 0; j < crispShape.getYCount(); ++j) {
+        for (int i = 0; i < crispShape.getXCount(); ++i) {
+            const double t = crispShape.getXAxis(i);
+            crispShape.setValue(i, j, std::min(1.0, t * 4.0));
+        }
+    }
+
+    state = drivingState(1, 20.0);
+    double crispStep = 0.0;
+    overlapRise(crisp, state, inputs, commands, &crispStep);
+
+    EXPECT_GT(crispStep, softStep * 2.5)
+        << "the steep shape engaged no harder than the linear ramp";
+}
+
+TEST(ShiftShapeTests, TheShapeIsPedalDependent) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(dctParameters());
+
+    control::Map2d &shape = tcu.getOverlapShape();
+    for (int j = 0; j < shape.getYCount(); ++j) {
+        const double pedal = shape.getYAxis(j);
+
+        for (int i = 0; i < shape.getXCount(); ++i) {
+            const double t = shape.getXAxis(i);
+            shape.setValue(i, j, (pedal > 0.5) ? std::min(1.0, t * 3.0) : t * t);
+        }
+    }
+
+    EXPECT_GT(shape.sample(0.25, 1.0), shape.sample(0.25, 0.0))
+        << "the pedal axis has no effect on the shape";
+}

@@ -102,6 +102,8 @@ public node transmission_control_unit => __engine_sim__transmission_control_unit
     input upshift_map [map_2d_channel]: map_2d();
     input downshift_map [map_2d_channel]: map_2d();
     input lockup_map [map_2d_channel]: map_2d();
+    input overlap_shape [map_2d_channel]: map_2d();
+    input engage_shape [map_2d_channel]: map_2d();
     input lockup_controller [pid_controller_channel]: pid_controller(kp: 0.004, ki: 0.9, min: 0.0, max: 1.0);
 
     alias output __out [tcu_channel];

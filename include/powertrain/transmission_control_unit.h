@@ -99,6 +99,8 @@ namespace powertrain {
             inline int getCompletedShiftCount() const { return m_completedShifts; }
             inline control::Map2d &getDownshiftMap() { return m_downshiftMap; }
             inline control::Map2d &getLockupMap() { return m_lockupMap; }
+            inline control::Map2d &getOverlapShape() { return m_overlapShape; }
+            inline control::Map2d &getEngageShape() { return m_engageShape; }
 
             inline ShiftState getShiftState() const { return m_shiftState; }
             inline SelectorGate &getGate() { return m_gate; }
@@ -134,6 +136,7 @@ namespace powertrain {
 
         protected:
             void buildDefaultMaps();
+            void buildDefaultShapes();
             static void snapshotGearAxis(
                 const control::Map2d &map,
                 int gears,
@@ -167,6 +170,8 @@ namespace powertrain {
             control::Map2d m_upshiftMap;
             control::Map2d m_downshiftMap;
             control::Map2d m_lockupMap;
+            control::Map2d m_overlapShape;
+            control::Map2d m_engageShape;
             bool m_upshiftAuthored;
             bool m_downshiftAuthored;
             bool m_lockupAuthored;

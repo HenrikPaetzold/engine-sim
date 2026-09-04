@@ -124,6 +124,13 @@ namespace es_script {
             const bool downshift = m_downshiftMap != nullptr && !m_downshiftMap->isEmpty();
             const bool lockup = m_lockupMap != nullptr && !m_lockupMap->isEmpty();
 
+            if (m_overlapShape != nullptr && !m_overlapShape->isEmpty()) {
+                m_overlapShape->generate(&tcu->getOverlapShape());
+            }
+            if (m_engageShape != nullptr && !m_engageShape->isEmpty()) {
+                m_engageShape->generate(&tcu->getEngageShape());
+            }
+
             if (upshift) m_upshiftMap->generate(&tcu->getUpshiftMap());
             if (downshift) m_downshiftMap->generate(&tcu->getDownshiftMap());
             if (lockup) m_lockupMap->generate(&tcu->getLockupMap());
@@ -164,6 +171,8 @@ namespace es_script {
             addInput("upshift_map", &m_upshiftMap, InputTarget::Type::Object);
             addInput("downshift_map", &m_downshiftMap, InputTarget::Type::Object);
             addInput("lockup_map", &m_lockupMap, InputTarget::Type::Object);
+            addInput("overlap_shape", &m_overlapShape, InputTarget::Type::Object);
+            addInput("engage_shape", &m_engageShape, InputTarget::Type::Object);
             addInput("lockup_controller", &m_lockupController, InputTarget::Type::Object);
 
             ObjectReferenceNode<TransmissionControlUnitNode>::registerInputs();
@@ -182,6 +191,8 @@ namespace es_script {
         Map2dNode *m_upshiftMap = nullptr;
         Map2dNode *m_downshiftMap = nullptr;
         Map2dNode *m_lockupMap = nullptr;
+        Map2dNode *m_overlapShape = nullptr;
+        Map2dNode *m_engageShape = nullptr;
         PidControllerNode *m_lockupController = nullptr;
     };
 

@@ -9,6 +9,7 @@
 
 namespace {
     constexpr int PedalPoints = 5;
+    constexpr int PhasePoints = 9;
 
     config::ParameterDescriptor describe(
         const std::string &path,
@@ -155,6 +156,32 @@ void powertrain::TransmissionControlUnit::buildDefaultMaps() {
                 : 0.0;
 
             m_lockupMap.setValue(i, g, lockupSpeed);
+        }
+    }
+
+    buildDefaultShapes();
+}
+
+void powertrain::TransmissionControlUnit::buildDefaultShapes() {
+    control::Map2d *shapes[2] = { &m_overlapShape, &m_engageShape };
+
+    for (control::Map2d *shape : shapes) {
+        if (shape->isInitialized()) continue;
+
+        shape->initialize(PhasePoints, PedalPoints, 0.0);
+
+        for (int i = 0; i < PhasePoints; ++i) {
+            shape->setXAxis(i, static_cast<double>(i) / (PhasePoints - 1));
+        }
+
+        for (int j = 0; j < PedalPoints; ++j) {
+            shape->setYAxis(j, static_cast<double>(j) / (PedalPoints - 1));
+        }
+
+        for (int j = 0; j < PedalPoints; ++j) {
+            for (int i = 0; i < PhasePoints; ++i) {
+                shape->setValue(i, j, shape->getXAxis(i));
+            }
         }
     }
 }
@@ -571,10 +598,15 @@ void powertrain::TransmissionControlUnit::advanceShift(
 
         m_engagePhase = t;
 
+        const double pedal = std::clamp(inputs.accelerator, 0.0, 1.0);
+        const double shaped =
+            std::clamp(m_overlapShape.sample(t, pedal), 0.0, 1.0);
+
         const double oncoming =
-            std::clamp(t + m_engageProfile.correction(t), 0.0, 1.0);
+            std::clamp(shaped + m_engageProfile.correction(t), 0.0, 1.0);
         const double offgoing =
-            std::clamp((1.0 - t) + m_params.overlapHold * (1.0 - std::abs(2.0 * t - 1.0)),
+            std::clamp((1.0 - shaped)
+                + m_params.overlapHold * (1.0 - std::abs(2.0 * t - 1.0)),
                 0.0, 1.0);
 
         const int target = clutchForGear(m_targetGear);
@@ -608,7 +640,12 @@ void powertrain::TransmissionControlUnit::advanceShift(
             : 1.0;
 
         m_engagePhase = t;
-        m_clutchPressure = std::clamp(t + m_engageProfile.correction(t), 0.0, 1.0);
+
+        const double pedal = std::clamp(inputs.accelerator, 0.0, 1.0);
+        const double shaped =
+            std::clamp(m_engageShape.sample(t, pedal), 0.0, 1.0);
+
+        m_clutchPressure = std::clamp(shaped + m_engageProfile.correction(t), 0.0, 1.0);
         m_bus.torqueReductionRequest = m_params.shiftTorqueReduction * (1.0 - t);
 
         if (t >= 1.0) {
@@ -849,6 +886,12 @@ void powertrain::TransmissionControlUnit::registerParameters(
     registry->registerMap(
         describe(base + "lockup_map", 0.0, 200.0, 0.0, "m/s"),
         &m_lockupMap);
+    registry->registerMap(
+        describe(base + "overlap_shape", 0.0, 1.0, 0.0, ""),
+        &m_overlapShape);
+    registry->registerMap(
+        describe(base + "engage_shape", 0.0, 1.0, 0.0, ""),
+        &m_engageShape);
 
     config::ParameterDescriptor upshift =
         describe(base + "upshift_map", 0.0, 200.0, 0.0, "m/s");
