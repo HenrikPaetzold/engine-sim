@@ -66,6 +66,29 @@ main { display: grid; grid-template-columns: minmax(320px, 1fr) 560px; gap: 0; }
 #view { width: 100%; height: auto; display: block; background: var(--panel);
         border: 1px solid var(--line); border-radius: 3px; }
 #viewNote { color: var(--muted); font-size: 11px; margin-top: 6px; min-height: 1.5em; }
+#cellEditor {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 6px;
+    font-size: 11px;
+    color: #8b93a1;
+}
+
+#cellEditor select,
+#cellEditor input {
+    font: inherit;
+    background: #12151b;
+    color: #dfe3ea;
+    border: 1px solid #2a2f3a;
+    border-radius: 3px;
+    padding: 2px 4px;
+}
+
+#cellEditor input {
+    width: 90px;
+}
+
 #viewTools { display: flex; gap: 6px; margin-top: 6px; }
 #viewTools button {
     background: var(--panel); color: var(--muted);
@@ -117,6 +140,7 @@ pre {
             <div id="tabs"></div>
             <canvas id="view" width="720" height="420"></canvas>
             <div id="viewTools"></div>
+            <div id="cellEditor"></div>
             <div id="viewNote"></div>
         </div>
         <div class="group">
@@ -144,7 +168,7 @@ pre {
 </main>
 
 <script>
-const state = { schema: null, values: {}, telemetry: {}, dirty: new Set() };
+const state = { schema: null, values: {}, maps: {}, adaptive: {}, telemetry: {}, dirty: new Set() };
 const history = [];
 const HISTORY = 240;
 
@@ -200,6 +224,7 @@ function buildParameters() {
 
             const learn = document.createElement("input");
             learn.type = "checkbox";
+            learn.dataset.path = p.path;
             learn.checked = !!p.adaptive;
             learn.title = "let the adaption write this parameter";
             learn.addEventListener("change", () => {
@@ -259,9 +284,20 @@ function buildModes() {
 }
 
 function applyValues() {
+    for (const [path, flag] of Object.entries(state.adaptive)) {
+        for (const box of document.querySelectorAll(
+            'input[type=checkbox][data-path="' + CSS.escape(path) + '"]'))
+        {
+            if (box.checked === flag) continue;
+            box.checked = flag;
+            box.closest(".row").className = "row" + (flag ? " adaptive" : "");
+        }
+    }
+
     for (const [path, value] of Object.entries(state.values)) {
         if (state.dirty.has(path)) continue;
         for (const input of document.querySelectorAll('[data-path="' + CSS.escape(path) + '"]')) {
+            if (input.type === "checkbox") continue;
             const rounded = Math.abs(value) >= 1000 ? value.toFixed(1) : value.toPrecision(5);
             if (input.type === "number") input.value = Number(rounded);
             else input.value = value;
@@ -392,7 +428,12 @@ const CLOUD = 4000;
 function mapOf(path) {
     if (state.schema == null) return null;
     for (const p of state.schema.registry.parameters) {
-        if (p.path === path && p.type === "map") return p;
+        if (p.path !== path || p.type !== "map") continue;
+
+        const live = state.maps[path];
+        if (live == null) return null;
+
+        return { path: p.path, xAxis: p.xAxis, yAxis: p.yAxis, values: live };
     }
     return null;
 }
@@ -441,6 +482,7 @@ const GEAR_COLORS = ["#6fb2ff", "#7ddc9a", "#fdbd2e", "#ff8f6f", "#c48fff", "#5f
 
 views.shiftmap = {
     label: "Shift map",
+    maps: ["tcu.upshift_map", "tcu.downshift_map", "tcu.lockup_map", "tcu.overlap_shape", "tcu.engage_shape"],
     note: "solid = upshift, dashed = downshift, dotted = converter lockup. the gap between a pair is the hysteresis.",
     draw(ctx, w, h) {
         const up = mapOf("tcu.upshift_map");
@@ -496,6 +538,7 @@ views.shiftmap = {
 
 views.throttlemap = {
     label: "Throttle map",
+    maps: ["ecu.throttle_map", "ecu.max_torque_map"],
     note: "engine speed vs requested torque, colour is the plate. delta shows what the estimator learned.",
     tools: [
         ["absolute / delta", () => { views.throttlemap.delta = !views.throttlemap.delta; }],
@@ -505,7 +548,10 @@ views.throttlemap = {
     draw(ctx, w, h) {
         const m = mapOf("ecu.throttle_map");
         if (m == null) { frame(ctx, w, h, "", ""); return; }
-        if (throttleBaseline == null) throttleBaseline = m.values.slice();
+        if (throttleBaseline == null && Object.keys(state.maps).length > 0) {
+            throttleBaseline = m.values.slice();
+        }
+        if (throttleBaseline == null) { frame(ctx, w, h, "", ""); return; }
 
         const box = frame(ctx, w, h, "engine speed  rpm", "torque  Nm");
         const xMax = m.xAxis[m.xAxis.length - 1];
@@ -557,6 +603,7 @@ function units_rpm(rpm) { return rpm * 2 * Math.PI / 60; }
 
 views.pedal = {
     label: "Pedal",
+    maps: ["ecu.pedal_map"],
     note: "pedal travel against requested torque fraction. hold freezes the curve so you can switch modes and compare.",
     tools: [
         ["hold", () => {
@@ -698,6 +745,86 @@ function buildTabs() {
     }
 
     document.getElementById("viewNote").textContent = views[activeView].note;
+
+    buildCellEditor();
+}
+
+function editableMaps() {
+    const paths = views[activeView].maps || [];
+    return paths.filter(path => mapOf(path) != null);
+}
+
+function buildCellEditor() {
+    const host = document.getElementById("cellEditor");
+    host.textContent = "";
+
+    const paths = editableMaps();
+    if (!paths.length) return;
+
+    const which = document.createElement("select");
+    for (const path of paths) {
+        const option = document.createElement("option");
+        option.value = path;
+        option.textContent = path;
+        which.appendChild(option);
+    }
+
+    const column = document.createElement("select");
+    const row = document.createElement("select");
+    const value = document.createElement("input");
+    value.type = "number";
+    value.step = "any";
+
+    const axes = () => {
+        const m = mapOf(which.value);
+        if (m == null) return;
+
+        column.textContent = "";
+        m.xAxis.forEach((x, i) => {
+            const option = document.createElement("option");
+            option.value = i;
+            option.textContent = "x " + Number(x.toPrecision(4));
+            column.appendChild(option);
+        });
+
+        row.textContent = "";
+        m.yAxis.forEach((y, j) => {
+            const option = document.createElement("option");
+            option.value = j;
+            option.textContent = "y " + Number(y.toPrecision(4));
+            row.appendChild(option);
+        });
+    };
+
+    const show = () => {
+        const m = mapOf(which.value);
+        if (m == null) return;
+        value.value = Number(
+            mapValue(m, Number(column.value), Number(row.value)).toPrecision(6));
+    };
+
+    const write = () => {
+        const path = which.value
+            + "[" + Number(column.value) + "][" + Number(row.value) + "]";
+        api("/api/set", { path, value: Number(value.value) }).catch(() => {});
+    };
+
+    which.addEventListener("change", () => { axes(); show(); });
+    column.addEventListener("change", show);
+    row.addEventListener("change", show);
+    value.addEventListener("change", write);
+
+    axes();
+    show();
+
+    const label = document.createElement("span");
+    label.textContent = "cell";
+
+    host.appendChild(label);
+    host.appendChild(which);
+    host.appendChild(column);
+    host.appendChild(row);
+    host.appendChild(value);
 }
 
 function drawView() {
@@ -718,6 +845,8 @@ async function poll() {
         const data = await api("/api/state");
         state.values = data.values;
         state.telemetry = data.telemetry;
+        state.maps = data.maps || {};
+        state.adaptive = data.adaptive || {};
 
         history.push(data.telemetry);
         while (history.length > HISTORY) history.shift();
@@ -725,6 +854,12 @@ async function poll() {
         applyValues();
         renderTelemetry();
         plot();
+
+        if (document.getElementById("cellEditor").childElementCount === 0
+            && editableMaps().length > 0)
+        {
+            buildCellEditor();
+        }
 
         if (state.telemetry.engineRpm > 1) {
             cloud.push({
@@ -755,7 +890,6 @@ async function pollExport() {
         document.getElementById("overrides").textContent =
             overrides.trim() || "everything is at its script value";
 
-        state.schema = await api("/api/schema");
         await pollShifts();
     }
     catch (error) { /* keep the previous contents */ }

@@ -3,6 +3,7 @@
 #include "../../include/config/parameter_registry.h"
 #include "../../include/config/drive_mode.h"
 #include "../../include/config/shift_recorder.h"
+#include "../../include/control/map_2d.h"
 
 #include "../../dependencies/cpp-httplib/httplib.h"
 
@@ -131,6 +132,45 @@ void config::ConfigServer::refreshState(const TelemetrySample &sample) {
             first = false;
 
             out << jsonString(d.path) << ':' << m_registry->getValue(i);
+        }
+    }
+
+    out << "},\"adaptive\":{";
+
+    if (m_registry != nullptr) {
+        bool first = true;
+        for (int i = 0; i < m_registry->getCount(); ++i) {
+            const ParameterDescriptor &d = m_registry->getDescriptor(i);
+
+            if (!first) out << ',';
+            first = false;
+
+            out << jsonString(d.path) << ':' << (d.adaptive ? "true" : "false");
+        }
+    }
+
+    out << "},\"maps\":{";
+
+    if (m_registry != nullptr) {
+        bool first = true;
+        for (int i = 0; i < m_registry->getCount(); ++i) {
+            const ParameterDescriptor &d = m_registry->getDescriptor(i);
+            if (d.type != ParameterType::Map) continue;
+
+            const control::Map2d *map = m_registry->getMap(i);
+            if (map == nullptr || !map->isInitialized()) continue;
+
+            if (!first) out << ',';
+            first = false;
+
+            out << jsonString(d.path) << ":[";
+            for (int y = 0; y < map->getYCount(); ++y) {
+                for (int x = 0; x < map->getXCount(); ++x) {
+                    if (x != 0 || y != 0) out << ',';
+                    out << map->getValue(x, y);
+                }
+            }
+            out << ']';
         }
     }
 

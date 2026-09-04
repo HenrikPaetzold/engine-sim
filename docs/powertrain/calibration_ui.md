@@ -131,6 +131,37 @@ sonst hätten die Aufnahmen keine gemeinsame Zeitbasis und ließen sich nicht
 vorbereiteten String — dasselbe Muster wie `/api/export`, damit der Serverthread die
 Simulationsdaten nie direkt liest.
 
+## Was live läuft
+
+Die Trennlinie ist bewusst gezogen:
+
+| | Inhalt | Takt |
+|---|---|---|
+| `/api/schema` | nur **Unveränderliches**: Pfade, Typ, Einheit, Grenzen, Vorgabewert, Kennfeld-Achsen | einmal beim Laden |
+| `/api/state` | alles **Veränderliche**: Skalarwerte, **Kennfeldwerte**, **Adaptiv-Kennzeichen**, Telemetrie | 100 ms |
+| `/api/shifts` | die letzten acht Schaltaufzeichnungen | 2 s |
+| `/api/export` `/api/overrides` | gelernte bzw. geänderte Werte als Skript | 2 s |
+
+Damit ist per Konstruktion nichts eingefroren: was sich ändern kann, liegt im
+Live-Pfad; was im Schema steht, kann sich nicht ändern.
+
+Vorher schrieb `refreshState()` nur die skalaren Werte und übersprang jedes
+Kennfeld; die Kennfeldwerte standen ausschließlich im Schema, das genau einmal
+beim Start gebaut wurde. Die Delta-Ansicht des Drosselklappen-Kennfelds
+verglich dadurch zwei Kopien desselben eingefrorenen Zustands und konnte
+nichts anzeigen — genau die Ansicht, die dem Schätzer beim Lernen zusehen soll.
+
+Alle Kennfelder zusammen sind rund 310 Werte, also etwa vier Kilobyte Text je
+Abruf. Über localhost ist das belanglos.
+
+## Zellen bearbeiten
+
+Unter der Zeichnung steht in jeder Kennfeldansicht ein Editor: Kennfeld
+auswählen, Spalte und Zeile wählen, Wert eingeben. Geschrieben wird über
+`POST /api/set` mit dem Zellenpfad, und der neue Wert kommt über denselben
+Live-Pfad zurück — die Zeichnung zieht also im nächsten Takt nach, ohne
+Sonderweg.
+
 ## Kennfelder als Overlay
 
 Bis hierher war die ganze Überschreibungskette skalar: `DriveMode::set()` hielt

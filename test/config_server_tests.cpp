@@ -3,6 +3,7 @@
 #include "../include/config/config_server.h"
 #include "../include/config/parameter_registry.h"
 #include "../include/config/drive_mode.h"
+#include "../include/control/map_2d.h"
 
 #include "../dependencies/cpp-httplib/httplib.h"
 
@@ -36,6 +37,14 @@ namespace {
                 learned.adaptMax = 1.0;
                 m_registry.registerScalar(learned, &m_trim);
 
+                m_map.initialize(3, 2, 5.0);
+                for (int i = 0; i < 3; ++i) m_map.setXAxis(i, i);
+                for (int j = 0; j < 2; ++j) m_map.setYAxis(j, j);
+
+                config::ParameterDescriptor table = scalar("tcu.upshift_map", 0.0, 100.0, 0.0);
+                table.type = config::ParameterType::Map;
+                m_registry.registerMap(table, &m_map);
+
                 config::DriveMode sport("sport");
                 sport.set("ecu.limiter.rev_limit", 900.0);
                 m_modes.add(sport);
@@ -65,6 +74,7 @@ namespace {
                 return c;
             }
 
+            control::Map2d m_map;
             config::ParameterRegistry m_registry;
             config::DriveModeSet m_modes;
             config::ConfigServer m_server;
@@ -241,4 +251,59 @@ TEST_F(ServerFixture, ServerStopsCleanly) {
 
     m_server.stop();
     EXPECT_FALSE(m_server.isRunning());
+}
+
+TEST_F(ServerFixture, TheStateCarriesTheMapValues) {
+    m_server.publish(config::TelemetrySample());
+
+    auto response = client().Get("/api/state");
+    ASSERT_TRUE(response);
+
+    EXPECT_NE(response->body.find("\"maps\""), std::string::npos)
+        << "the live state has no map section";
+    EXPECT_NE(response->body.find("\"tcu.upshift_map\":[5,5,5,5,5,5]"), std::string::npos);
+}
+
+TEST_F(ServerFixture, AWrittenCellComesBackInTheLiveState) {
+    auto post = client().Post(
+        "/api/set",
+        "{\"path\":\"tcu.upshift_map[1][0]\",\"value\":42}",
+        "application/json");
+
+    ASSERT_TRUE(post);
+    ASSERT_EQ(post->status, 200);
+
+    EXPECT_EQ(m_server.applyPendingCommands(), 1);
+
+    m_server.publish(config::TelemetrySample());
+
+    auto response = client().Get("/api/state");
+    ASSERT_TRUE(response);
+
+    EXPECT_NE(response->body.find("\"tcu.upshift_map\":[5,42,5,5,5,5]"), std::string::npos)
+        << "the written cell did not reach the live state";
+}
+
+TEST_F(ServerFixture, TheStateCarriesTheAdaptiveFlags) {
+    m_server.publish(config::TelemetrySample());
+
+    auto first = client().Get("/api/state");
+    ASSERT_TRUE(first);
+    EXPECT_NE(first->body.find("\"ecu.idle.trim\":true"), std::string::npos);
+    EXPECT_NE(first->body.find("\"ecu.limiter.rev_limit\":false"), std::string::npos);
+
+    auto post = client().Post(
+        "/api/adaptive",
+        "{\"path\":\"ecu.limiter.rev_limit\",\"value\":1}",
+        "application/json");
+
+    ASSERT_TRUE(post);
+    EXPECT_EQ(m_server.applyPendingCommands(), 1);
+
+    m_server.publish(config::TelemetrySample());
+
+    auto second = client().Get("/api/state");
+    ASSERT_TRUE(second);
+    EXPECT_NE(second->body.find("\"ecu.limiter.rev_limit\":true"), std::string::npos)
+        << "the adaptive flag did not follow";
 }
