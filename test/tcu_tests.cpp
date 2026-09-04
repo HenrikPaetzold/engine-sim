@@ -171,7 +171,7 @@ TEST(TransmissionControlUnitTests, TorqueReductionIsRequestedThenReleased) {
     }
 
     ASSERT_TRUE(started);
-    EXPECT_NEAR(peak, tcuParameters().shiftTorqueReduction, 1e-9);
+    EXPECT_NEAR(peak, tcuParameters().shiftTorqueCut, 1e-9);
     EXPECT_NEAR(tcu.getBus().torqueReductionRequest, 0.0, 1e-12);
     EXPECT_FALSE(tcu.isShifting());
 }
@@ -270,15 +270,21 @@ TEST(TransmissionControlUnitTests, LaunchControlsSlipThenLocksUp) {
     inputs.accelerator = 0.6;
     powertrain::ActuatorCommands commands;
 
+    state.clutchSlipSpeed[0] = units::rpm(200.0);
+    for (int i = 0; i < 200; ++i) tcu.update(1e-3, state, inputs, &commands);
+    const double lightSlip = commands.clutchPressure[0];
+
+    tcu.reset();
     state.clutchSlipSpeed[0] = units::rpm(2000.0);
-    for (int i = 0; i < 500; ++i) tcu.update(1e-3, state, inputs, &commands);
-    const double slipping = commands.clutchPressure[0];
+    for (int i = 0; i < 200; ++i) tcu.update(1e-3, state, inputs, &commands);
+    const double heavySlip = commands.clutchPressure[0];
+
+    EXPECT_GT(heavySlip, lightSlip) << "more slip did not close the clutch harder";
 
     state.clutchSlipSpeed[0] = units::rpm(10.0);
     state.vehicleSpeed = 10.0;
     tcu.update(1e-3, state, inputs, &commands);
 
-    EXPECT_LT(slipping, 1.0);
     EXPECT_NEAR(commands.clutchPressure[0], 1.0, 1e-9);
 }
 

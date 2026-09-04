@@ -21,6 +21,7 @@ namespace powertrain {
 
         int targetGear = -1;
         int preselectGear = -1;
+        int clutchGear[MaxClutches] = { -1, -1 };
 
         double clutchPressure[MaxClutches] = { 0.0, 0.0 };
         double lockupPressure = 0.0;

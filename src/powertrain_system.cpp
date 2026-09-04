@@ -315,6 +315,10 @@ void PowertrainSystem::applyCommands() {
 
         if (transmission->supportsPreselect()) {
             transmission->setPreselectedGear(m_commands.preselectGear);
+
+            for (int i = 0; i < powertrain::MaxClutches; ++i) {
+                transmission->setClutchGear(i, m_commands.clutchGear[i]);
+            }
         }
 
         if (transmission->hasLaunchDevice()) {

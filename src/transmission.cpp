@@ -24,6 +24,7 @@ Transmission::Transmission() {
 
     for (int i = 0; i < ClutchCount; ++i) {
         m_clutchPressure[i] = 0.0;
+        m_clutchGear[i] = -1;
     }
 }
 
@@ -121,6 +122,18 @@ void Transmission::addParkLockForTest(atg_scs::RigidBodySystem *system) {
     system->addConstraint(&m_parkLock);
 }
 
+void Transmission::setClutchGear(int clutch, int gear) {
+    if (clutch < 0 || clutch >= ClutchCount) return;
+    if (gear < -1 || gear >= m_gearCount) return;
+
+    m_clutchGear[clutch] = gear;
+}
+
+int Transmission::getClutchGear(int clutch) const {
+    if (clutch < 0 || clutch >= ClutchCount) return -1;
+    return m_clutchGear[clutch];
+}
+
 void Transmission::setPreselectedGear(int gear) {
     if (gear < -1 || gear >= m_gearCount) return;
     m_preselectedGear = gear;
@@ -150,7 +163,16 @@ void Transmission::updateDrivelineInertia() {
 }
 
 void Transmission::updateRatioClutches() {
-    const int gears[ClutchCount] = { m_gear, m_preselectedGear };
+    int gears[ClutchCount] = { m_gear, m_preselectedGear };
+
+    bool assigned = false;
+    for (int i = 0; i < ClutchCount; ++i) {
+        if (m_clutchGear[i] >= 0) assigned = true;
+    }
+
+    if (m_type == Type::DualClutch && assigned) {
+        for (int i = 0; i < ClutchCount; ++i) gears[i] = m_clutchGear[i];
+    }
 
     for (int i = 0; i < ClutchCount; ++i) {
         RatioClutchConstraint &clutch = m_ratioClutch[i];

@@ -130,6 +130,84 @@ Die Stall-Drehzahl folgt daraus als `ω = sqrt(M_Motor / C₀)` — verifiziert 
 Wandler auch im Schub wirksam, wenn die Turbine schneller läuft als die Pumpe;
 `TR` ist dort auf 1 begrenzt, weil ein Wandler rückwärts nicht multipliziert.
 
+## Schaltstrategie
+
+Die Constraints tragen die drei Bauarten; welche Kupplung wann welchen Druck
+bekommt, entscheidet die TCU.
+
+### Doppelkupplung: Parität
+
+`clutchForGear(g) = g % 2`. Gang 1 und 3 liegen auf Kupplung A, Gang 2 und 4 auf
+B. Die TCU führt `m_clutchGear[2]` und `m_activeClutch` und schickt die Zuordnung
+über `ActuatorCommands::clutchGear[]` an `Transmission::setClutchGear()`; dort
+liest `updateRatioClutches()` sie statt der früheren Konvention
+„Kupplung 0 = aktueller Gang, Kupplung 1 = vorgewählter Gang". Setzt niemand die
+Zuordnung, fällt das Getriebe auf diese Konvention zurück.
+
+Im Ruhezustand legt `preselectedNeighbour()` auf der freien Kupplung den Gang an,
+dem der Schaltplan am nächsten ist: der Abstand zur Hochschaltschwelle wird gegen
+den Abstand zur Rückschaltschwelle gehalten, beide aus `m_upshiftMap` und
+`m_downshiftMap`. Bei Vollgas steht der nächsthöhere, im Schub der
+nächstniedrigere Gang bereit.
+
+Ein Sprung über zwei Gänge trifft dieselbe Parität und damit dieselbe Welle.
+`beginShift()` erkennt das (`sameShaft`) und fällt auf `TorqueReduction` zurück —
+öffnen, umlegen, schließen. Das ist kein Notnagel, sondern was die Hardware tut.
+
+### Überblendung mit Rückführung
+
+`ClutchOverlap` ist eine Zeitrampe als Vorsteuerung plus die ILC-Korrektur:
+
+```
+oncoming = t + engageProfile.correction(t)
+offgoing = (1 − t) + overlapHold · (1 − |2t − 1|)
+```
+
+`overlapHold` hält beide Kupplungen in der Mitte der Überblendung zusätzlich
+geschlossen, damit das Moment nie abreißt. `m_engagePhase` wird auch hier
+gesetzt, und das Tor der Adaption
+(`src/adaptation/adaptation_manager.cpp`) steht auf
+`ClutchEngage || ClutchOverlap` — damit lernt das DCT seine Schaltungen wie das
+AMT.
+
+### Wandler: Kennfeld und Schlupfregler
+
+`m_lockupMap` hat dieselbe Form wie die Schaltkennfelder (x = Pedal, y = Gang),
+der Wert ist die Geschwindigkeit, ab der überbrückt wird. Drei Zustände:
+
+| | Bedingung |
+|---|---|
+| offen | unter der Kennfeldschwelle, während einer Schaltung, oder Pedal über `kickdownThreshold` |
+| schlupfend | über der Schwelle — der Regler führt `converterSlip` auf `lockupSlipTarget` |
+| zu | Schlupf unter `lockupLockSlip` |
+
+Der Regler ist rückwärtswirkend (`update(dt, −Sollschlupf, −Istschlupf)`): mehr
+Schlupf heißt mehr Druck. Sein Ausgang läuft durch einen Ratenbegrenzer
+(`lockupApplyRate`, Standard 1.5 1/s), der die hydraulische Füllzeit abbildet —
+zugehen dauert, aufgehen ist sofort. Dieselbe Struktur regelt in
+`launchPressure()` die Anfahrkupplung.
+
+Kriechen fällt aus der Physik: in einer Vorwärtsraste liefert `launchPressure()`
+für `hasLaunchDevice` konstant 1.0, der Gang ist eingelegt, und der Wandler
+überträgt im Stillstand sein Stall-Moment
+(`TorqueConverterTests.TheConverterCreepsForwardWithoutThrottle`).
+
+### AMT: die Zugkraftunterbrechung
+
+`shiftTorqueCut` (Standard 1.0) gilt für `ClutchRelease` und `GearChange`, wo das
+Moment vollständig weg soll, damit der Motor auf die neue Synchrondrehzahl
+fällt. `shiftTorqueReduction` bleibt für `ClutchOverlap` und `ClutchEngage`, wo
+ein Restmoment gewollt ist. Das Zwischengas bei Rückschaltungen läuft über
+`m_bus.speedRequest`; die ECU hebt daraufhin den Leerlaufsollwert an und hat dort
+volle Stellautorität.
+
+### Vorgaben je Bauart
+
+`es/powertrain/gearboxes.mr` liefert zu jedem Getriebe eine passende
+Kalibrierung: `manual_control()`, `robotised_manual_control()`,
+`dual_clutch_control()` und `converter_control()`. Sie setzen nur Vorgaben auf
+`transmission_control_unit()` — jeder Eingang bleibt einzeln überschreibbar.
+
 ## Rückwärtskompatibilität
 
 `Transmission::Type::Legacy` ist der Default und behält das alte Verhalten

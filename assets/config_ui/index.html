@@ -441,14 +441,15 @@ const GEAR_COLORS = ["#6fb2ff", "#7ddc9a", "#fdbd2e", "#ff8f6f", "#c48fff", "#5f
 
 views.shiftmap = {
     label: "Shift map",
-    note: "solid = upshift, dashed = downshift. the gap between a pair is the hysteresis.",
+    note: "solid = upshift, dashed = downshift, dotted = converter lockup. the gap between a pair is the hysteresis.",
     draw(ctx, w, h) {
         const up = mapOf("tcu.upshift_map");
         const down = mapOf("tcu.downshift_map");
+        const lockup = mapOf("tcu.lockup_map");
         if (up == null) { frame(ctx, w, h, "", ""); return; }
 
         let peak = 1;
-        for (const m of [up, down]) {
+        for (const m of [up, down, lockup]) {
             if (m != null) for (const v of m.values) peak = Math.max(peak, v);
         }
         peak = Math.ceil(peak * 3.6 / 20) * 20;
@@ -479,6 +480,7 @@ views.shiftmap = {
 
         series(up, []);
         series(down, [4, 3]);
+        series(lockup, [1, 4]);
 
         const t = state.telemetry;
         if (t.vehicleSpeed != null) {

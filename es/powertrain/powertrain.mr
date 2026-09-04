@@ -78,6 +78,12 @@ public node transmission_control_unit => __engine_sim__transmission_control_unit
     input launch_device [bool]: false;
     input driver_clutch [bool]: false;
     input torque_reduction [float]: 0.70;
+    input torque_cut [float]: 1.00;
+    input overlap_hold [float]: 0.15;
+    input speed_match_tolerance [float]: 120 * units.rpm;
+    input lockup_slip_target [float]: 120 * units.rpm;
+    input lockup_lock_slip [float]: 25 * units.rpm;
+    input lockup_apply_rate [float]: 1.5;
     input torque_reduction_time [float]: 0.08 * units.sec;
     input clutch_release_time [float]: 0.10 * units.sec;
     input gear_change_time [float]: 0.06 * units.sec;
@@ -95,6 +101,8 @@ public node transmission_control_unit => __engine_sim__transmission_control_unit
     input slip_controller [pid_controller_channel]: pid_controller(kp: 0.004, ki: 0.9, min: 0.0, max: 1.0);
     input upshift_map [map_2d_channel]: map_2d();
     input downshift_map [map_2d_channel]: map_2d();
+    input lockup_map [map_2d_channel]: map_2d();
+    input lockup_controller [pid_controller_channel]: pid_controller(kp: 0.004, ki: 0.9, min: 0.0, max: 1.0);
 
     alias output __out [tcu_channel];
 }

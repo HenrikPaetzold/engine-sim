@@ -355,6 +355,77 @@ TEST_F(ScriptFixture, TheGearboxLibraryBuildsEveryKind) {
     }
 }
 
+TEST_F(ScriptFixture, TheControlPresetsMatchTheGearboxKinds) {
+    struct Case {
+        const char *node;
+        bool torqueInterrupt;
+        bool preselect;
+        bool launchDevice;
+    };
+
+    const Case cases[] = {
+        { "manual_control()", true, false, false },
+        { "robotised_manual_control()", true, false, false },
+        { "dual_clutch_control()", false, true, false },
+        { "converter_control()", false, false, true } };
+
+    for (const Case &c : cases) {
+        delete es_script::Compiler::output()->powertrain;
+        delete es_script::Compiler::output()->controlProgram;
+        *es_script::Compiler::output() = es_script::Compiler::Output();
+
+        const std::string body =
+            std::string("set_powertrain(tcu: ") + c.node + ")\n";
+        ASSERT_TRUE(run(body)) << c.node;
+
+        powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+        ASSERT_NE(unit, nullptr) << c.node;
+
+        const powertrain::TransmissionControlUnit::Parameters &params =
+            unit->getTransmissionControlUnit().getParameters();
+
+        EXPECT_EQ(params.requiresTorqueInterrupt, c.torqueInterrupt) << c.node;
+        EXPECT_EQ(params.supportsPreselect, c.preselect) << c.node;
+        EXPECT_EQ(params.hasLaunchDevice, c.launchDevice) << c.node;
+    }
+}
+
+TEST_F(ScriptFixture, TheShiftAndLockupParametersReachTheControlUnit) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    tcu: transmission_control_unit(\n"
+        "        torque_cut: 0.95,\n"
+        "        overlap_hold: 0.30,\n"
+        "        speed_match_tolerance: 200 * units.rpm,\n"
+        "        lockup_slip_target: 80 * units.rpm,\n"
+        "        lockup_lock_slip: 15 * units.rpm,\n"
+        "        lockup_apply_rate: 4.0,\n"
+        "        lockup_controller: pid_controller(kp: 0.01, ki: 2.0, min: 0.0, max: 1.0),\n"
+        "        lockup_map: map_2d()\n"
+        "            .add_map_sample(x: 0.0, y: 0.0, value: 8.0)\n"
+        "            .add_map_sample(x: 1.0, y: 0.0, value: 30.0)))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    const powertrain::TransmissionControlUnit &tcu = unit->getTransmissionControlUnit();
+    const powertrain::TransmissionControlUnit::Parameters &params = tcu.getParameters();
+
+    EXPECT_NEAR(params.shiftTorqueCut, 0.95, 1e-12);
+    EXPECT_NEAR(params.overlapHold, 0.30, 1e-12);
+    EXPECT_NEAR(params.speedMatchTolerance, units::rpm(200.0), 1e-9);
+    EXPECT_NEAR(params.lockupSlipTarget, units::rpm(80.0), 1e-9);
+    EXPECT_NEAR(params.lockupLockSlip, units::rpm(15.0), 1e-9);
+    EXPECT_NEAR(params.lockupApplyRate, 4.0, 1e-12);
+    EXPECT_NEAR(params.lockupController.kp, 0.01, 1e-12);
+    EXPECT_NEAR(params.lockupController.ki, 2.0, 1e-12);
+
+    EXPECT_NEAR(
+        unit->getTransmissionControlUnit().getLockupMap().sample(0.0, 0.0),
+        8.0,
+        1e-9);
+}
+
 namespace {
     void runProgram(
         powertrain::ScriptedControlUnit *unit,

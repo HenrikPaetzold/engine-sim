@@ -8,6 +8,7 @@
 #include "../control/map_2d.h"
 #include "../control/hysteresis.h"
 #include "../control/iterative_learning.h"
+#include "../control/rate_limiter.h"
 #include "../units.h"
 
 namespace powertrain {
@@ -47,12 +48,19 @@ namespace powertrain {
                 double minGearTime = 0.80;
 
                 double shiftTorqueReduction = 0.70;
+                double shiftTorqueCut = 1.00;
+                double overlapHold = 0.15;
                 double kickdownThreshold = 0.85;
                 double speedMatchTolerance = units::rpm(120.0);
 
                 double launchSlipTarget = units::rpm(1000.0);
                 double launchLockSlip = units::rpm(60.0);
                 double launchSpeed = units::distance(2.0, units::m);
+                double lockupSlipTarget = units::rpm(120.0);
+                double lockupLockSlip = units::rpm(25.0);
+                double lockupApplyRate = 1.5;
+                control::PidController::Parameters lockupController =
+                    defaultLockupController();
                 double stallProtectSpeed = units::rpm(650.0);
 
                 bool brakeInterlock = true;
@@ -64,6 +72,7 @@ namespace powertrain {
             };
 
             static control::PidController::Parameters defaultSlipController();
+            static control::PidController::Parameters defaultLockupController();
 
         public:
             TransmissionControlUnit();
@@ -87,6 +96,7 @@ namespace powertrain {
             inline double getEngagePhase() const { return m_engagePhase; }
             inline int getCompletedShiftCount() const { return m_completedShifts; }
             inline control::Map2d &getDownshiftMap() { return m_downshiftMap; }
+            inline control::Map2d &getLockupMap() { return m_lockupMap; }
 
             inline ShiftState getShiftState() const { return m_shiftState; }
             inline SelectorGate &getGate() { return m_gate; }
@@ -102,6 +112,13 @@ namespace powertrain {
                 const PowertrainState &state,
                 const DriverInputs &inputs) const;
             inline int getTargetGear() const { return m_targetGear; }
+            inline int getActiveClutch() const { return m_activeClutch; }
+            int getClutchGear(int clutch) const;
+            int clutchForGear(int gear) const;
+            void beginShiftForTest(int gear) { beginShift(gear); }
+            int preselectedNeighbour(
+                const PowertrainState &state,
+                const DriverInputs &inputs) const;
             inline bool isShifting() const { return m_shiftState != ShiftState::Idle; }
             inline const Parameters &getParameters() const { return m_params; }
 
@@ -122,6 +139,13 @@ namespace powertrain {
             void resolvePosition(
                 const PowertrainState &state,
                 const DriverInputs &inputs);
+            void updateClutchAssignment(
+                const PowertrainState &state,
+                const DriverInputs &inputs);
+            double lockupPressure(
+                double dt,
+                const PowertrainState &state,
+                const DriverInputs &inputs);
             double launchPressure(
                 double dt,
                 const PowertrainState &state,
@@ -131,7 +155,11 @@ namespace powertrain {
 
             control::Map2d m_upshiftMap;
             control::Map2d m_downshiftMap;
+            control::Map2d m_lockupMap;
             control::PidController m_slipController;
+            control::PidController m_lockupController;
+            control::RateLimiter m_lockupLimiter;
+            double m_lockupPressure;
             control::IterativeLearningControl m_engageProfile;
 
             ShiftState m_shiftState;
@@ -145,6 +173,8 @@ namespace powertrain {
             int m_currentGear;
             int m_targetGear;
             int m_previousGear;
+            int m_clutchGear[MaxClutches];
+            int m_activeClutch;
 
             double m_engagePhase;
             int m_completedShifts;

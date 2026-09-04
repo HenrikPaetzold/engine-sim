@@ -180,8 +180,10 @@ void adaptation::AdaptationManager::updateShiftLearning(
 {
     if (!m_params.shiftEnabled || m_tcu == nullptr) return;
 
+    const powertrain::ShiftState shiftState = m_tcu->getShiftState();
     const bool engaging =
-        m_tcu->getShiftState() == powertrain::ShiftState::ClutchEngage;
+        shiftState == powertrain::ShiftState::ClutchEngage
+        || shiftState == powertrain::ShiftState::ClutchOverlap;
 
     if (engaging && !m_shiftActive) {
         m_shiftActive = true;

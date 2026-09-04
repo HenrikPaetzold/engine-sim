@@ -565,3 +565,86 @@ TEST(ParkLockTests, TheParkLockHoldsAgainstAGradeAndSlipsBeyondItsTorque) {
         }
     }
 }
+
+namespace {
+    class CreepRig {
+        public:
+            CreepRig(double brake) {
+                Vehicle::Parameters vp = vehicleParameters();
+                vp.dragCoefficient = 0.0;
+                vp.rollingResistance = 300.0;
+                vp.maxBrakeForce = 12000.0;
+                m_vehicle.initialize(vp);
+
+                m_crank.reset();
+                m_crank.m = 1.0;
+                m_crank.I = 0.2;
+
+                m_turbine.reset();
+                m_turbine.m = 1.0;
+                m_turbine.I = 0.08;
+
+                m_driveline.reset();
+                m_driveline.m = 1.0;
+                m_driveline.I = 1.0;
+
+                m_system.initialize(new atg_scs::GaussSeidelSleSolver);
+                m_system.addRigidBody(&m_crank);
+                m_system.addRigidBody(&m_turbine);
+                m_system.addRigidBody(&m_driveline);
+
+                m_vehicle.addToSystem(&m_system, &m_driveline);
+                m_vehicle.setBrake(brake);
+
+                const double f = vp.tireRadius / vp.diffRatio;
+                m_driveline.I = vp.mass * f * f;
+
+                m_converter.m_stallTorqueRatio = 2.0;
+                m_converter.m_couplingPoint = 0.85;
+                m_converter.m_capacityFactor = 4.04e-3;
+                m_converter.setPump(&m_crank);
+                m_converter.setTurbine(&m_turbine);
+                m_system.addConstraint(&m_converter);
+
+                m_clutch.setInput(&m_turbine);
+                m_clutch.setOutput(&m_driveline);
+                m_clutch.m_ratio = 3.60;
+                m_clutch.m_capacity = units::torque(1000.0, units::Nm);
+                m_clutch.m_pressure = 1.0;
+                m_system.addConstraint(&m_clutch);
+
+                m_drag.initialize(&m_driveline, &m_vehicle);
+                m_system.addConstraint(&m_drag);
+            }
+
+            void run(int steps) {
+                for (int i = 0; i < steps; ++i) {
+                    m_crank.v_theta = -units::rpm(800.0);
+                    m_system.process(1e-3, 1);
+                }
+            }
+
+            atg_scs::OptimizedNsvRigidBodySystem m_system;
+            atg_scs::RigidBody m_crank;
+            atg_scs::RigidBody m_turbine;
+            atg_scs::RigidBody m_driveline;
+            Vehicle m_vehicle;
+            TorqueConverterConstraint m_converter;
+            RatioClutchConstraint m_clutch;
+            VehicleDragConstraint m_drag;
+    };
+}
+
+TEST(TorqueConverterTests, TheConverterCreepsForwardWithoutThrottle) {
+    CreepRig rolling(0.0);
+    rolling.run(3000);
+
+    EXPECT_GT(rolling.m_vehicle.getSignedSpeed(), 0.5)
+        << "the converter did not creep in a forward detent";
+
+    CreepRig held(1.0);
+    held.run(3000);
+
+    EXPECT_NEAR(held.m_vehicle.getSpeed(), 0.0, 1e-2)
+        << "the brake did not hold against the stall torque";
+}

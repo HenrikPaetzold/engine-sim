@@ -16,6 +16,11 @@ namespace control {
                 m_primed = false;
             }
 
+            inline void setRates(double riseRate, double fallRate) {
+                m_riseRate = riseRate;
+                m_fallRate = fallRate;
+            }
+
             inline void reset(double value) {
                 m_value = value;
                 m_primed = true;

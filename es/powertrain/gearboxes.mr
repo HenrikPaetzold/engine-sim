@@ -7,6 +7,7 @@ private import "../types/conversions.mr"
 private import "../types/operations.mr"
 private import "../constants/units.mr"
 private import "../objects/objects.mr"
+private import "powertrain.mr"
 
 units units()
 
@@ -78,4 +79,97 @@ public node converter_gearbox {
             capacity_factor: capacity_factor,
             reverse_ratio: reverse_ratio,
             park_lock_torque: park_lock_torque);
+}
+
+public node manual_control {
+    input final_drive [float]: 3.42;
+    input tire_radius [float]: 12 * units.inch;
+    input default_position [string]: "N";
+
+    alias output __out [tcu_channel]:
+        transmission_control_unit(
+            final_drive: final_drive,
+            tire_radius: tire_radius,
+            torque_interrupt: true,
+            driver_clutch: true,
+            default_position: default_position);
+}
+
+public node robotised_manual_control {
+    input final_drive [float]: 3.42;
+    input tire_radius [float]: 12 * units.inch;
+    input torque_cut [float]: 1.00;
+    input torque_reduction [float]: 0.70;
+    input speed_match_time [float]: 0.30 * units.sec;
+    input speed_match_tolerance [float]: 120 * units.rpm;
+    input min_gear_time [float]: 0.60 * units.sec;
+    input default_position [string]: "N";
+
+    alias output __out [tcu_channel]:
+        transmission_control_unit(
+            final_drive: final_drive,
+            tire_radius: tire_radius,
+            torque_interrupt: true,
+            torque_cut: torque_cut,
+            torque_reduction: torque_reduction,
+            speed_match_time: speed_match_time,
+            speed_match_tolerance: speed_match_tolerance,
+            min_gear_time: min_gear_time,
+            default_position: default_position);
+}
+
+public node dual_clutch_control {
+    input final_drive [float]: 3.42;
+    input tire_radius [float]: 12 * units.inch;
+    input clutch_overlap_time [float]: 0.16 * units.sec;
+    input overlap_hold [float]: 0.20;
+    input torque_reduction [float]: 0.80;
+    input torque_cut [float]: 1.00;
+    input min_gear_time [float]: 0.35 * units.sec;
+    input default_position [string]: "N";
+
+    alias output __out [tcu_channel]:
+        transmission_control_unit(
+            final_drive: final_drive,
+            tire_radius: tire_radius,
+            torque_interrupt: false,
+            preselect: true,
+            clutch_overlap_time: clutch_overlap_time,
+            overlap_hold: overlap_hold,
+            torque_reduction: torque_reduction,
+            torque_cut: torque_cut,
+            min_gear_time: min_gear_time,
+            default_position: default_position);
+}
+
+public node converter_control {
+    input final_drive [float]: 3.42;
+    input tire_radius [float]: 12 * units.inch;
+    input clutch_overlap_time [float]: 0.25 * units.sec;
+    input overlap_hold [float]: 0.25;
+    input torque_reduction [float]: 0.85;
+    input lockup_slip_target [float]: 120 * units.rpm;
+    input lockup_lock_slip [float]: 25 * units.rpm;
+    input lockup_apply_rate [float]: 1.5;
+    input launch_slip_target [float]: 1000 * units.rpm;
+    input kickdown_threshold [float]: 0.85;
+    input min_gear_time [float]: 0.60 * units.sec;
+    input default_position [string]: "N";
+
+    alias output __out [tcu_channel]:
+        transmission_control_unit(
+            final_drive: final_drive,
+            tire_radius: tire_radius,
+            torque_interrupt: false,
+            launch_device: true,
+            clutch_overlap_time: clutch_overlap_time,
+            overlap_hold: overlap_hold,
+            torque_reduction: torque_reduction,
+            lockup_slip_target: lockup_slip_target,
+            lockup_lock_slip: lockup_lock_slip,
+            lockup_apply_rate: lockup_apply_rate,
+            launch_slip_target: launch_slip_target,
+            kickdown_threshold: kickdown_threshold,
+            min_gear_time: min_gear_time,
+            default_position: default_position);
 }

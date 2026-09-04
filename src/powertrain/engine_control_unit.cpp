@@ -238,6 +238,7 @@ void powertrain::EngineControlUnit::update(
     double coordinated = std::max(m_driverTorqueRequest, m_idleTorqueRequest);
     coordinated *= std::clamp(1.0 - m_bus.torqueReductionRequest, 0.0, 1.0);
 
+    m_torqueLimiter.setRates(m_params.torqueRiseRate, m_params.torqueFallRate);
     m_torqueRequest = m_torqueLimiter.update(dt, coordinated);
 
     m_feedforwardPlate = m_throttleMap.isInitialized()

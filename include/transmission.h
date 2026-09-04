@@ -74,6 +74,8 @@ class Transmission {
         void addParkLockForTest(atg_scs::RigidBodySystem *system);
 
         void setPreselectedGear(int gear);
+        void setClutchGear(int clutch, int gear);
+        int getClutchGear(int clutch) const;
         inline int getPreselectedGear() const { return m_preselectedGear; }
         inline void setLockupPressure(double pressure) { m_lockupPressure = pressure; }
         inline double getLockupPressure() const { return m_lockupPressure; }
@@ -119,6 +121,7 @@ class Transmission {
         double *m_gearRatios;
         double m_maxClutchTorque;
         double m_clutchPressure[ClutchCount];
+        int m_clutchGear[ClutchCount];
         double m_lockupPressure;
         double m_turbineInertia;
         double m_reverseRatio;

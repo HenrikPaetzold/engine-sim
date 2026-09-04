@@ -23,6 +23,7 @@ namespace {
         state.coolantTemperature = units::celcius(90.0);
         state.engineRunning = true;
         state.engineSpeed = units::rpm(900.0);
+        state.clutchSlipSpeed[0] = units::rpm(1500.0);
         state.gear = -1;
         state.gearCount = 6;
         state.vehicleSpeed = speed;

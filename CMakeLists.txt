@@ -405,6 +405,7 @@ add_executable(engine-sim-test
     test/tcu_tests.cpp
     test/driveline_tests.cpp
     test/range_tests.cpp
+    test/gearbox_strategy_tests.cpp
     test/control_program_tests.cpp
     test/learner_tests.cpp
     test/adaptation_tests.cpp

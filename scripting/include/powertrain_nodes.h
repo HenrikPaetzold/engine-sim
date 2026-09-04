@@ -109,6 +109,9 @@ namespace es_script {
             if (m_slipController != nullptr) {
                 parameters.slipController = m_slipController->getParameters();
             }
+            if (m_lockupController != nullptr) {
+                parameters.lockupController = m_lockupController->getParameters();
+            }
 
             tcu->initialize(parameters);
 
@@ -123,6 +126,9 @@ namespace es_script {
             if (m_downshiftMap != nullptr && !m_downshiftMap->isEmpty()) {
                 m_downshiftMap->generate(&tcu->getDownshiftMap());
             }
+            if (m_lockupMap != nullptr && !m_lockupMap->isEmpty()) {
+                m_lockupMap->generate(&tcu->getLockupMap());
+            }
         }
 
     protected:
@@ -134,6 +140,12 @@ namespace es_script {
             addInput("launch_device", &m_parameters.hasLaunchDevice);
             addInput("driver_clutch", &m_parameters.driverClutchAuthority);
             addInput("torque_reduction", &m_parameters.shiftTorqueReduction);
+            addInput("torque_cut", &m_parameters.shiftTorqueCut);
+            addInput("overlap_hold", &m_parameters.overlapHold);
+            addInput("speed_match_tolerance", &m_parameters.speedMatchTolerance);
+            addInput("lockup_slip_target", &m_parameters.lockupSlipTarget);
+            addInput("lockup_lock_slip", &m_parameters.lockupLockSlip);
+            addInput("lockup_apply_rate", &m_parameters.lockupApplyRate);
             addInput("torque_reduction_time", &m_parameters.torqueReductionTime);
             addInput("clutch_release_time", &m_parameters.clutchReleaseTime);
             addInput("gear_change_time", &m_parameters.gearChangeTime);
@@ -151,6 +163,8 @@ namespace es_script {
             addInput("slip_controller", &m_slipController, InputTarget::Type::Object);
             addInput("upshift_map", &m_upshiftMap, InputTarget::Type::Object);
             addInput("downshift_map", &m_downshiftMap, InputTarget::Type::Object);
+            addInput("lockup_map", &m_lockupMap, InputTarget::Type::Object);
+            addInput("lockup_controller", &m_lockupController, InputTarget::Type::Object);
 
             ObjectReferenceNode<TransmissionControlUnitNode>::registerInputs();
         }
@@ -167,6 +181,8 @@ namespace es_script {
         PidControllerNode *m_slipController = nullptr;
         Map2dNode *m_upshiftMap = nullptr;
         Map2dNode *m_downshiftMap = nullptr;
+        Map2dNode *m_lockupMap = nullptr;
+        PidControllerNode *m_lockupController = nullptr;
     };
 
     class GatePositionNode : public ObjectReferenceNode<GatePositionNode> {
