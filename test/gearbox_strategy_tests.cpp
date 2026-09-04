@@ -802,3 +802,156 @@ TEST(KickdownTests, TheKickdownIsReachableFromTheRegistry) {
         EXPECT_TRUE(registry.contains(path)) << path;
     }
 }
+
+// --- Doppelte Rueckschaltung ----------------------------------------------
+
+namespace {
+    powertrain::TransmissionControlUnit::Parameters bridgeParameters() {
+        powertrain::TransmissionControlUnit::Parameters params = dctParameters();
+        params.multiShiftViaIntermediate = true;
+        params.multiShiftMaxGears = 4.0;
+
+        return params;
+    }
+
+    void setBias(powertrain::TransmissionControlUnit &tcu, double bias) {
+        control::Map2d &map = tcu.getIntermediateBias();
+        for (int j = 0; j < map.getYCount(); ++j) {
+            for (int i = 0; i < map.getXCount(); ++i) map.setValue(i, j, bias);
+        }
+    }
+}
+
+TEST(MultiShiftTests, TheDefaultStillInterrupts) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(dctParameters());
+
+    powertrain::PowertrainState state = drivingState(4, 20.0);
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.manualMode = true;
+    step(tcu, state, inputs, commands, 400);
+
+    tcu.beginShiftForTest(2);
+
+    EXPECT_EQ(tcu.getShiftState(), powertrain::ShiftState::TorqueReduction);
+    EXPECT_EQ(tcu.getFinalGear(), -1);
+}
+
+TEST(MultiShiftTests, AnEvenJumpGoesOverTheIntermediateGear) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(bridgeParameters());
+
+    powertrain::PowertrainState state = drivingState(4, 20.0);
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.manualMode = true;
+    step(tcu, state, inputs, commands, 400);
+
+    tcu.beginShiftForTest(2);
+
+    ASSERT_EQ(tcu.getShiftState(), powertrain::ShiftState::ClutchOverlap)
+        << "the double downshift still interrupts";
+    EXPECT_EQ(tcu.getFinalGear(), 2);
+    EXPECT_EQ(tcu.getTargetGear(), 3) << "the bridge gear is not the neighbour of the target";
+
+    bool sawIntermediate = false;
+    bool sawInterrupt = false;
+    double lowest = 2.0;
+
+    for (int i = 0; i < 6000 && tcu.isShifting(); ++i) {
+        step(tcu, state, inputs, commands, 1);
+
+        if (tcu.getShiftState() == powertrain::ShiftState::TorqueReduction
+            || tcu.getShiftState() == powertrain::ShiftState::ClutchRelease)
+        {
+            sawInterrupt = true;
+        }
+
+        if (tcu.getShiftState() == powertrain::ShiftState::ClutchOverlap) {
+            lowest = std::min(
+                lowest,
+                commands.clutchPressure[0] + commands.clutchPressure[1]);
+        }
+
+        if (commands.targetGear == 3) sawIntermediate = true;
+    }
+
+    EXPECT_TRUE(sawIntermediate) << "the intermediate gear was never engaged";
+    EXPECT_FALSE(sawInterrupt) << "the manoeuvre fell back to a torque interrupt";
+    EXPECT_GT(lowest, 0.5) << "the torque collapsed between the two handovers";
+    EXPECT_EQ(commands.targetGear, 2) << "it did not arrive in the target gear";
+}
+
+TEST(MultiShiftTests, TheBiasChoosesTheIntermediateGear) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(bridgeParameters());
+
+    setBias(tcu, 1.0);
+    EXPECT_EQ(tcu.intermediateGear(5, 1, 0.5), 2)
+        << "bias 1 should pick the neighbour of the target";
+
+    setBias(tcu, 0.0);
+    EXPECT_EQ(tcu.intermediateGear(5, 1, 0.5), 4)
+        << "bias 0 should pick the neighbour of the current gear";
+}
+
+TEST(MultiShiftTests, ALongJumpFallsBackToTheInterrupt) {
+    powertrain::TransmissionControlUnit::Parameters params = bridgeParameters();
+    params.multiShiftMaxGears = 2.0;
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(params);
+
+    powertrain::PowertrainState state = drivingState(5, 20.0);
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.manualMode = true;
+    step(tcu, state, inputs, commands, 400);
+
+    tcu.beginShiftForTest(1);
+
+    EXPECT_EQ(tcu.getShiftState(), powertrain::ShiftState::TorqueReduction)
+        << "a jump beyond the limit should interrupt";
+}
+
+TEST(MultiShiftTests, ADoubleShiftTrainsTheProfileTwice) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(bridgeParameters());
+
+    powertrain::PowertrainState state = drivingState(4, 20.0);
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.manualMode = true;
+    step(tcu, state, inputs, commands, 400);
+
+    const int before = tcu.getCompletedShiftCount();
+    tcu.beginShiftForTest(2);
+
+    for (int i = 0; i < 6000 && tcu.isShifting(); ++i) {
+        step(tcu, state, inputs, commands, 1);
+    }
+
+    EXPECT_EQ(tcu.getCompletedShiftCount(), before + 2)
+        << "a double shift is two handovers, so two learning steps";
+}
+
+TEST(MultiShiftTests, TheStrategyIsReachableFromTheRegistry) {
+    config::ParameterRegistry registry;
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(bridgeParameters());
+    tcu.registerParameters(&registry, "");
+
+    for (const char *path : {
+        "tcu.shift.multi_via_intermediate",
+        "tcu.shift.multi_max_gears",
+        "tcu.intermediate_bias" })
+    {
+        EXPECT_TRUE(registry.contains(path)) << path;
+    }
+}

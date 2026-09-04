@@ -151,8 +151,35 @@ den Abstand zur Rückschaltschwelle gehalten, beide aus `m_upshiftMap` und
 nächstniedrigere Gang bereit.
 
 Ein Sprung über zwei Gänge trifft dieselbe Parität und damit dieselbe Welle.
-`beginShift()` erkennt das (`sameShaft`) und fällt auf `TorqueReduction` zurück —
-öffnen, umlegen, schließen. Das ist kein Notnagel, sondern was die Hardware tut.
+Eine Kupplung kann nicht zwei Gänge gleichzeitig halten, also gibt es genau zwei
+Wege — und welcher genommen wird, ist bedatet:
+
+**Unterbrechen** (Vorgabe): `beginShift()` erkennt den Fall über `sameShaft` und
+geht auf `TorqueReduction` — öffnen, umlegen, Drehzahl angleichen, schließen.
+Ein kurzes Zugkraftloch, dafür sofort im Zielgang.
+
+**Über den Zwischengang** (`multi_via_intermediate`): das Moment geht zuerst an
+einen Gang auf der *freien* Welle, dann wird die belastete Welle umgelegt und
+zurückübergeben. Zwei Überblendungen hintereinander, **kein Zugkraftloch** — das
+ist, was ein Serien-DCT bei einer Doppelrückschaltung tut. Der Fahrer merkt eine
+Schaltung, das Getriebe macht zwei; entsprechend lernt das ILC auch zweimal.
+
+Welcher Gang als Zwischenstufe dient, ist ebenfalls bedatet und nicht im Code
+geregelt. Gültig sind alle Gänge strikt zwischen Start und Ziel mit der anderen
+Parität — bei 6→2 also die Gänge 5 und 3. Darüber läuft ein Vorzug aus dem
+Kennfeld `tcu.intermediate_bias` (x = Pedal, y = Sprungweite):
+
+```
+0.0  →  der Kandidat am nächsten am aktuellen Gang   (6→5→2)
+1.0  →  der Kandidat am nächsten am Zielgang         (6→3→2)
+```
+
+Vorgabe ist 1,0: die **letzte** Übergabe spürt man am deutlichsten, und mit dem
+Nachbarn des Ziels ist sie die kleine. `multi_max_gears` begrenzt, bis zu welcher
+Sprungweite dieser Weg überhaupt genommen wird; darüber wird unterbrochen.
+
+Beides ist registriert, also pro Fahrmodus umschaltbar — Comfort kann ohne
+Zugkraftunterbrechung schalten, Sport-Plus mit.
 
 ### Überblendung mit Rückführung
 

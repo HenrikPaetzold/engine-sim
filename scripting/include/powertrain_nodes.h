@@ -138,6 +138,9 @@ namespace es_script {
             if (m_kickdownMap != nullptr && !m_kickdownMap->isEmpty()) {
                 m_kickdownMap->generate(&tcu->getKickdownMap());
             }
+            if (m_intermediateBias != nullptr && !m_intermediateBias->isEmpty()) {
+                m_intermediateBias->generate(&tcu->getIntermediateBias());
+            }
 
             tcu->markAuthoredMaps(upshift, downshift, lockup);
         }
@@ -153,6 +156,8 @@ namespace es_script {
             addInput("torque_reduction", &m_parameters.shiftTorqueReduction);
             addInput("torque_cut", &m_parameters.shiftTorqueCut);
             addInput("overlap_hold", &m_parameters.overlapHold);
+            addInput("multi_via_intermediate", &m_parameters.multiShiftViaIntermediate);
+            addInput("multi_max_gears", &m_parameters.multiShiftMaxGears);
             addInput("speed_match_tolerance", &m_parameters.speedMatchTolerance);
             addInput("lockup_slip_target", &m_parameters.lockupSlipTarget);
             addInput("lockup_lock_slip", &m_parameters.lockupLockSlip);
@@ -181,6 +186,7 @@ namespace es_script {
             addInput("downshift_map", &m_downshiftMap, InputTarget::Type::Object);
             addInput("lockup_map", &m_lockupMap, InputTarget::Type::Object);
             addInput("kickdown_map", &m_kickdownMap, InputTarget::Type::Object);
+            addInput("intermediate_bias", &m_intermediateBias, InputTarget::Type::Object);
             addInput("overlap_shape", &m_overlapShape, InputTarget::Type::Object);
             addInput("engage_shape", &m_engageShape, InputTarget::Type::Object);
             addInput("lockup_controller", &m_lockupController, InputTarget::Type::Object);
@@ -202,6 +208,7 @@ namespace es_script {
         Map2dNode *m_downshiftMap = nullptr;
         Map2dNode *m_lockupMap = nullptr;
         Map2dNode *m_kickdownMap = nullptr;
+        Map2dNode *m_intermediateBias = nullptr;
         Map2dNode *m_overlapShape = nullptr;
         Map2dNode *m_engageShape = nullptr;
         PidControllerNode *m_lockupController = nullptr;

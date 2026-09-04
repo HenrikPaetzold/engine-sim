@@ -123,6 +123,8 @@ public node dual_clutch_control {
     input tire_radius [float]: 12 * units.inch;
     input clutch_overlap_time [float]: 0.16 * units.sec;
     input overlap_hold [float]: 0.20;
+    input multi_via_intermediate [bool]: false;
+    input multi_max_gears [float]: 2;
     input torque_reduction [float]: 0.80;
     input torque_cut [float]: 1.00;
     input min_gear_time [float]: 0.35 * units.sec;
@@ -136,6 +138,8 @@ public node dual_clutch_control {
             preselect: true,
             clutch_overlap_time: clutch_overlap_time,
             overlap_hold: overlap_hold,
+            multi_via_intermediate: multi_via_intermediate,
+            multi_max_gears: multi_max_gears,
             torque_reduction: torque_reduction,
             torque_cut: torque_cut,
             min_gear_time: min_gear_time,

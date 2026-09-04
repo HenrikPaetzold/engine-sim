@@ -679,6 +679,45 @@ TEST_F(ScriptFixture, TheKickdownIsScriptedAndModeDependent) {
     EXPECT_LT(eager, calm) << "sport did not reach a lower gear than comfort";
 }
 
+TEST_F(ScriptFixture, ADriveModeSwitchesTheDoubleDownshiftStrategy) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    tcu: dual_clutch_control(multi_via_intermediate: false, multi_max_gears: 4))\n"
+        "add_drive_mode(drive_mode(name: \"comfort\")\n"
+        "    .set(\"tcu.shift.multi_via_intermediate\", 1)\n"
+        "    .set_map(path: \"tcu.intermediate_bias\", map: map_2d()\n"
+        "        .add_map_sample(x: 0.0, y: 0.0, value: 0.0)\n"
+        "        .add_map_sample(x: 1.0, y: 0.0, value: 0.0)\n"
+        "        .add_map_sample(x: 0.0, y: 9.0, value: 0.0)\n"
+        "        .add_map_sample(x: 1.0, y: 9.0, value: 0.0)))\n"
+        "add_drive_mode(drive_mode(name: \"sport_plus\")\n"
+        "    .set(\"tcu.shift.multi_via_intermediate\", 0))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    config::ParameterRegistry registry;
+    unit->registerParameters(&registry, "");
+
+    config::DriveModeSet modes = es_script::Compiler::output()->driveModes;
+    powertrain::TransmissionControlUnit &tcu = unit->getTransmissionControlUnit();
+
+    EXPECT_FALSE(tcu.getParameters().multiShiftViaIntermediate)
+        << "the script default should still interrupt";
+
+    ASSERT_TRUE(modes.select("comfort", &registry));
+    EXPECT_TRUE(tcu.getParameters().multiShiftViaIntermediate)
+        << "comfort did not switch the strategy on";
+    EXPECT_EQ(tcu.intermediateGear(5, 1, 0.5), 4)
+        << "the scripted bias did not reach the live map";
+
+    ASSERT_TRUE(modes.select("sport_plus", &registry));
+    EXPECT_FALSE(tcu.getParameters().multiShiftViaIntermediate)
+        << "sport did not switch it back off";
+    EXPECT_EQ(tcu.intermediateGear(5, 1, 0.5), 2)
+        << "the bias was not restored to the script value";
+}
+
 namespace {
     void runProgram(
         powertrain::ScriptedControlUnit *unit,

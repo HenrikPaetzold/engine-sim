@@ -52,6 +52,8 @@ namespace powertrain {
                 double shiftTorqueReduction = 0.70;
                 double shiftTorqueCut = 1.00;
                 double overlapHold = 0.15;
+                bool multiShiftViaIntermediate = false;
+                double multiShiftMaxGears = 2.0;
                 double kickdownThreshold = 0.85;
                 double kickdownPedalRate = 0.0;
                 double kickdownPedalFloor = 0.25;
@@ -105,6 +107,7 @@ namespace powertrain {
             inline control::Map2d &getDownshiftMap() { return m_downshiftMap; }
             inline control::Map2d &getLockupMap() { return m_lockupMap; }
             inline control::Map2d &getKickdownMap() { return m_kickdownMap; }
+            inline control::Map2d &getIntermediateBias() { return m_intermediateBias; }
             inline control::Map2d &getOverlapShape() { return m_overlapShape; }
             inline control::Map2d &getEngageShape() { return m_engageShape; }
 
@@ -137,6 +140,8 @@ namespace powertrain {
             double engineSpeedForGear(int gear, double vehicleSpeed) const;
             double kickdownTarget(double pedal) const;
             int kickdownGear(double pedal, double vehicleSpeed) const;
+            int intermediateGear(int from, int to, double pedal) const;
+            inline int getFinalGear() const { return m_finalGear; }
             inline double getPedalRate() const { return m_pedalRate; }
             int scheduleGear(
                 int currentGear,
@@ -185,8 +190,10 @@ namespace powertrain {
             control::Map2d m_downshiftMap;
             control::Map2d m_lockupMap;
             control::Map2d m_kickdownMap;
+            control::Map2d m_intermediateBias;
             control::Map2d m_overlapShape;
             control::Map2d m_engageShape;
+            int m_finalGear;
             double m_pedalFiltered;
             double m_pedalRate;
             double m_revLimit;

@@ -56,6 +56,7 @@ powertrain::TransmissionControlUnit::TransmissionControlUnit() {
     m_previousShiftDown = false;
     m_gateIndex = 0;
     m_positionRefused = false;
+    m_finalGear = -1;
     m_pedalFiltered = 0.0;
     m_pedalRate = 0.0;
     m_revLimit = 0.0;
@@ -132,6 +133,14 @@ void powertrain::TransmissionControlUnit::buildDefaultMaps() {
     }
 
     m_kickdownMap.setYAxis(0, 0.0);
+
+    m_intermediateBias.initialize(PedalPoints, MaxGears, 1.0);
+    for (int i = 0; i < PedalPoints; ++i) {
+        m_intermediateBias.setXAxis(i, static_cast<double>(i) / (PedalPoints - 1));
+    }
+    for (int j = 0; j < MaxGears; ++j) {
+        m_intermediateBias.setYAxis(j, static_cast<double>(j));
+    }
 
     for (int i = 0; i < PedalPoints; ++i) {
         const double pedal = static_cast<double>(i) / (PedalPoints - 1);
@@ -260,6 +269,7 @@ void powertrain::TransmissionControlUnit::reset() {
     m_pedalFiltered = 0.0;
     m_pedalRate = 0.0;
     m_kickdownArmed = false;
+    m_finalGear = -1;
 }
 
 double powertrain::TransmissionControlUnit::engineSpeedForGear(
@@ -484,6 +494,39 @@ void powertrain::TransmissionControlUnit::updateClutchAssignment(
     }
 }
 
+int powertrain::TransmissionControlUnit::intermediateGear(
+    int from,
+    int to,
+    double pedal) const
+{
+    if (from < 0 || to < 0) return -1;
+
+    const int step = (to > from) ? 1 : -1;
+    const int wanted = 1 - clutchForGear(from);
+
+    int candidates[MaxGears];
+    int count = 0;
+
+    for (int g = from + step; g != to; g += step) {
+        if (g < 0 || g >= m_params.gearCount) break;
+        if (clutchForGear(g) != wanted) continue;
+
+        candidates[count++] = g;
+    }
+
+    if (count == 0) return -1;
+    if (count == 1) return candidates[0];
+
+    const double jump = static_cast<double>(std::abs(to - from));
+    const double bias = m_intermediateBias.isInitialized()
+        ? std::clamp(m_intermediateBias.sample(std::clamp(pedal, 0.0, 1.0), jump), 0.0, 1.0)
+        : 1.0;
+
+    const int index = static_cast<int>(std::lround(bias * (count - 1)));
+
+    return candidates[std::clamp(index, 0, count - 1)];
+}
+
 void powertrain::TransmissionControlUnit::beginShift(int gear) {
     m_previousGear = m_currentGear;
     m_targetGear = gear;
@@ -492,6 +535,24 @@ void powertrain::TransmissionControlUnit::beginShift(int gear) {
     const bool sameShaft = m_params.supportsPreselect
         && m_currentGear >= 0
         && clutchForGear(gear) == clutchForGear(m_currentGear);
+
+    if (sameShaft && m_params.multiShiftViaIntermediate
+        && std::abs(gear - m_currentGear)
+            <= static_cast<int>(std::lround(m_params.multiShiftMaxGears)))
+    {
+        const int bridge = intermediateGear(m_currentGear, gear, m_pedalFiltered);
+
+        if (bridge >= 0) {
+            m_finalGear = gear;
+            m_targetGear = bridge;
+            m_clutchGear[clutchForGear(bridge)] = bridge;
+            m_shiftState = ShiftState::ClutchOverlap;
+
+            return;
+        }
+    }
+
+    m_finalGear = -1;
 
     if (m_params.supportsPreselect && m_currentGear >= 0 && !sameShaft) {
         m_clutchGear[clutchForGear(gear)] = gear;
@@ -686,6 +747,11 @@ void powertrain::TransmissionControlUnit::advanceShift(
             m_shiftState = ShiftState::Idle;
             m_gearTimer.reset();
             ++m_completedShifts;
+
+            const int pending = m_finalGear;
+            m_finalGear = -1;
+
+            if (pending >= 0 && pending != m_currentGear) beginShift(pending);
         }
         break;
     }
@@ -920,6 +986,17 @@ void powertrain::TransmissionControlUnit::registerParameters(
     registry->registerScalar(
         describe(base + "shift.overlap_hold", 0.0, 1.0, m_params.overlapHold, ""),
         &m_params.overlapHold);
+    registry->registerBoolean(
+        describe(base + "shift.multi_via_intermediate", 0.0, 1.0,
+            m_params.multiShiftViaIntermediate ? 1.0 : 0.0, ""),
+        &m_params.multiShiftViaIntermediate);
+    registry->registerScalar(
+        describe(base + "shift.multi_max_gears", 0.0, static_cast<double>(MaxGears),
+            m_params.multiShiftMaxGears, ""),
+        &m_params.multiShiftMaxGears);
+    registry->registerMap(
+        describe(base + "intermediate_bias", 0.0, 1.0, 1.0, ""),
+        &m_intermediateBias);
     registry->registerScalar(
         describe(base + "shift.speed_match_tolerance", units::rpm(10.0), units::rpm(1000.0),
             m_params.speedMatchTolerance, "rad/s"),
