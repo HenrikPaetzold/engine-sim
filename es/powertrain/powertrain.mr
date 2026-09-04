@@ -220,6 +220,18 @@ public node automatic_gate {
         tcu: this)
 }
 
+public node set_parameter => __engine_sim__set_parameter {
+    input path [string];
+    input value [float];
+}
+
+public node set_map_cell => __engine_sim__set_map_cell {
+    input path [string];
+    input x [float];
+    input y [float]: 0.0;
+    input value [float];
+}
+
 public node set_powertrain => __engine_sim__set_powertrain {
     input ecu [ecu_channel]: engine_control_unit();
     input tcu [tcu_channel]: transmission_control_unit();

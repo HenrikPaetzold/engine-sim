@@ -8,6 +8,7 @@
 #include "../include/units.h"
 
 #include <fstream>
+#include <sstream>
 #include <string>
 
 namespace {
@@ -424,6 +425,64 @@ TEST_F(ScriptFixture, TheShiftAndLockupParametersReachTheControlUnit) {
         unit->getTransmissionControlUnit().getLockupMap().sample(0.0, 0.0),
         8.0,
         1e-9);
+}
+
+TEST_F(ScriptFixture, ScriptedParameterOverridesReachTheRegistry) {
+    ASSERT_TRUE(run(
+        "set_powertrain(tcu: transmission_control_unit())\n"
+        "set_parameter(path: \"tcu.shift.min_gear_time\", value: 0.33)\n"
+        "set_map_cell(path: \"tcu.upshift_map\", x: 1, y: 2, value: 12.5)\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    config::ParameterRegistry registry;
+    unit->registerParameters(&registry, "");
+
+    const auto &overrides = es_script::Compiler::output()->parameterOverrides;
+    ASSERT_EQ(overrides.size(), 2u);
+
+    for (const auto &override : overrides) {
+        EXPECT_TRUE(registry.set(override.first, override.second)) << override.first;
+    }
+
+    EXPECT_NEAR(
+        unit->getTransmissionControlUnit().getParameters().minGearTime, 0.33, 1e-12);
+    EXPECT_NEAR(
+        unit->getTransmissionControlUnit().getUpshiftMap().getValue(1, 2), 12.5, 1e-12);
+}
+
+TEST_F(ScriptFixture, TheExportedScriptCompilesAndRestoresTheValues) {
+    ASSERT_TRUE(run("set_powertrain(tcu: transmission_control_unit())\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    config::ParameterRegistry registry;
+    unit->registerParameters(&registry, "");
+
+    ASSERT_TRUE(registry.set("tcu.shift.min_gear_time", 0.42));
+    ASSERT_TRUE(registry.set("tcu.upshift_map[1][2]", 33.0));
+
+    std::ostringstream exported;
+    registry.exportScript(exported, config::ParameterRegistry::ExportScope::Changed);
+
+    const std::string body = exported.str();
+    ASSERT_NE(body.find("set_parameter(\"tcu.shift.min_gear_time\""), std::string::npos);
+    ASSERT_NE(body.find("set_map_cell(\"tcu.upshift_map\""), std::string::npos);
+
+    ASSERT_TRUE(run(body)) << "the exported script does not compile";
+
+    double minGearTime = 0.0;
+    double cell = 0.0;
+
+    for (const auto &override : es_script::Compiler::output()->parameterOverrides) {
+        if (override.first == "tcu.shift.min_gear_time") minGearTime = override.second;
+        if (override.first == "tcu.upshift_map[1][2]") cell = override.second;
+    }
+
+    EXPECT_NEAR(minGearTime, 0.42, 1e-6);
+    EXPECT_NEAR(cell, 33.0, 1e-6);
 }
 
 namespace {

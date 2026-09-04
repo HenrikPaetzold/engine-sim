@@ -9,6 +9,66 @@
 
 namespace es_script {
 
+    class SetParameterNode : public Node {
+    public:
+        SetParameterNode() { /* void */ }
+        virtual ~SetParameterNode() { /* void */ }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("path", &m_path);
+            addInput("value", &m_value);
+
+            Node::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            readAllInputs();
+
+            if (m_path.empty()) return;
+
+            Compiler::output()->parameterOverrides.push_back({ m_path, m_value });
+        }
+
+        std::string m_path;
+        double m_value = 0.0;
+    };
+
+    class SetMapCellNode : public Node {
+    public:
+        SetMapCellNode() { /* void */ }
+        virtual ~SetMapCellNode() { /* void */ }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("path", &m_path);
+            addInput("x", &m_x);
+            addInput("y", &m_y);
+            addInput("value", &m_value);
+
+            Node::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            readAllInputs();
+
+            if (m_path.empty()) return;
+            if (m_x < 0.0 || m_y < 0.0) return;
+
+            const std::string path =
+                m_path
+                + "[" + std::to_string(static_cast<int>(m_x))
+                + "][" + std::to_string(static_cast<int>(m_y)) + "]";
+
+            Compiler::output()->parameterOverrides.push_back({ path, m_value });
+        }
+
+        std::string m_path;
+        double m_x = 0.0;
+        double m_y = 0.0;
+        double m_value = 0.0;
+    };
+
     class SetPowertrainNode : public Node {
     public:
         SetPowertrainNode() { /* void */ }

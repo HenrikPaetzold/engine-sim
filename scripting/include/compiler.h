@@ -7,6 +7,7 @@
 #include "piranha.h"
 
 #include <vector>
+#include <utility>
 #include <string>
 
 namespace es_script {
@@ -27,6 +28,7 @@ namespace es_script {
             ApplicationSettings applicationSettings;
 
             std::vector<Function *> functions;
+            std::vector<std::pair<std::string, double>> parameterOverrides;
         };
 
     private:

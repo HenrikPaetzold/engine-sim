@@ -83,6 +83,12 @@ namespace config {
                 control::Map2d *mapTarget = nullptr;
             };
 
+            bool findCell(
+                const std::string &path,
+                control::Map2d **map,
+                int *x,
+                int *y) const;
+
             bool add(const Entry &entry);
             const Entry *find(const std::string &path) const;
             Entry *find(const std::string &path);

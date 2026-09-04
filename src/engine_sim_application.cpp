@@ -637,6 +637,7 @@ void EngineSimApplication::loadScript() {
     adaptation::AdaptationManager::Parameters adaptationParams;
     config::DriveModeSet driveModes;
     std::string defaultMode;
+    std::vector<std::pair<std::string, double>> parameterOverrides;
 
 #ifdef ATG_ENGINE_SIM_PIRANHA_ENABLED
     es_script::Compiler compiler;
@@ -655,6 +656,7 @@ void EngineSimApplication::loadScript() {
         adaptationParams = output.adaptation;
         driveModes = output.driveModes;
         defaultMode = output.defaultMode;
+        parameterOverrides = output.parameterOverrides;
     }
     else {
         engine = nullptr;
@@ -691,7 +693,8 @@ void EngineSimApplication::loadScript() {
 
     if (scriptedPowertrain != nullptr || scriptedProgram != nullptr) {
         installPowertrain(
-            scriptedPowertrain, scriptedProgram, adaptationParams, driveModes, defaultMode);
+            scriptedPowertrain, scriptedProgram, adaptationParams, driveModes, defaultMode,
+            parameterOverrides);
     }
 
     refreshUserInterface();
@@ -731,7 +734,8 @@ void EngineSimApplication::installPowertrain(
     powertrain::ScriptedControlUnit *program,
     const adaptation::AdaptationManager::Parameters &adaptationParams,
     const config::DriveModeSet &modes,
-    const std::string &defaultMode)
+    const std::string &defaultMode,
+    const std::vector<std::pair<std::string, double>> &parameterOverrides)
 {
     m_powertrainUnit = unit;
     m_controlProgram = program;
@@ -757,6 +761,10 @@ void EngineSimApplication::installPowertrain(
 
     system.attach(m_simulator);
     system.registerParameters(&m_registry);
+
+    for (const auto &override : parameterOverrides) {
+        m_registry.set(override.first, override.second);
+    }
 
     if (!defaultMode.empty()) {
         m_driveModeIndex = m_driveModes.find(defaultMode);

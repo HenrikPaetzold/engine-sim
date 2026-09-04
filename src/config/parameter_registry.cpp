@@ -18,6 +18,32 @@ namespace {
         }
     }
 
+    bool parseCellPath(const std::string &path, std::string *base, int *x, int *y) {
+        if (path.empty() || path.back() != ']') return false;
+
+        const size_t second = path.rfind('[');
+        if (second == std::string::npos || second == 0) return false;
+
+        const size_t firstEnd = path.rfind(']', second);
+        if (firstEnd == std::string::npos || firstEnd + 1 != second) return false;
+
+        const size_t first = path.rfind('[', firstEnd);
+        if (first == std::string::npos || first == 0) return false;
+
+        const std::string xs = path.substr(first + 1, firstEnd - first - 1);
+        const std::string ys = path.substr(second + 1, path.size() - second - 2);
+        if (xs.empty() || ys.empty()) return false;
+
+        for (char c : xs) if (c < '0' || c > '9') return false;
+        for (char c : ys) if (c < '0' || c > '9') return false;
+
+        *base = path.substr(0, first);
+        *x = std::stoi(xs);
+        *y = std::stoi(ys);
+
+        return true;
+    }
+
     void writeJsonString(std::ostream &out, const std::string &s) {
         out << '"';
         for (char c : s) {
@@ -162,7 +188,34 @@ config::ParameterRegistry::Entry *config::ParameterRegistry::find(const std::str
 }
 
 bool config::ParameterRegistry::contains(const std::string &path) const {
-    return find(path) != nullptr;
+    if (find(path) != nullptr) return true;
+
+    control::Map2d *map = nullptr;
+    int x = 0;
+    int y = 0;
+
+    return findCell(path, &map, &x, &y);
+}
+
+bool config::ParameterRegistry::findCell(
+    const std::string &path,
+    control::Map2d **map,
+    int *x,
+    int *y) const
+{
+    std::string base;
+    if (!parseCellPath(path, &base, x, y)) return false;
+
+    const Entry *entry = find(base);
+    if (entry == nullptr) return false;
+    if (entry->descriptor.type != ParameterType::Map) return false;
+    if (entry->mapTarget == nullptr || !entry->mapTarget->isInitialized()) return false;
+    if (*x < 0 || *x >= entry->mapTarget->getXCount()) return false;
+    if (*y < 0 || *y >= entry->mapTarget->getYCount()) return false;
+
+    *map = entry->mapTarget;
+
+    return true;
 }
 
 void config::ParameterRegistry::writeValue(const Entry &entry, double value) {
@@ -185,20 +238,40 @@ double config::ParameterRegistry::readValue(const Entry &entry) {
 
 bool config::ParameterRegistry::set(const std::string &path, double value) {
     Entry *entry = find(path);
-    if (entry == nullptr) return false;
-    if (entry->descriptor.type == ParameterType::Map) return false;
+    if (entry != nullptr) {
+        if (entry->descriptor.type == ParameterType::Map) return false;
 
-    writeValue(*entry, value);
+        writeValue(*entry, value);
+
+        return true;
+    }
+
+    control::Map2d *map = nullptr;
+    int x = 0;
+    int y = 0;
+    if (!findCell(path, &map, &x, &y)) return false;
+
+    map->setValue(x, y, value);
 
     return true;
 }
 
 bool config::ParameterRegistry::get(const std::string &path, double *value) const {
     const Entry *entry = find(path);
-    if (entry == nullptr) return false;
-    if (entry->descriptor.type == ParameterType::Map) return false;
+    if (entry != nullptr) {
+        if (entry->descriptor.type == ParameterType::Map) return false;
 
-    *value = readValue(*entry);
+        *value = readValue(*entry);
+
+        return true;
+    }
+
+    control::Map2d *map = nullptr;
+    int x = 0;
+    int y = 0;
+    if (!findCell(path, &map, &x, &y)) return false;
+
+    *value = map->getValue(x, y);
 
     return true;
 }

@@ -34,6 +34,7 @@
 #include "dtv.h"
 
 #include <vector>
+#include <utility>
 
 class EngineSimApplication {
     private:
@@ -103,7 +104,8 @@ class EngineSimApplication {
             powertrain::ScriptedControlUnit *program,
             const adaptation::AdaptationManager::Parameters &adaptationParams,
             const config::DriveModeSet &modes,
-            const std::string &defaultMode);
+            const std::string &defaultMode,
+            const std::vector<std::pair<std::string, double>> &parameterOverrides);
         bool powertrainActive() const;
         void processEngineInput();
         void renderScene();

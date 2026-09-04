@@ -2,6 +2,7 @@
 
 #include "../include/config/parameter_registry.h"
 #include "../include/control/map_2d.h"
+#include "../include/config/drive_mode.h"
 
 #include <sstream>
 
@@ -206,4 +207,98 @@ TEST(ParameterRegistryTests, ExportEmitsOnlyLearnedValues) {
 
     EXPECT_NE(script.find("set_parameter(\"ecu.learned\", 0.25)"), std::string::npos);
     EXPECT_EQ(script.find("ecu.fixed"), std::string::npos);
+}
+
+namespace {
+    void fillMap(control::Map2d *map, int xCount, int yCount, double value) {
+        map->initialize(xCount, yCount, value);
+
+        for (int i = 0; i < xCount; ++i) map->setXAxis(i, static_cast<double>(i));
+        for (int j = 0; j < yCount; ++j) map->setYAxis(j, static_cast<double>(j));
+    }
+
+    config::ParameterDescriptor describeMap(const char *path) {
+        config::ParameterDescriptor d;
+        d.path = path;
+        d.minValue = 0.0;
+        d.maxValue = 100.0;
+        d.defaultValue = 0.0;
+
+        return d;
+    }
+}
+
+TEST(MapCellTests, ACellIsReachableByPath) {
+    config::ParameterRegistry registry;
+    control::Map2d map;
+    fillMap(&map, 4, 3, 7.0);
+
+    registry.registerMap(describeMap("tcu.upshift_map"), &map);
+
+    EXPECT_TRUE(registry.contains("tcu.upshift_map[2][1]"));
+
+    double value = 0.0;
+    ASSERT_TRUE(registry.get("tcu.upshift_map[2][1]", &value));
+    EXPECT_NEAR(value, 7.0, 1e-12);
+
+    ASSERT_TRUE(registry.set("tcu.upshift_map[2][1]", 42.0));
+    EXPECT_NEAR(map.getValue(2, 1), 42.0, 1e-12);
+    EXPECT_NEAR(map.getValue(1, 1), 7.0, 1e-12) << "a neighbour was written too";
+}
+
+TEST(MapCellTests, OutOfRangeAndMalformedPathsAreRejected) {
+    config::ParameterRegistry registry;
+    control::Map2d map;
+    fillMap(&map, 4, 3, 7.0);
+
+    registry.registerMap(describeMap("tcu.upshift_map"), &map);
+
+    EXPECT_FALSE(registry.set("tcu.upshift_map[4][0]", 1.0));
+    EXPECT_FALSE(registry.set("tcu.upshift_map[0][3]", 1.0));
+    EXPECT_FALSE(registry.set("tcu.upshift_map[-1][0]", 1.0));
+    EXPECT_FALSE(registry.set("tcu.upshift_map[0]", 1.0));
+    EXPECT_FALSE(registry.set("tcu.upshift_map[a][0]", 1.0));
+    EXPECT_FALSE(registry.set("tcu.missing_map[0][0]", 1.0));
+    EXPECT_FALSE(registry.contains("tcu.upshift_map[9][9]"));
+}
+
+TEST(MapCellTests, TheWholeMapItselfStaysUnwritable) {
+    config::ParameterRegistry registry;
+    control::Map2d map;
+    fillMap(&map, 4, 3, 7.0);
+
+    registry.registerMap(describeMap("tcu.upshift_map"), &map);
+
+    EXPECT_FALSE(registry.set("tcu.upshift_map", 1.0));
+
+    double value = 0.0;
+    EXPECT_FALSE(registry.get("tcu.upshift_map", &value));
+}
+
+TEST(MapCellTests, ADriveModeCarriesAMapAndGivesItBack) {
+    config::ParameterRegistry registry;
+    control::Map2d map;
+    fillMap(&map, 4, 3, 7.0);
+
+    registry.registerMap(describeMap("tcu.upshift_map"), &map);
+
+    config::DriveMode sport("sport");
+    sport.set("tcu.upshift_map[1][0]", 30.0);
+    sport.set("tcu.upshift_map[2][0]", 40.0);
+
+    config::DriveMode comfort("comfort");
+    comfort.set("tcu.upshift_map[1][0]", 12.0);
+
+    config::DriveModeSet modes;
+    modes.add(sport);
+    modes.add(comfort);
+
+    ASSERT_TRUE(modes.select("sport", &registry));
+    EXPECT_NEAR(map.getValue(1, 0), 30.0, 1e-12);
+    EXPECT_NEAR(map.getValue(2, 0), 40.0, 1e-12);
+
+    ASSERT_TRUE(modes.select("comfort", &registry));
+    EXPECT_NEAR(map.getValue(1, 0), 12.0, 1e-12);
+    EXPECT_NEAR(map.getValue(2, 0), 7.0, 1e-12)
+        << "the previous mode's cell was not restored";
 }
