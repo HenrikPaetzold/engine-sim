@@ -170,6 +170,38 @@ gesetzt, und das Tor der Adaption
 `ClutchEngage || ClutchOverlap` — damit lernt das DCT seine Schaltungen wie das
 AMT.
 
+### Die Form einer Schaltung
+
+Die Rampe in `ClutchOverlap` und `ClutchEngage` war fest verdrahtet: der Druck
+der kommenden Kupplung stieg linear mit der Phase. Zeiten und Schwellen ließen
+sich verstellen, die **Form** nicht — und damit ließ sich derselbe
+Antriebsstrang nicht einmal knackig und einmal weich schalten.
+
+Zwei Kennfelder tragen sie jetzt:
+
+```
+tcu.overlap_shape    x = Phase 0…1, y = Pedal → Druck der kommenden Kupplung
+tcu.engage_shape     dasselbe für das Einkuppeln
+```
+
+Die Vorgabe ist die Identität, also exakt die bisherige lineare Rampe; ein
+Skript ohne die Eingänge `overlap_shape` / `engage_shape` verhält sich
+unverändert. Die ILC-Korrektur bleibt unverändert obendrauf, die abgehende
+Kupplung folgt als Gegenstück (`1 − Form` plus `overlapHold`).
+
+Weil ein Fahrmodus Kennfelder tragen kann (siehe `calibration_ui.md`), ist der
+Schaltcharakter damit reine Bedatung — ein kurzes steiles Profil gegen ein
+langes weiches, auf derselben Hardware:
+
+```
+add_drive_mode(drive_mode(name: "sport_plus")
+    .set("tcu.shift.clutch_overlap_time", 0.08)
+    .set_map(path: "tcu.overlap_shape", map: map_2d()
+        .add_map_sample(x: 0.0,  y: 0.0, value: 0.0)
+        .add_map_sample(x: 0.25, y: 0.0, value: 1.0)
+        .add_map_sample(x: 1.0,  y: 0.0, value: 1.0)))
+```
+
 ### Wandler: Kennfeld und Schlupfregler
 
 `m_lockupMap` hat dieselbe Form wie die Schaltkennfelder (x = Pedal, y = Gang),

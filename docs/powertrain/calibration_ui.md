@@ -130,3 +130,50 @@ sonst hätten die Aufnahmen keine gemeinsame Zeitbasis und ließen sich nicht
 Übertragen über `GET /api/shifts`, serialisiert im `publish()`-Pfad in einen
 vorbereiteten String — dasselbe Muster wie `/api/export`, damit der Serverthread die
 Simulationsdaten nie direkt liest.
+
+## Kennfelder als Overlay
+
+Bis hierher war die ganze Überschreibungskette skalar: `DriveMode::set()` hielt
+einen `double` je Pfad, `ParameterRegistry::set()` schrieb einen `double`, und
+der Server nahm `{path, value}`. Kennfelder waren zwar registriert, aber von
+keiner Seite schreibbar — ein Fahrmodus konnte also keinen anderen Schaltplan
+auflegen.
+
+Die Registry löst zusätzlich Pfade mit Zellensuffix auf:
+
+```
+tcu.upshift_map[3][2]        Spalte 3, Zeile 2
+```
+
+Der Zugriff ist rein additiv. Erst wenn die normale Suche in der Hashtabelle
+fehlschlägt, wird ein Suffix geprüft, der Basispfad aufgelöst und als Kennfeld
+verifiziert. Bestehende Pfade laufen unverändert. Daraus fällt alles Weitere
+ohne neue Mechanik an: Fahrmodi tragen Kennfelder, `POST /api/set` erreicht
+Zellen, und die Wiederherstellung gegen die Grundlinie beim Moduswechsel gilt
+für Zellen wie für Skalare.
+
+### Ganze Kennfelder im Skript
+
+Zellenweise Overrides sind für einen 12×6-Schaltplan unbrauchbar — 72 Zeilen —
+und ein Skript bedatet ohnehin in physikalischen Größen, nicht in Rasterindizes.
+`set_map` trägt deshalb das Kennfeld selbst:
+
+```
+add_drive_mode(drive_mode(name: "eco")
+    .set_map(path: "tcu.upshift_map", map: map_2d()
+        .add_map_sample(x: 0.0, y: 0.0, value: 8.0)
+        .add_map_sample(x: 1.0, y: 0.0, value: 22.0)))
+```
+
+Aufgelöst wird es erst beim Umschalten: das Kennfeld des Skripts wird auf den
+Achsen des lebenden Kennfelds abgetastet und in Zellen-Overrides expandiert.
+Die Rasterung des Ziels darf sich damit ändern, ohne dass das Skript etwas davon
+weiß, und `DriveMode` bleibt intern skalar.
+
+### Export und Wiedereinlesen
+
+`ParameterRegistry::exportScript` schrieb schon immer `set_parameter(...)` und
+`set_map_cell(...)`, aber beide Knoten gab es in der Sprache nicht — eine
+exportierte Datei mit gelernten Werten war nicht kompilierbar. Jetzt gibt es
+sie, und der Kreis schließt sich: exportieren, ins Skript legen, wieder
+einlesen.
