@@ -1,8 +1,13 @@
 #include "../../include/config/drive_mode.h"
 
 #include "../../include/config/parameter_registry.h"
+#include "../../include/control/map_2d.h"
 
 #include <cassert>
+
+std::string config::mapCellPath(const std::string &path, int x, int y) {
+    return path + "[" + std::to_string(x) + "][" + std::to_string(y) + "]";
+}
 
 config::DriveMode::DriveMode() {
     /* void */
@@ -25,6 +30,52 @@ void config::DriveMode::set(const std::string &path, double value) {
     }
 
     m_overrides.push_back({ path, value });
+}
+
+void config::DriveMode::setMap(
+    const std::string &path,
+    std::shared_ptr<control::Map2d> map)
+{
+    for (DriveModeMapOverride &existing : m_mapOverrides) {
+        if (existing.path == path) {
+            existing.map = map;
+            return;
+        }
+    }
+
+    m_mapOverrides.push_back({ path, map });
+}
+
+void config::DriveMode::expand(
+    const ParameterRegistry *registry,
+    std::vector<DriveModeOverride> *out) const
+{
+    *out = m_overrides;
+    if (registry == nullptr) return;
+
+    for (const DriveModeMapOverride &item : m_mapOverrides) {
+        if (item.map == nullptr || !item.map->isInitialized()) continue;
+
+        const control::Map2d *target = registry->findMap(item.path);
+        if (target == nullptr || !target->isInitialized()) continue;
+
+        for (int y = 0; y < target->getYCount(); ++y) {
+            for (int x = 0; x < target->getXCount(); ++x) {
+                out->push_back({
+                    mapCellPath(item.path, x, y),
+                    item.map->sample(target->getXAxis(x), target->getYAxis(y)) });
+            }
+        }
+    }
+}
+
+int config::DriveMode::getMapOverrideCount() const {
+    return static_cast<int>(m_mapOverrides.size());
+}
+
+const config::DriveModeMapOverride &config::DriveMode::getMapOverride(int index) const {
+    assert(index >= 0 && index < getMapOverrideCount());
+    return m_mapOverrides[index];
 }
 
 int config::DriveMode::getOverrideCount() const {
@@ -79,13 +130,16 @@ void config::DriveModeSet::captureBaseline(const ParameterRegistry *registry) {
 
     m_baseline.clear();
 
+    std::vector<DriveModeOverride> expanded;
+
     for (const DriveMode &mode : m_modes) {
-        for (int i = 0; i < mode.getOverrideCount(); ++i) {
-            const std::string &path = mode.getOverride(i).path;
-            if (m_baseline.find(path) != m_baseline.end()) continue;
+        mode.expand(registry, &expanded);
+
+        for (const DriveModeOverride &item : expanded) {
+            if (m_baseline.find(item.path) != m_baseline.end()) continue;
 
             double value = 0.0;
-            if (registry->get(path, &value)) m_baseline[path] = value;
+            if (registry->get(item.path, &value)) m_baseline[item.path] = value;
         }
     }
 
@@ -108,9 +162,10 @@ bool config::DriveModeSet::select(int index, ParameterRegistry *registry) {
 
     restoreBaseline(registry);
 
-    const DriveMode &mode = m_modes[index];
-    for (int i = 0; i < mode.getOverrideCount(); ++i) {
-        const DriveModeOverride &item = mode.getOverride(i);
+    std::vector<DriveModeOverride> expanded;
+    m_modes[index].expand(registry, &expanded);
+
+    for (const DriveModeOverride &item : expanded) {
         registry->set(item.path, item.value);
     }
 

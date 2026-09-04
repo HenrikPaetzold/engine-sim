@@ -220,6 +220,37 @@ namespace es_script {
         double m_value = 0.0;
     };
 
+    class SetDriveModeMapNode : public Node {
+    public:
+        SetDriveModeMapNode() { /* void */ }
+        virtual ~SetDriveModeMapNode() { /* void */ }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("mode", &m_mode, InputTarget::Type::Object);
+            addInput("path", &m_path);
+            addInput("map", &m_map, InputTarget::Type::Object);
+
+            Node::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            readAllInputs();
+
+            if (m_mode == nullptr || m_map == nullptr || m_map->isEmpty()) return;
+            if (m_path.empty()) return;
+
+            std::shared_ptr<control::Map2d> map = std::make_shared<control::Map2d>();
+            m_map->generate(map.get());
+
+            m_mode->setMap(m_path, map);
+        }
+
+        DriveModeNode *m_mode = nullptr;
+        Map2dNode *m_map = nullptr;
+        std::string m_path;
+    };
+
     class AddDriveModeNode : public Node {
     public:
         AddDriveModeNode() { /* void */ }

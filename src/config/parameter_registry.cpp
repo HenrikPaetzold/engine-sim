@@ -197,6 +197,14 @@ bool config::ParameterRegistry::contains(const std::string &path) const {
     return findCell(path, &map, &x, &y);
 }
 
+control::Map2d *config::ParameterRegistry::findMap(const std::string &path) const {
+    const Entry *entry = find(path);
+    if (entry == nullptr) return nullptr;
+    if (entry->descriptor.type != ParameterType::Map) return nullptr;
+
+    return entry->mapTarget;
+}
+
 bool config::ParameterRegistry::findCell(
     const std::string &path,
     control::Map2d **map,

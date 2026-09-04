@@ -485,6 +485,44 @@ TEST_F(ScriptFixture, TheExportedScriptCompilesAndRestoresTheValues) {
     EXPECT_NEAR(cell, 33.0, 1e-6);
 }
 
+TEST_F(ScriptFixture, ADriveModeCarriesAWholeShiftMap) {
+    ASSERT_TRUE(run(
+        "set_powertrain(tcu: transmission_control_unit())\n"
+        "add_drive_mode(drive_mode(name: \"sport\")\n"
+        "    .set_map(\n"
+        "        path: \"tcu.upshift_map\",\n"
+        "        map: map_2d()\n"
+        "            .add_map_sample(x: 0.0, y: 0.0, value: 20.0)\n"
+        "            .add_map_sample(x: 1.0, y: 0.0, value: 60.0)\n"
+        "            .add_map_sample(x: 0.0, y: 5.0, value: 20.0)\n"
+        "            .add_map_sample(x: 1.0, y: 5.0, value: 60.0)))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    config::ParameterRegistry registry;
+    unit->registerParameters(&registry, "");
+
+    config::DriveModeSet modes = es_script::Compiler::output()->driveModes;
+    ASSERT_EQ(modes.getCount(), 1);
+    ASSERT_EQ(modes.get(0).getMapOverrideCount(), 1);
+
+    control::Map2d &map = unit->getTransmissionControlUnit().getUpshiftMap();
+    const double before = map.sample(1.0, 0.0);
+
+    ASSERT_TRUE(modes.select("sport", &registry));
+
+    EXPECT_NEAR(map.sample(0.0, 0.0), 20.0, 1e-6);
+    EXPECT_NEAR(map.sample(1.0, 0.0), 60.0, 1e-6)
+        << "the scripted schedule did not reach the live map";
+    EXPECT_NEAR(map.sample(1.0, 5.0), 60.0, 1e-6)
+        << "the override did not cover every gear row";
+
+    modes.restoreBaseline(&registry);
+    EXPECT_NEAR(map.sample(1.0, 0.0), before, 1e-9)
+        << "the baseline was not restored";
+}
+
 namespace {
     void runProgram(
         powertrain::ScriptedControlUnit *unit,

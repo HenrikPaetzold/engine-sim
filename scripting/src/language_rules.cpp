@@ -176,6 +176,7 @@ void es_script::LanguageRules::registerBuiltinNodeTypes() {
     registerBuiltinType<AddMapSampleNode>("__engine_sim__add_map_sample");
     registerBuiltinType<SetDriveModeValueNode>("__engine_sim__set_drive_mode_value");
     registerBuiltinType<AddDriveModeNode>("__engine_sim__add_drive_mode");
+    registerBuiltinType<SetDriveModeMapNode>("__engine_sim__set_drive_mode_map");
     registerBuiltinType<GatePositionNode>("__engine_sim__gate_position");
     registerBuiltinType<AddGatePositionNode>("__engine_sim__add_gate_position");
 

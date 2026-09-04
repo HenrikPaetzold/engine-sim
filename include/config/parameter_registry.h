@@ -73,6 +73,7 @@ namespace config {
             const ParameterDescriptor &getDescriptor(int index) const;
             double getValue(int index) const;
             control::Map2d *getMap(int index) const;
+            control::Map2d *findMap(const std::string &path) const;
 
         protected:
             struct Entry {

@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <vector>
 
+#include <memory>
+
 namespace es_script {
 
     class PidControllerNode : public ObjectReferenceNode<PidControllerNode> {
@@ -113,6 +115,10 @@ namespace es_script {
 
         void set(const std::string &path, double value) {
             m_mode.set(path, value);
+        }
+
+        void setMap(const std::string &path, std::shared_ptr<control::Map2d> map) {
+            m_mode.setMap(path, map);
         }
 
         const config::DriveMode &generate() const { return m_mode; }

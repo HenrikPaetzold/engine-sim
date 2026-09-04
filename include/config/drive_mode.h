@@ -3,7 +3,12 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include <unordered_map>
+
+namespace control {
+    class Map2d;
+}
 
 namespace config {
 
@@ -13,6 +18,13 @@ namespace config {
         std::string path;
         double value = 0.0;
     };
+
+    struct DriveModeMapOverride {
+        std::string path;
+        std::shared_ptr<control::Map2d> map;
+    };
+
+    std::string mapCellPath(const std::string &path, int x, int y);
 
     class DriveMode {
         public:
@@ -24,13 +36,22 @@ namespace config {
             const std::string &getName() const { return m_name; }
 
             void set(const std::string &path, double value);
+            void setMap(const std::string &path, std::shared_ptr<control::Map2d> map);
 
             int getOverrideCount() const;
             const DriveModeOverride &getOverride(int index) const;
 
+            int getMapOverrideCount() const;
+            const DriveModeMapOverride &getMapOverride(int index) const;
+
+            void expand(
+                const ParameterRegistry *registry,
+                std::vector<DriveModeOverride> *out) const;
+
         protected:
             std::string m_name;
             std::vector<DriveModeOverride> m_overrides;
+            std::vector<DriveModeMapOverride> m_mapOverrides;
     };
 
     class DriveModeSet {

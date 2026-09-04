@@ -172,6 +172,21 @@ public node set {
     _set_drive_mode_value(path: path, value: value, mode: this)
 }
 
+private node _set_drive_mode_map => __engine_sim__set_drive_mode_map {
+    input path [string];
+    input map [map_2d_channel];
+    input mode [drive_mode_channel];
+}
+
+public node set_map {
+    input path;
+    input map;
+    input this;
+    alias output __out: this;
+
+    _set_drive_mode_map(path: path, map: map, mode: this)
+}
+
 public node add_drive_mode => __engine_sim__add_drive_mode {
     input mode [drive_mode_channel];
 }
