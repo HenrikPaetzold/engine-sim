@@ -483,3 +483,83 @@ TEST(RobotisedManualTests, TheSpeedMatchToleranceIsTunable) {
     EXPECT_NEAR(
         tcu.getParameters().speedMatchTolerance, units::rpm(300.0), 1e-9);
 }
+
+// --- Gangzahl und Schaltplan ---------------------------------------------
+
+namespace {
+    powertrain::GearboxCapabilities eightSpeed(const double *ratios) {
+        powertrain::GearboxCapabilities caps;
+        caps.gearCount = 8;
+        caps.gearRatios = ratios;
+
+        return caps;
+    }
+}
+
+TEST(GearScheduleTests, TheGearboxGearCountReachesTheShiftMaps) {
+    static const double ratios[8] =
+        { 4.70, 3.10, 2.10, 1.60, 1.20, 1.00, 0.85, 0.67 };
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
+
+    ASSERT_EQ(tcu.getUpshiftMap().getYCount(), 6);
+
+    tcu.configureGearbox(eightSpeed(ratios));
+
+    EXPECT_EQ(tcu.getParameters().gearCount, 8);
+    EXPECT_EQ(tcu.getUpshiftMap().getYCount(), 8);
+    EXPECT_EQ(tcu.getDownshiftMap().getYCount(), 8);
+    EXPECT_EQ(tcu.getLockupMap().getYCount(), 8);
+
+    EXPECT_GT(
+        tcu.getUpshiftMap().sample(0.5, 7.0),
+        tcu.getUpshiftMap().sample(0.5, 5.0))
+        << "the top gears share one schedule row";
+}
+
+TEST(GearScheduleTests, TheScheduleFollowsTheGearboxRatiosNotTheDefaults) {
+    static const double tall[8] =
+        { 4.70, 3.10, 2.10, 1.60, 1.20, 1.00, 0.85, 0.67 };
+    static const double shorter[8] =
+        { 9.40, 6.20, 4.20, 3.20, 2.40, 2.00, 1.70, 1.34 };
+
+    powertrain::TransmissionControlUnit tallUnit;
+    tallUnit.initialize(powertrain::TransmissionControlUnit::Parameters());
+    tallUnit.configureGearbox(eightSpeed(tall));
+
+    powertrain::TransmissionControlUnit shortUnit;
+    shortUnit.initialize(powertrain::TransmissionControlUnit::Parameters());
+    shortUnit.configureGearbox(eightSpeed(shorter));
+
+    EXPECT_NEAR(
+        tallUnit.getUpshiftMap().sample(0.5, 3.0),
+        2.0 * shortUnit.getUpshiftMap().sample(0.5, 3.0),
+        1e-6) << "halving every ratio did not halve the shift speed";
+}
+
+TEST(GearScheduleTests, AnAuthoredMapSurvivesTheGearboxSync) {
+    static const double ratios[8] =
+        { 4.70, 3.10, 2.10, 1.60, 1.20, 1.00, 0.85, 0.67 };
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
+
+    control::Map2d &map = tcu.getUpshiftMap();
+    for (int i = 0; i < map.getXCount(); ++i) {
+        for (int g = 0; g < map.getYCount(); ++g) {
+            map.setValue(i, g, 11.0 + g);
+        }
+    }
+
+    tcu.markAuthoredMaps(true, false, false);
+    tcu.configureGearbox(eightSpeed(ratios));
+
+    EXPECT_EQ(tcu.getUpshiftMap().getYCount(), 8);
+    EXPECT_NEAR(tcu.getUpshiftMap().sample(0.5, 0.0), 11.0, 1e-9)
+        << "the scripted schedule was overwritten";
+    EXPECT_NEAR(tcu.getUpshiftMap().sample(0.5, 5.0), 16.0, 1e-9);
+
+    EXPECT_GT(tcu.getDownshiftMap().sample(0.5, 7.0), 0.0)
+        << "the unscripted map was not rebuilt for the new gears";
+}

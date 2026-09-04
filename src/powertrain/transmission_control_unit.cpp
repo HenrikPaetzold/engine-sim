@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <vector>
 
 namespace {
     constexpr int PedalPoints = 5;
@@ -54,6 +55,9 @@ powertrain::TransmissionControlUnit::TransmissionControlUnit() {
     m_previousShiftDown = false;
     m_gateIndex = 0;
     m_positionRefused = false;
+    m_upshiftAuthored = false;
+    m_downshiftAuthored = false;
+    m_lockupAuthored = false;
 }
 
 powertrain::TransmissionControlUnit::~TransmissionControlUnit() {
@@ -70,6 +74,42 @@ control::PidController::Parameters
     params.outputMax = 1.0;
 
     return params;
+}
+
+void powertrain::TransmissionControlUnit::snapshotGearAxis(
+    const control::Map2d &map,
+    int gears,
+    std::vector<double> *values)
+{
+    values->clear();
+    if (gears < 1 || !map.isInitialized()) return;
+
+    const int points = map.getXCount();
+    values->resize(static_cast<size_t>(points) * gears);
+
+    for (int g = 0; g < gears; ++g) {
+        for (int i = 0; i < points; ++i) {
+            (*values)[static_cast<size_t>(g) * points + i] =
+                map.sample(map.getXAxis(i), static_cast<double>(g));
+        }
+    }
+}
+
+void powertrain::TransmissionControlUnit::restoreGearAxis(
+    control::Map2d *map,
+    const std::vector<double> &values)
+{
+    if (map == nullptr || !map->isInitialized()) return;
+
+    const int points = map->getXCount();
+    const int gears = map->getYCount();
+    if (values.size() != static_cast<size_t>(points) * gears) return;
+
+    for (int g = 0; g < gears; ++g) {
+        for (int i = 0; i < points; ++i) {
+            map->setValue(i, g, values[static_cast<size_t>(g) * points + i]);
+        }
+    }
 }
 
 void powertrain::TransmissionControlUnit::buildDefaultMaps() {
@@ -289,6 +329,16 @@ void powertrain::TransmissionControlUnit::resolvePosition(
     else {
         m_positionRefused = true;
     }
+}
+
+void powertrain::TransmissionControlUnit::markAuthoredMaps(
+    bool upshift,
+    bool downshift,
+    bool lockup)
+{
+    m_upshiftAuthored = upshift;
+    m_downshiftAuthored = downshift;
+    m_lockupAuthored = lockup;
 }
 
 int powertrain::TransmissionControlUnit::clutchForGear(int gear) const {
@@ -832,6 +882,21 @@ void powertrain::TransmissionControlUnit::configureGearbox(
         m_params.gearCount = std::min(capabilities.gearCount, MaxGears);
         for (int i = 0; i < m_params.gearCount; ++i) {
             m_params.gearRatios[i] = capabilities.gearRatios[i];
+        }
+
+        control::Map2d *maps[3] = { &m_upshiftMap, &m_downshiftMap, &m_lockupMap };
+        const bool authored[3] =
+            { m_upshiftAuthored, m_downshiftAuthored, m_lockupAuthored };
+
+        std::vector<double> kept[3];
+        for (int i = 0; i < 3; ++i) {
+            if (authored[i]) snapshotGearAxis(*maps[i], m_params.gearCount, &kept[i]);
+        }
+
+        buildDefaultMaps();
+
+        for (int i = 0; i < 3; ++i) {
+            if (authored[i]) restoreGearAxis(maps[i], kept[i]);
         }
     }
 

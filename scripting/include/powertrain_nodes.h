@@ -120,15 +120,15 @@ namespace es_script {
                 tcu->reset();
             }
 
-            if (m_upshiftMap != nullptr && !m_upshiftMap->isEmpty()) {
-                m_upshiftMap->generate(&tcu->getUpshiftMap());
-            }
-            if (m_downshiftMap != nullptr && !m_downshiftMap->isEmpty()) {
-                m_downshiftMap->generate(&tcu->getDownshiftMap());
-            }
-            if (m_lockupMap != nullptr && !m_lockupMap->isEmpty()) {
-                m_lockupMap->generate(&tcu->getLockupMap());
-            }
+            const bool upshift = m_upshiftMap != nullptr && !m_upshiftMap->isEmpty();
+            const bool downshift = m_downshiftMap != nullptr && !m_downshiftMap->isEmpty();
+            const bool lockup = m_lockupMap != nullptr && !m_lockupMap->isEmpty();
+
+            if (upshift) m_upshiftMap->generate(&tcu->getUpshiftMap());
+            if (downshift) m_downshiftMap->generate(&tcu->getDownshiftMap());
+            if (lockup) m_lockupMap->generate(&tcu->getLockupMap());
+
+            tcu->markAuthoredMaps(upshift, downshift, lockup);
         }
 
     protected:

@@ -11,6 +11,8 @@
 #include "../control/rate_limiter.h"
 #include "../units.h"
 
+#include <vector>
+
 namespace powertrain {
 
     static constexpr int MaxGears = 10;
@@ -122,6 +124,8 @@ namespace powertrain {
             inline bool isShifting() const { return m_shiftState != ShiftState::Idle; }
             inline const Parameters &getParameters() const { return m_params; }
 
+            void markAuthoredMaps(bool upshift, bool downshift, bool lockup);
+
             double engineSpeedForGear(int gear, double vehicleSpeed) const;
             int scheduleGear(
                 int currentGear,
@@ -130,6 +134,13 @@ namespace powertrain {
 
         protected:
             void buildDefaultMaps();
+            static void snapshotGearAxis(
+                const control::Map2d &map,
+                int gears,
+                std::vector<double> *values);
+            static void restoreGearAxis(
+                control::Map2d *map,
+                const std::vector<double> &values);
             void beginShift(int gear);
             void advanceShift(
                 double dt,
@@ -156,6 +167,9 @@ namespace powertrain {
             control::Map2d m_upshiftMap;
             control::Map2d m_downshiftMap;
             control::Map2d m_lockupMap;
+            bool m_upshiftAuthored;
+            bool m_downshiftAuthored;
+            bool m_lockupAuthored;
             control::PidController m_slipController;
             control::PidController m_lockupController;
             control::RateLimiter m_lockupLimiter;
