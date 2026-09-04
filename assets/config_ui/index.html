@@ -66,6 +66,13 @@ main { display: grid; grid-template-columns: minmax(320px, 1fr) 560px; gap: 0; }
 #view { width: 100%; height: auto; display: block; background: var(--panel);
         border: 1px solid var(--line); border-radius: 3px; }
 #viewNote { color: var(--muted); font-size: 11px; margin-top: 6px; min-height: 1.5em; }
+.row input.toggle {
+    grid-column: 3 / span 2;
+    justify-self: start;
+    width: 16px;
+    height: 16px;
+}
+
 #cellEditor {
     display: flex;
     gap: 6px;
@@ -225,6 +232,7 @@ function buildParameters() {
             const learn = document.createElement("input");
             learn.type = "checkbox";
             learn.dataset.path = p.path;
+            learn.dataset.role = "adaptive";
             learn.checked = !!p.adaptive;
             learn.title = "let the adaption write this parameter";
             learn.addEventListener("change", () => {
@@ -234,6 +242,26 @@ function buildParameters() {
                     .catch(() => {});
             });
             row.appendChild(learn);
+
+            const push = (value) => {
+                state.dirty.add(p.path);
+                api("/api/set", { path: p.path, value: Number(value) }).catch(() => {});
+                setTimeout(() => state.dirty.delete(p.path), 600);
+            };
+
+            if (p.type === "boolean") {
+                const toggle = document.createElement("input");
+                toggle.type = "checkbox";
+                toggle.dataset.path = p.path;
+                toggle.dataset.role = "value";
+                toggle.className = "toggle";
+                toggle.title = p.path;
+                toggle.addEventListener("change", () => push(toggle.checked ? 1 : 0));
+
+                row.appendChild(toggle);
+                section.appendChild(row);
+                continue;
+            }
 
             const slider = document.createElement("input");
             slider.type = "range";
@@ -246,12 +274,6 @@ function buildParameters() {
             number.type = "number";
             number.step = "any";
             number.dataset.path = p.path;
-
-            const push = (value) => {
-                state.dirty.add(p.path);
-                api("/api/set", { path: p.path, value: Number(value) }).catch(() => {});
-                setTimeout(() => state.dirty.delete(p.path), 600);
-            };
 
             slider.addEventListener("input", () => { number.value = slider.value; push(slider.value); });
             number.addEventListener("change", () => { slider.value = number.value; push(number.value); });
@@ -286,7 +308,7 @@ function buildModes() {
 function applyValues() {
     for (const [path, flag] of Object.entries(state.adaptive)) {
         for (const box of document.querySelectorAll(
-            'input[type=checkbox][data-path="' + CSS.escape(path) + '"]'))
+            'input[data-role="adaptive"][data-path="' + CSS.escape(path) + '"]'))
         {
             if (box.checked === flag) continue;
             box.checked = flag;
@@ -297,7 +319,13 @@ function applyValues() {
     for (const [path, value] of Object.entries(state.values)) {
         if (state.dirty.has(path)) continue;
         for (const input of document.querySelectorAll('[data-path="' + CSS.escape(path) + '"]')) {
-            if (input.type === "checkbox") continue;
+            if (input.dataset.role === "adaptive") continue;
+
+            if (input.type === "checkbox") {
+                input.checked = value >= 0.5;
+                continue;
+            }
+
             const rounded = Math.abs(value) >= 1000 ? value.toFixed(1) : value.toPrecision(5);
             if (input.type === "number") input.value = Number(rounded);
             else input.value = value;
