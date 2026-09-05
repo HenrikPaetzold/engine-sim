@@ -99,13 +99,6 @@ class EngineSimApplication {
     protected:
         void loadScript();
         void releasePowertrain();
-        void installPowertrain(
-            powertrain::PowertrainUnit *unit,
-            powertrain::ScriptedControlUnit *program,
-            const adaptation::AdaptationManager::Parameters &adaptationParams,
-            const config::DriveModeSet &modes,
-            const std::string &defaultMode,
-            const std::vector<std::pair<std::string, double>> &parameterOverrides);
         bool powertrainActive() const;
         void processEngineInput();
         void renderScene();

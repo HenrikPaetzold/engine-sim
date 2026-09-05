@@ -1,5 +1,6 @@
 #include "../include/engine_sim_application.h"
 
+#include "../include/powertrain_bootstrap.h"
 #include "../include/piston_object.h"
 #include "../include/connecting_rod_object.h"
 #include "../include/constants.h"
@@ -692,9 +693,29 @@ void EngineSimApplication::loadScript() {
     loadEngine(engine, vehicle, transmission);
 
     if (scriptedPowertrain != nullptr || scriptedProgram != nullptr) {
-        installPowertrain(
-            scriptedPowertrain, scriptedProgram, adaptationParams, driveModes, defaultMode,
-            parameterOverrides);
+        m_powertrainUnit = scriptedPowertrain;
+        m_controlProgram = scriptedProgram;
+        m_driveModes = driveModes;
+
+        powertrain::BootstrapInputs bootstrapInputs;
+        bootstrapInputs.unit = m_powertrainUnit;
+        bootstrapInputs.program = m_controlProgram;
+        bootstrapInputs.adaptation = adaptationParams;
+        bootstrapInputs.defaultMode = defaultMode;
+        bootstrapInputs.parameterOverrides = parameterOverrides;
+
+        powertrain::BootstrapContext bootstrapContext;
+        bootstrapContext.system = &m_simulator->m_powertrain;
+        bootstrapContext.simulator = m_simulator;
+        bootstrapContext.registry = &m_registry;
+        bootstrapContext.modes = &m_driveModes;
+        bootstrapContext.adaptation = &m_adaptation;
+        bootstrapContext.server = &m_configServer;
+        bootstrapContext.uiPath = "../assets/config_ui/index.html";
+
+        const powertrain::BootstrapResult bootstrapResult =
+            powertrain::installPowertrain(bootstrapInputs, bootstrapContext);
+        m_driveModeIndex = bootstrapResult.defaultModeIndex;
     }
 
     refreshUserInterface();
@@ -727,64 +748,6 @@ void EngineSimApplication::releasePowertrain() {
 
     delete m_controlProgram;
     m_controlProgram = nullptr;
-}
-
-void EngineSimApplication::installPowertrain(
-    powertrain::PowertrainUnit *unit,
-    powertrain::ScriptedControlUnit *program,
-    const adaptation::AdaptationManager::Parameters &adaptationParams,
-    const config::DriveModeSet &modes,
-    const std::string &defaultMode,
-    const std::vector<std::pair<std::string, double>> &parameterOverrides)
-{
-    m_powertrainUnit = unit;
-    m_controlProgram = program;
-    m_driveModes = modes;
-
-    const bool overlayProgram =
-        m_controlProgram != nullptr && m_powertrainUnit != nullptr;
-
-    powertrain::PowertrainController *controller =
-        (m_controlProgram != nullptr && !overlayProgram)
-            ? static_cast<powertrain::PowertrainController *>(m_controlProgram)
-            : static_cast<powertrain::PowertrainController *>(m_powertrainUnit);
-
-    if (m_controlProgram != nullptr) m_controlProgram->setOverlay(overlayProgram);
-
-    PowertrainSystem &system = m_simulator->m_powertrain;
-    system.initialize(PowertrainSystem::Parameters());
-    system.setController(controller);
-    system.setOverlayController(overlayProgram ? m_controlProgram : nullptr);
-    system.setDriveModes(&m_driveModes, &m_registry);
-
-    if (controller == m_powertrainUnit && m_powertrainUnit != nullptr) {
-        m_adaptation.initialize(adaptationParams);
-        m_adaptation.attach(
-            &m_powertrainUnit->getEngineControlUnit(),
-            &m_powertrainUnit->getTransmissionControlUnit());
-
-        system.setAdaptationManager(&m_adaptation);
-    }
-
-    system.attach(m_simulator);
-    system.registerParameters(&m_registry);
-
-    for (const auto &override : parameterOverrides) {
-        m_registry.set(override.first, override.second);
-    }
-
-    if (!defaultMode.empty()) {
-        m_driveModeIndex = m_driveModes.find(defaultMode);
-        m_driveModes.select(defaultMode, &m_registry);
-    }
-
-    config::ConfigServer::Parameters serverParams;
-    serverParams.uiPath = "../assets/config_ui/index.html";
-    m_configServer.initialize(serverParams, &m_registry, &m_driveModes);
-
-    if (m_configServer.start()) {
-        system.setConfigServer(&m_configServer);
-    }
 }
 
 void EngineSimApplication::processEngineInput() {
