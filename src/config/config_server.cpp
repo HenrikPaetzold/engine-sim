@@ -4,6 +4,7 @@
 #include "../../include/config/drive_mode.h"
 #include "../../include/config/shift_recorder.h"
 #include "../../include/control/map_2d.h"
+#include "../../include/config/channel_recorder.h"
 
 #include "../../dependencies/cpp-httplib/httplib.h"
 
@@ -241,6 +242,25 @@ std::string config::ConfigServer::exportOverrides() const {
     return m_overrides;
 }
 
+void config::ConfigServer::setScope(ChannelRecorder *recorder) {
+    m_scopeRecorder = recorder;
+}
+
+void config::ConfigServer::publishScope(
+    const ChannelRecorder &recorder,
+    const ChannelTable &table)
+{
+    std::ostringstream scope;
+    recorder.serializeJson(scope);
+
+    std::ostringstream names;
+    table.serializeNames(names);
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_scope = scope.str();
+    m_channelNames = names.str();
+}
+
 bool config::ConfigServer::queueCommand(const ParameterCommand &command) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_commands.push_back(command);
@@ -281,6 +301,37 @@ int config::ConfigServer::applyPendingCommands() {
         case ParameterCommand::Kind::SetAdaptive:
             if (m_registry->setAdaptive(command.path, command.value >= 0.5)) ++applied;
             break;
+
+        case ParameterCommand::Kind::SelectChannels:
+            if (m_scopeRecorder != nullptr) {
+                m_scopeRecorder->select(command.names);
+                ++applied;
+            }
+            break;
+
+        case ParameterCommand::Kind::ScopeWindow:
+            if (m_scopeRecorder != nullptr) {
+                m_scopeRecorder->setWindow(command.value);
+                m_scopeRecorder->reset();
+                ++applied;
+            }
+            break;
+
+        case ParameterCommand::Kind::ScopeMode:
+            if (m_scopeRecorder != nullptr) {
+                m_scopeRecorder->setMode(command.value >= 0.5
+                    ? ChannelRecorder::Mode::Triggered
+                    : ChannelRecorder::Mode::Rolling);
+                ++applied;
+            }
+            break;
+
+        case ParameterCommand::Kind::ScopeArm:
+            if (m_scopeRecorder != nullptr) {
+                m_scopeRecorder->arm();
+                ++applied;
+            }
+            break;
         }
     }
 
@@ -308,6 +359,68 @@ bool config::ConfigServer::start() {
     server->Get("/api/shifts", [this](const httplib::Request &, httplib::Response &res) {
         std::lock_guard<std::mutex> lock(m_mutex);
         res.set_content(m_shifts.empty() ? "[]" : m_shifts, "application/json");
+    });
+
+    server->Get("/api/scope", [this](const httplib::Request &, httplib::Response &res) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        res.set_content(m_scope.empty() ? "{}" : m_scope, "application/json");
+    });
+
+    server->Get("/api/channels", [this](const httplib::Request &, httplib::Response &res) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        res.set_content(m_channelNames.empty() ? "[]" : m_channelNames, "application/json");
+    });
+
+    server->Post("/api/scope", [this](const httplib::Request &req, httplib::Response &res) {
+        ParameterCommand command;
+
+        double window = 0.0;
+        double mode = -1.0;
+        double arm = 0.0;
+
+        if (extractNumber(req.body, "window", &window)) {
+            command.kind = ParameterCommand::Kind::ScopeWindow;
+            command.value = window;
+            queueCommand(command);
+        }
+
+        if (extractNumber(req.body, "triggered", &mode)) {
+            command.kind = ParameterCommand::Kind::ScopeMode;
+            command.value = mode;
+            queueCommand(command);
+        }
+
+        const size_t list = req.body.find("\"channels\"");
+        if (list != std::string::npos) {
+            command.kind = ParameterCommand::Kind::SelectChannels;
+            command.names.clear();
+
+            const size_t open = req.body.find('[', list);
+            const size_t close = (open == std::string::npos)
+                ? std::string::npos
+                : req.body.find(']', open);
+
+            for (size_t i = open; i != std::string::npos && i < close; ) {
+                const size_t begin = req.body.find('"', i);
+                if (begin == std::string::npos || begin > close) break;
+
+                const size_t end = req.body.find('"', begin + 1);
+                if (end == std::string::npos || end > close) break;
+
+                command.names.push_back(req.body.substr(begin + 1, end - begin - 1));
+                i = end + 1;
+            }
+
+            queueCommand(command);
+        }
+
+        if (extractNumber(req.body, "arm", &arm) && arm >= 0.5) {
+            command.kind = ParameterCommand::Kind::ScopeArm;
+            command.names.clear();
+            queueCommand(command);
+        }
+
+        res.set_content("{\"ok\":true}", "application/json");
     });
 
     server->Get("/api/overrides", [this](const httplib::Request &, httplib::Response &res) {

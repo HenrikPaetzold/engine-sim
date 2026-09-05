@@ -99,6 +99,11 @@ namespace powertrain {
                 const DriverInputs &inputs,
                 ActuatorCommands *commands);
 
+            inline control::PidController &getSlipController() { return m_slipController; }
+            inline const control::PidController &getSlipController() const { return m_slipController; }
+            inline control::PidController &getLockupController() { return m_lockupController; }
+            inline const control::PidController &getLockupController() const { return m_lockupController; }
+
             inline control::Map2d &getUpshiftMap() { return m_upshiftMap; }
             inline control::IterativeLearningControl &getEngageProfile() { return m_engageProfile; }
             inline const control::IterativeLearningControl &getEngageProfile() const { return m_engageProfile; }

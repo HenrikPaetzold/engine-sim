@@ -4,6 +4,7 @@
 #include "../include/config/parameter_registry.h"
 #include "../include/config/drive_mode.h"
 #include "../include/control/map_2d.h"
+#include "../include/config/channel_recorder.h"
 
 #include "../dependencies/cpp-httplib/httplib.h"
 
@@ -306,4 +307,62 @@ TEST_F(ServerFixture, TheStateCarriesTheAdaptiveFlags) {
     ASSERT_TRUE(second);
     EXPECT_NE(second->body.find("\"ecu.limiter.rev_limit\":true"), std::string::npos)
         << "the adaptive flag did not follow";
+}
+
+TEST_F(ServerFixture, TheScopeChannelsAreSelectableFromTheBrowser) {
+    config::ChannelRecorder scope;
+    scope.initialize(1.0);
+    m_server.setScope(&scope);
+
+    auto post = client().Post(
+        "/api/scope",
+        "{\"channels\":[\"engine_rpm\",\"clutch_pressure\"],\"window\":2.5}",
+        "application/json");
+
+    ASSERT_TRUE(post);
+    ASSERT_EQ(post->status, 200);
+    EXPECT_EQ(m_server.applyPendingCommands(), 2);
+
+    ASSERT_EQ(scope.getChannelCount(), 2);
+    EXPECT_EQ(scope.getChannelName(0), "engine_rpm");
+    EXPECT_EQ(scope.getChannelName(1), "clutch_pressure");
+    EXPECT_NEAR(scope.getWindow(), 2.5, 1e-9);
+}
+
+TEST_F(ServerFixture, TheScopeIsPublishedAndReadable) {
+    config::ChannelTable table;
+    table.set("engine_rpm", 2500.0);
+
+    config::ChannelRecorder scope;
+    scope.initialize(1.0);
+    scope.select({ "engine_rpm" });
+
+    for (int i = 0; i < 500; ++i) scope.update(1e-3, i * 1e-3, table);
+
+    m_server.publishScope(scope, table);
+
+    auto response = client().Get("/api/scope");
+    ASSERT_TRUE(response);
+    EXPECT_NE(response->body.find("\"name\":\"engine_rpm\""), std::string::npos);
+    EXPECT_NE(response->body.find("2500"), std::string::npos);
+
+    auto names = client().Get("/api/channels");
+    ASSERT_TRUE(names);
+    EXPECT_NE(names->body.find("engine_rpm"), std::string::npos);
+}
+
+TEST_F(ServerFixture, ATriggeredScopeIsArmedFromTheBrowser) {
+    config::ChannelRecorder scope;
+    scope.initialize(1.0);
+    scope.select({ "engine_rpm" });
+    scope.setMode(config::ChannelRecorder::Mode::Triggered);
+    m_server.setScope(&scope);
+
+    ASSERT_FALSE(scope.isArmed());
+
+    auto post = client().Post("/api/scope", "{\"arm\":1}", "application/json");
+    ASSERT_TRUE(post);
+    EXPECT_EQ(m_server.applyPendingCommands(), 1);
+
+    EXPECT_TRUE(scope.isArmed());
 }

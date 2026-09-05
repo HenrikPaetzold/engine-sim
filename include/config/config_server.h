@@ -49,15 +49,22 @@ namespace config {
             SetParameter,
             SelectMode,
             ResetDefaults,
-            SetAdaptive
+            SetAdaptive,
+            SelectChannels,
+            ScopeWindow,
+            ScopeMode,
+            ScopeArm
         };
 
         Kind kind = Kind::SetParameter;
         std::string path;
         double value = 0.0;
+        std::vector<std::string> names;
     };
 
     class ShiftRecorder;
+    class ChannelRecorder;
+    class ChannelTable;
 
     class ConfigServer {
         public:
@@ -83,6 +90,8 @@ namespace config {
 
             void publish(const TelemetrySample &sample);
             void publishShifts(const ShiftRecorder &recorder);
+            void publishScope(const ChannelRecorder &recorder, const ChannelTable &table);
+            void setScope(ChannelRecorder *recorder);
             int applyPendingCommands();
 
             std::string schemaJson() const;
@@ -106,6 +115,9 @@ namespace config {
             std::string m_export;
             std::string m_overrides;
             std::string m_shifts;
+            std::string m_scope;
+            std::string m_channelNames;
+            ChannelRecorder *m_scopeRecorder = nullptr;
 
             std::vector<ParameterCommand> m_commands;
 

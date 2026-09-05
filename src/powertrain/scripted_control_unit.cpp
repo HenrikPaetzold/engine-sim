@@ -204,12 +204,13 @@ void powertrain::ScriptedControlUnit::reset() {
     m_bus = PowertrainBus();
 }
 
-void powertrain::ScriptedControlUnit::sampleSignals(
+void powertrain::sampleSignalTable(
+    control::SignalTable *out,
     double dt,
     const PowertrainState &state,
     const DriverInputs &inputs)
 {
-    control::SignalTable &table = m_program.getInputs();
+    control::SignalTable &table = *out;
 
     table.set(signals::Dt, dt);
     table.set(signals::Time, state.time);
@@ -251,6 +252,38 @@ void powertrain::ScriptedControlUnit::sampleSignals(
     table.set(signals::ParkLockEngaged, state.parkLockEngaged ? 1.0 : 0.0);
     table.set(signals::IgnitionKey, inputs.ignitionKey ? 1.0 : 0.0);
     table.set(signals::StarterRequest, inputs.starterRequest ? 1.0 : 0.0);
+}
+
+void powertrain::sampleActuatorTable(
+    control::SignalTable *out,
+    const ActuatorCommands &commands)
+{
+    control::SignalTable &table = *out;
+
+    table.set(actuators::ThrottlePlate, commands.throttlePlate);
+    table.set(actuators::IgnitionCut, commands.ignitionCutFraction);
+    table.set(actuators::FuelCut, commands.fuelCutFraction);
+    table.set(actuators::FuelEnrichment, commands.fuelEnrichment);
+    table.set(actuators::TimingOffset, commands.timingOffset);
+    table.set(actuators::RevLimit, commands.revLimit);
+    table.set(actuators::LimiterDuration, commands.limiterDuration);
+    table.set(actuators::TargetGear, commands.targetGear);
+    table.set(actuators::PreselectGear, commands.preselectGear);
+    table.set(actuators::ClutchPressure, commands.clutchPressure[0]);
+    table.set(actuators::ClutchPressure2, commands.clutchPressure[1]);
+    table.set(actuators::LockupPressure, commands.lockupPressure);
+    table.set(actuators::StarterEnabled, commands.starterEnabled ? 1.0 : 0.0);
+    table.set(actuators::IgnitionEnabled, commands.ignitionEnabled ? 1.0 : 0.0);
+    table.set(actuators::GatePosition, commands.gatePosition);
+    table.set(actuators::ParkLock, commands.parkLock ? 1.0 : 0.0);
+}
+
+void powertrain::ScriptedControlUnit::sampleSignals(
+    double dt,
+    const PowertrainState &state,
+    const DriverInputs &inputs)
+{
+    sampleSignalTable(&m_program.getInputs(), dt, state, inputs);
 }
 
 void powertrain::ScriptedControlUnit::seedActuators(

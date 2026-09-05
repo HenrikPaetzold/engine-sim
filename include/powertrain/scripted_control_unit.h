@@ -78,6 +78,16 @@ namespace powertrain {
         const char *name(int actuator);
     }
 
+    void sampleSignalTable(
+        control::SignalTable *table,
+        double dt,
+        const PowertrainState &state,
+        const DriverInputs &inputs);
+
+    void sampleActuatorTable(
+        control::SignalTable *table,
+        const ActuatorCommands &commands);
+
     class ScriptedControlUnit : public PowertrainController {
         public:
             ScriptedControlUnit();

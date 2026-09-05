@@ -30,3 +30,7 @@ const std::string &powertrain::PowertrainController::getPositionName() const {
     static const std::string empty;
     return empty;
 }
+
+void powertrain::PowertrainController::fillChannels(config::ChannelTable *table) const {
+    (void)table;
+}

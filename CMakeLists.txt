@@ -61,6 +61,7 @@ add_library(engine-sim STATIC
     src/adaptation/rls_estimator.cpp
     src/config/config_server.cpp
     src/config/shift_recorder.cpp
+    src/config/channel_recorder.cpp
     src/config/drive_mode.cpp
     src/config/parameter_registry.cpp
     src/control/iterative_learning.cpp
@@ -407,6 +408,7 @@ add_executable(engine-sim-test
     test/range_tests.cpp
     test/gearbox_strategy_tests.cpp
     test/starter_tests.cpp
+    test/channel_recorder_tests.cpp
     test/control_program_tests.cpp
     test/learner_tests.cpp
     test/adaptation_tests.cpp

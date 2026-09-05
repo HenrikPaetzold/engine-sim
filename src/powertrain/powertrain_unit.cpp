@@ -1,6 +1,7 @@
 #include "../../include/powertrain/powertrain_unit.h"
 
 #include "../../include/config/config_server.h"
+#include "../../include/config/channel_recorder.h"
 
 powertrain::PowertrainUnit::PowertrainUnit() {
     /* void */
@@ -76,6 +77,40 @@ void powertrain::PowertrainUnit::fillTelemetry(config::TelemetrySample *sample) 
     sample->parkLock = m_tcu.getEngagement() == powertrain::GateEngagement::Park;
     sample->shiftIterations = m_tcu.getEngageProfile().getIterationCount();
     sample->shiftErrorNorm = m_tcu.getEngageProfile().getLastErrorNorm();
+}
+
+namespace {
+    void addController(
+        config::ChannelTable *table,
+        const std::string &prefix,
+        const control::PidController &pid)
+    {
+        table->set(prefix + ".error", pid.getError());
+        table->set(prefix + ".p", pid.getProportionalTerm());
+        table->set(prefix + ".i", pid.getIntegrator());
+        table->set(prefix + ".d", pid.getDerivativeTerm());
+        table->set(prefix + ".output", pid.getOutput());
+        table->set(prefix + ".saturated", pid.isSaturated() ? 1.0 : 0.0);
+    }
+}
+
+void powertrain::PowertrainUnit::fillChannels(config::ChannelTable *table) const {
+    if (table == nullptr) return;
+
+    addController(table, "pid.ecu.idle", m_ecu.getIdleController());
+    addController(table, "pid.ecu.torque", m_ecu.getTorqueController());
+    addController(table, "pid.tcu.slip", m_tcu.getSlipController());
+    addController(table, "pid.tcu.lockup", m_tcu.getLockupController());
+
+    table->set("ecu.torque_request", m_ecu.getTorqueRequest());
+    table->set("ecu.fuel_trim", m_ecu.getFuelTrim());
+    table->set("tcu.engage_phase", m_tcu.getEngagePhase());
+    table->set("tcu.shift_error_norm", m_tcu.getEngageProfile().getLastErrorNorm());
+    table->set("tcu.shifts_learned", m_tcu.getEngageProfile().getIterationCount());
+    table->set("tcu.target_gear", m_tcu.getTargetGear());
+    table->set("tcu.active_clutch", m_tcu.getActiveClutch());
+    table->set("tcu.pedal_rate", m_tcu.getPedalRate());
+    table->set("tcu.shifting", m_tcu.isShifting() ? 1.0 : 0.0);
 }
 
 void powertrain::PowertrainUnit::update(

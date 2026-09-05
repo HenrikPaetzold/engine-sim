@@ -1,5 +1,7 @@
 #include "../include/powertrain_system.h"
 
+#include "../include/powertrain/scripted_control_unit.h"
+
 #include "../include/simulator.h"
 #include "../include/units.h"
 
@@ -33,6 +35,39 @@ void PowertrainSystem::setController(powertrain::PowertrainController *controlle
     m_controller = controller;
 }
 
+void PowertrainSystem::fillChannels(double dt) {
+    if (!m_channelsDefined) {
+        for (int i = 0; i < powertrain::signals::Count; ++i) {
+            m_signalScratch.declare(powertrain::signals::name(i));
+            m_signalChannel.push_back(
+                m_channels.define(powertrain::signals::name(i)));
+        }
+
+        for (int i = 0; i < powertrain::actuators::Count; ++i) {
+            m_actuatorScratch.declare(powertrain::actuators::name(i));
+            m_actuatorChannel.push_back(
+                m_channels.define(
+                    std::string("cmd.") + powertrain::actuators::name(i)));
+        }
+
+        m_channelsDefined = true;
+    }
+
+    powertrain::sampleSignalTable(&m_signalScratch, dt, m_state, m_inputs);
+    powertrain::sampleActuatorTable(&m_actuatorScratch, m_commands);
+
+    for (int i = 0; i < powertrain::signals::Count; ++i) {
+        m_channels.set(m_signalChannel[i], m_signalScratch.get(i));
+    }
+
+    for (int i = 0; i < powertrain::actuators::Count; ++i) {
+        m_channels.set(m_actuatorChannel[i], m_actuatorScratch.get(i));
+    }
+
+    if (m_controller != nullptr) m_controller->fillChannels(&m_channels);
+    if (m_overlay != nullptr) m_overlay->fillChannels(&m_channels);
+}
+
 void PowertrainSystem::setOverlayController(powertrain::PowertrainController *overlay) {
     m_overlay = overlay;
     syncGearbox();
@@ -45,6 +80,7 @@ void PowertrainSystem::setAdaptationManager(adaptation::AdaptationManager *manag
 
 void PowertrainSystem::setConfigServer(config::ConfigServer *server) {
     m_server = server;
+    if (m_server != nullptr) m_server->setScope(&m_scope);
 }
 
 void PowertrainSystem::setDriveModes(
@@ -361,6 +397,9 @@ void PowertrainSystem::update(double dt) {
         m_overlay->update(controlDt, m_state, m_inputs, &m_commands);
     }
 
+    fillChannels(controlDt);
+    m_scope.update(controlDt, m_time, m_channels);
+
     if (m_adaptation != nullptr) {
         m_adaptation->update(controlDt, m_state, m_controller->getBus());
     }
@@ -379,6 +418,7 @@ void PowertrainSystem::update(double dt) {
         if (m_server != nullptr) {
             m_server->applyPendingCommands();
             m_server->publishShifts(m_shiftRecorder);
+            m_server->publishScope(m_scope, m_channels);
         }
 
         publishTelemetry();

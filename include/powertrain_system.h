@@ -6,10 +6,13 @@
 #include "config/parameter_registry.h"
 #include "config/config_server.h"
 #include "config/shift_recorder.h"
+#include "config/channel_recorder.h"
+#include "control/signal_table.h"
 #include "adaptation/adaptation_manager.h"
 #include "config/drive_mode.h"
 
 #include <string>
+#include <vector>
 
 class Engine;
 class Transmission;
@@ -33,6 +36,11 @@ class PowertrainSystem {
 
         void setController(powertrain::PowertrainController *controller);
         void setOverlayController(powertrain::PowertrainController *overlay);
+
+        inline config::ChannelTable &getChannels() { return m_channels; }
+        inline const config::ChannelTable &getChannels() const { return m_channels; }
+        inline config::ChannelRecorder &getScope() { return m_scope; }
+        inline const config::ChannelRecorder &getScope() const { return m_scope; }
         void setAdaptationManager(adaptation::AdaptationManager *manager);
         void setConfigServer(config::ConfigServer *server);
         void setDriveModes(config::DriveModeSet *modes, config::ParameterRegistry *registry);
@@ -65,6 +73,16 @@ class PowertrainSystem {
 
         powertrain::PowertrainController *m_controller;
         powertrain::PowertrainController *m_overlay;
+
+        config::ChannelTable m_channels;
+        config::ChannelRecorder m_scope;
+        control::SignalTable m_signalScratch;
+        control::SignalTable m_actuatorScratch;
+        std::vector<int> m_signalChannel;
+        std::vector<int> m_actuatorChannel;
+        bool m_channelsDefined = false;
+
+        void fillChannels(double dt);
         adaptation::AdaptationManager *m_adaptation;
         config::ConfigServer *m_server;
         config::ShiftRecorder m_shiftRecorder;
