@@ -175,7 +175,10 @@ pre {
 </main>
 
 <script>
-const state = { schema: null, values: {}, maps: {}, adaptive: {}, telemetry: {}, dirty: new Set() };
+const state = {
+    schema: null, values: {}, maps: {}, adaptive: {}, telemetry: {},
+    channels: [], scope: null, dirty: new Set()
+};
 const history = [];
 const HISTORY = 240;
 
@@ -701,6 +704,85 @@ views.cloud = {
     }
 };
 
+const SCOPE_COLORS = ["#6fb2ff", "#7ddc9a", "#fdbd2e", "#ff8f6f", "#c48fff", "#5fd8d8", "#e8a13a", "#ff6fa8"];
+let scopeFrozen = null;
+
+views.scope = {
+    label: "Scope",
+    note: "any channels over time, recorded at control rate. freeze holds a run so the next one draws over it.",
+    channels: ["engine_rpm", "cmd.throttle_plate", "accelerator"],
+    separate: false,
+    tools: [
+        ["freeze / clear", () => {
+            scopeFrozen = (scopeFrozen == null && state.scope != null)
+                ? JSON.parse(JSON.stringify(state.scope))
+                : null;
+        }],
+        ["shared / split", () => { views.scope.separate = !views.scope.separate; }],
+        ["arm", () => { api("/api/scope", { arm: 1 }).catch(() => {}); }]
+    ],
+    draw(ctx, w, h) {
+        const scope = state.scope;
+        if (scope == null || !scope.channels || scope.channels.length === 0) {
+            frame(ctx, w, h, "time  s", "");
+            ctx.fillStyle = "#8b93a1";
+            ctx.font = "12px ui-monospace, monospace";
+            ctx.fillText("pick channels below", 70, 40);
+            return;
+        }
+
+        const box = frame(ctx, w, h, "time  s", "channels");
+        const bands = views.scope.separate ? scope.channels.length : 1;
+        const bandHeight = (h - box.pad.t - box.pad.b) / bands;
+
+        const paint = (run, alpha) => {
+            if (run == null || !run.channels) return;
+            ctx.globalAlpha = alpha;
+
+            run.channels.forEach((channel, index) => {
+                const values = channel.samples || [];
+                if (values.length < 2) return;
+
+                let peak = 1e-9;
+                for (const v of values) peak = Math.max(peak, Math.abs(v));
+
+                const band = views.scope.separate ? index : 0;
+                const top = box.pad.t + band * bandHeight;
+
+                ctx.strokeStyle = SCOPE_COLORS[index % SCOPE_COLORS.length];
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+
+                for (let i = 0; i < values.length; ++i) {
+                    const x = box.pad.l
+                        + (i / (values.length - 1)) * (w - box.pad.l - box.pad.r);
+                    const y = top + bandHeight * (1 - (values[i] / peak) * 0.5 - 0.5);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+
+                ctx.stroke();
+            });
+
+            ctx.globalAlpha = 1;
+        };
+
+        paint(scopeFrozen, 0.35);
+        paint(scope, 1.0);
+
+        ctx.font = "11px ui-monospace, monospace";
+        scope.channels.forEach((channel, index) => {
+            const values = channel.samples || [];
+            const last = values.length ? values[values.length - 1] : 0;
+            ctx.fillStyle = SCOPE_COLORS[index % SCOPE_COLORS.length];
+            ctx.fillText(
+                channel.name + (channel.found ? "" : " (unknown)") + "  " + n(last, 3),
+                box.pad.l + 6,
+                box.pad.t + 14 + index * 14);
+        });
+    }
+};
+
 views.shifts = {
     label: "Shift scope",
     note: "the last shifts on one time base. older ones are paler — watch them get smoother.",
@@ -774,7 +856,16 @@ function buildTabs() {
 
     document.getElementById("viewNote").textContent = views[activeView].note;
 
-    buildCellEditor();
+    if (activeView === "scope") {
+        const host = document.getElementById("cellEditor");
+        host.textContent = "";
+        host.dataset.role = "";
+        refreshCellEditor = null;
+        buildScopePicker();
+    }
+    else {
+        buildCellEditor();
+    }
 }
 
 let refreshCellEditor = null;
@@ -787,6 +878,7 @@ function editableMaps() {
 function buildCellEditor() {
     const host = document.getElementById("cellEditor");
     host.textContent = "";
+    host.dataset.role = "cell";
     refreshCellEditor = null;
 
     const paths = editableMaps();
@@ -875,6 +967,66 @@ function drawView() {
     views[activeView].draw(ctx, canvas.width, canvas.height);
 }
 
+async function pollScope() {
+    try {
+        state.scope = await api("/api/scope");
+        if (!state.channels.length) {
+            state.channels = await api("/api/channels");
+            buildScopePicker();
+        }
+    }
+    catch (error) { /* keep what we have */ }
+}
+
+function buildScopePicker() {
+    if (activeView !== "scope") return;
+
+    const host = document.getElementById("cellEditor");
+    const built = Number(host.dataset.channels || 0);
+    if (host.dataset.role === "scope" && built === state.channels.length) return;
+
+    host.textContent = "";
+    host.dataset.role = "scope";
+    host.dataset.channels = String(state.channels.length);
+
+    const label = document.createElement("span");
+    label.textContent = "channels";
+    host.appendChild(label);
+
+    for (let slot = 0; slot < 4; ++slot) {
+        const pick = document.createElement("select");
+
+        const none = document.createElement("option");
+        none.value = "";
+        none.textContent = "—";
+        pick.appendChild(none);
+
+        for (const name of state.channels) {
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+            pick.appendChild(option);
+        }
+
+        pick.value = views.scope.channels[slot] || "";
+        pick.addEventListener("change", () => {
+            const chosen = [];
+            for (const select of host.querySelectorAll("select")) {
+                if (select.value) chosen.push(select.value);
+            }
+
+            views.scope.channels = chosen;
+            api("/api/scope", { channels: chosen }).catch(() => {});
+        });
+
+        host.appendChild(pick);
+    }
+
+    if (state.channels.length) {
+        api("/api/scope", { channels: views.scope.channels }).catch(() => {});
+    }
+}
+
 async function pollShifts() {
     try {
         views.shifts.data = await api("/api/shifts");
@@ -897,7 +1049,10 @@ async function poll() {
         renderTelemetry();
         plot();
 
-        if (document.getElementById("cellEditor").childElementCount === 0
+        if (activeView === "scope") {
+            buildScopePicker();
+        }
+        else if (document.getElementById("cellEditor").childElementCount === 0
             && editableMaps().length > 0)
         {
             buildCellEditor();
@@ -914,6 +1069,8 @@ async function poll() {
             });
             while (cloud.length > CLOUD) cloud.shift();
         }
+
+        if (activeView === "scope") await pollScope();
 
         drawView();
 
