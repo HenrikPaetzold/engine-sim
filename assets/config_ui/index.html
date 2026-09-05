@@ -777,6 +777,8 @@ function buildTabs() {
     buildCellEditor();
 }
 
+let refreshCellEditor = null;
+
 function editableMaps() {
     const paths = views[activeView].maps || [];
     return paths.filter(path => mapOf(path) != null);
@@ -785,6 +787,7 @@ function editableMaps() {
 function buildCellEditor() {
     const host = document.getElementById("cellEditor");
     host.textContent = "";
+    refreshCellEditor = null;
 
     const paths = editableMaps();
     if (!paths.length) return;
@@ -824,17 +827,26 @@ function buildCellEditor() {
         });
     };
 
+    const cellPath = () =>
+        which.value + "[" + Number(column.value) + "][" + Number(row.value) + "]";
+
     const show = () => {
         const m = mapOf(which.value);
         if (m == null) return;
-        value.value = Number(
+        if (document.activeElement === value) return;
+        if (state.dirty.has(cellPath())) return;
+
+        const live = Number(
             mapValue(m, Number(column.value), Number(row.value)).toPrecision(6));
+
+        if (Number(value.value) !== live) value.value = live;
     };
 
     const write = () => {
-        const path = which.value
-            + "[" + Number(column.value) + "][" + Number(row.value) + "]";
+        const path = cellPath();
+        state.dirty.add(path);
         api("/api/set", { path, value: Number(value.value) }).catch(() => {});
+        setTimeout(() => state.dirty.delete(path), 600);
     };
 
     which.addEventListener("change", () => { axes(); show(); });
@@ -853,6 +865,8 @@ function buildCellEditor() {
     host.appendChild(column);
     host.appendChild(row);
     host.appendChild(value);
+
+    refreshCellEditor = show;
 }
 
 function drawView() {
@@ -887,6 +901,9 @@ async function poll() {
             && editableMaps().length > 0)
         {
             buildCellEditor();
+        }
+        else if (refreshCellEditor != null) {
+            refreshCellEditor();
         }
 
         if (state.telemetry.engineRpm > 1) {
