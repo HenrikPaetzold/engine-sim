@@ -53,7 +53,7 @@ void PowertrainSystem::fillChannels(double dt) {
         m_channelsDefined = true;
     }
 
-    powertrain::sampleSignalTable(&m_signalScratch, dt, m_state, m_inputs);
+    powertrain::sampleSignalTable(&m_signalScratch, dt, m_state, m_driven);
     powertrain::sampleActuatorTable(&m_actuatorScratch, m_commands);
 
     for (int i = 0; i < powertrain::signals::Count; ++i) {
@@ -63,6 +63,9 @@ void PowertrainSystem::fillChannels(double dt) {
     for (int i = 0; i < powertrain::actuators::Count; ++i) {
         m_channels.set(m_actuatorChannel[i], m_actuatorScratch.get(i));
     }
+
+    m_channels.set("driver.pedal_raw", m_inputs.accelerator);
+    m_channels.set("driver.clutch_raw", m_inputs.clutchPedal);
 
     if (m_controller != nullptr) m_controller->fillChannels(&m_channels);
     if (m_overlay != nullptr) m_overlay->fillChannels(&m_channels);
@@ -101,6 +104,32 @@ void PowertrainSystem::applyGateMode() {
     if (m_modes->select(requested, m_registry)) m_activeMode = requested;
 }
 
+void PowertrainSystem::conditionInputs(double dt) {
+    if (!m_driverPrimed) {
+        m_driven = m_inputs;
+        m_driverPedal = m_inputs.accelerator;
+        m_driverClutch = m_inputs.clutchPedal;
+        m_driverPrimed = true;
+        return;
+    }
+
+    m_driven = m_inputs;
+
+    const double pedalAlpha = (m_params.pedalTimeConstant > 0.0)
+        ? dt / (dt + m_params.pedalTimeConstant)
+        : 1.0;
+    m_driven.accelerator = m_driverPedal
+        + pedalAlpha * (m_inputs.accelerator - m_driverPedal);
+    m_driverPedal = m_driven.accelerator;
+
+    const double clutchAlpha = (m_params.clutchTimeConstant > 0.0)
+        ? dt / (dt + m_params.clutchTimeConstant)
+        : 1.0;
+    m_driven.clutchPedal = m_driverClutch
+        + clutchAlpha * (m_inputs.clutchPedal - m_driverClutch);
+    m_driverClutch = m_driven.clutchPedal;
+}
+
 void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
     if (registry == nullptr) return;
 
@@ -110,12 +139,42 @@ void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
         &m_params.controlFrequency);
     registry->registerScalar(
         config::describeScalar(
+            "driver.pedal_time_constant", 0.0, 2.0,
+            m_params.pedalTimeConstant, "s"),
+        &m_params.pedalTimeConstant);
+    registry->registerScalar(
+        config::describeScalar(
+            "driver.clutch_time_constant", 0.0, 2.0,
+            m_params.clutchTimeConstant, "s"),
+        &m_params.clutchTimeConstant);
+    registry->registerScalar(
+        config::describeScalar(
+            "driver.clutch_pedal_rate", 0.0, 20.0,
+            m_params.clutchPedalRate, "1/s"),
+        &m_params.clutchPedalRate);
+    registry->registerScalar(
+        config::describeScalar(
             "control.telemetry_frequency", 1.0, 200.0, m_params.telemetryFrequency, "Hz"),
         &m_params.telemetryFrequency);
+
+    m_throttle.registerParameters(registry, "");
 
     if (m_simulator != nullptr) {
         Vehicle *vehicle = m_simulator->getVehicle();
         if (vehicle != nullptr) vehicle->registerParameters(registry, "");
+
+        registry->registerMap(
+            config::describeScalar(
+                "starter.torque_map",
+                0.0,
+                units::torque(2000.0, units::Nm),
+                0.0,
+                "Nm"),
+            &m_simulator->m_starterMotor.m_torqueMap);
+        registry->registerMap(
+            config::describeScalar(
+                "starter.speed_map", 0.0, units::rpm(2000.0), 0.0, "rad/s"),
+            &m_simulator->m_starterMotor.m_speedMap);
 
         Engine *engine = m_simulator->getEngine();
         if (engine != nullptr) engine->getThermalModel().registerParameters(registry, "");
@@ -200,6 +259,8 @@ void PowertrainSystem::reset() {
     m_state = powertrain::PowertrainState();
     m_commands = powertrain::ActuatorCommands();
     m_shiftRecorder.reset();
+    m_driverPrimed = false;
+    m_throttle.reset();
 
     if (m_controller != nullptr) m_controller->reset();
     if (m_overlay != nullptr) m_overlay->reset();
@@ -332,6 +393,8 @@ void PowertrainSystem::applyCommands() {
             ignition->m_enabled = m_commands.ignitionEnabled;
             ignition->setCutFraction(m_commands.ignitionCutFraction);
             ignition->setTimingOffset(m_commands.timingOffset);
+            ignition->setTimingOverride(
+                m_commands.timingAdvance, m_commands.timingAdvanceValid);
 
             if (m_commands.revLimit > 0.0) {
                 ignition->setRevLimit(m_commands.revLimit);
@@ -391,10 +454,11 @@ void PowertrainSystem::update(double dt) {
     m_accumulator = 0.0;
 
     sampleState(controlDt);
-    m_controller->update(controlDt, m_state, m_inputs, &m_commands);
+    conditionInputs(controlDt);
+    m_controller->update(controlDt, m_state, m_driven, &m_commands);
 
     if (m_overlay != nullptr) {
-        m_overlay->update(controlDt, m_state, m_inputs, &m_commands);
+        m_overlay->update(controlDt, m_state, m_driven, &m_commands);
     }
 
     fillChannels(controlDt);

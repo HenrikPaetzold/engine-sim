@@ -56,8 +56,14 @@ namespace config {
             bool get(const std::string &path, double *value) const;
 
             bool adapt(const std::string &path, double delta);
+            bool accumulate(const std::string &path, double x, double y, double delta);
             bool isAdaptive(const std::string &path) const;
             bool setAdaptive(const std::string &path, bool adaptive);
+            bool setAdaptive(
+                const std::string &path,
+                bool adaptive,
+                double adaptMin,
+                double adaptMax);
 
             void resetToDefaults();
 

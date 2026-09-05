@@ -42,6 +42,9 @@ class IgnitionModule : public Part {
         void setTimingOffset(double offset);
         inline double getTimingOffset() const { return m_timingOffset; }
 
+        void setTimingOverride(double advance, bool active);
+        inline bool hasTimingOverride() const { return m_timingOverrideActive; }
+
         void setCutFraction(double fraction);
         inline double getCutFraction() const { return m_cutFraction; }
 
@@ -70,6 +73,8 @@ class IgnitionModule : public Part {
         double m_limiterDuration;
 
         double m_timingOffset;
+        double m_timingOverride;
+        bool m_timingOverrideActive;
         double m_cutFraction;
         double m_cutAccumulator;
 };

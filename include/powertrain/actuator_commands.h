@@ -11,6 +11,8 @@ namespace powertrain {
         double fuelCutFraction = 0.0;
         double fuelEnrichment = 1.0;
         double timingOffset = 0.0;
+        double timingAdvance = 0.0;
+        bool timingAdvanceValid = false;
         double revLimit = 0.0;
         double softLimitStart = 0.0;
         double limiterDuration = 0.0;

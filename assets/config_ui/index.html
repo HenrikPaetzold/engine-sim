@@ -569,7 +569,8 @@ views.shiftmap = {
 
 views.throttlemap = {
     label: "Throttle map",
-    maps: ["ecu.throttle_map", "ecu.max_torque_map", "ecu.lambda.trim"],
+    maps: ["ecu.throttle_map", "ecu.max_torque_map", "ecu.lambda.trim",
+           "ecu.idle.trim", "ecu.timing_map"],
     note: "engine speed vs requested torque, colour is the plate. delta shows what the estimator learned.",
     tools: [
         ["absolute / delta", () => { views.throttlemap.delta = !views.throttlemap.delta; }],

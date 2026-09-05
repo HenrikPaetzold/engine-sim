@@ -172,6 +172,7 @@ void es_script::LanguageRules::registerBuiltinNodeTypes() {
     registerBuiltinType<SetPowertrainNode>("__engine_sim__set_powertrain");
     registerBuiltinType<SetParameterNode>("__engine_sim__set_parameter");
     registerBuiltinType<SetMapCellNode>("__engine_sim__set_map_cell");
+    registerBuiltinType<SetAdaptiveNode>("__engine_sim__set_adaptive");
     registerBuiltinType<AddGearRatioNode>("__engine_sim__add_gear_ratio");
     registerBuiltinType<AddMapSampleNode>("__engine_sim__add_map_sample");
     registerBuiltinType<SetDriveModeValueNode>("__engine_sim__set_drive_mode_value");

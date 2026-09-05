@@ -1060,9 +1060,12 @@ void powertrain::TransmissionControlUnit::registerParameters(
     registry->registerScalar(
         describe(base + "lockup.pid.ki", 0.0, 20.0, m_params.lockupController.ki, ""),
         &m_lockupController.getParametersMutable().ki);
-    registry->registerMap(
-        describe(base + "lockup_map", 0.0, 200.0, 0.0, "m/s"),
-        &m_lockupMap);
+    config::ParameterDescriptor lockup =
+        describe(base + "lockup_map", 0.0, 200.0, 0.0, "m/s");
+    lockup.adaptive = true;
+    lockup.adaptMin = 0.0;
+    lockup.adaptMax = 200.0;
+    registry->registerMap(lockup, &m_lockupMap);
     registry->registerMap(
         describe(base + "overlap_shape", 0.0, 1.0, 0.0, ""),
         &m_overlapShape);
@@ -1077,9 +1080,12 @@ void powertrain::TransmissionControlUnit::registerParameters(
     upshift.adaptMax = 200.0;
     registry->registerMap(upshift, &m_upshiftMap);
 
-    registry->registerMap(
-        describe(base + "downshift_map", 0.0, 200.0, 0.0, "m/s"),
-        &m_downshiftMap);
+    config::ParameterDescriptor downshift =
+        describe(base + "downshift_map", 0.0, 200.0, 0.0, "m/s");
+    downshift.adaptive = true;
+    downshift.adaptMin = 0.0;
+    downshift.adaptMax = 200.0;
+    registry->registerMap(downshift, &m_downshiftMap);
 }
 
 void powertrain::TransmissionControlUnit::configureGearbox(

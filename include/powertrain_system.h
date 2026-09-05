@@ -24,6 +24,10 @@ class PowertrainSystem {
         struct Parameters {
             double controlFrequency = 1000.0;
             double telemetryFrequency = 20.0;
+
+            double pedalTimeConstant = 1.0 / 60.0;
+            double clutchTimeConstant = 0.001;
+            double clutchPedalRate = 0.2;
         };
 
     public:
@@ -58,6 +62,9 @@ class PowertrainSystem {
 
         inline powertrain::DriverInputs &getDriverInputs() { return m_inputs; }
         inline const powertrain::DriverInputs &getDriverInputs() const { return m_inputs; }
+        inline const powertrain::DriverInputs &getConditionedInputs() const { return m_driven; }
+        void conditionInputs(double dt);
+        inline const Parameters &getParameters() const { return m_params; }
         inline const powertrain::PowertrainState &getState() const { return m_state; }
         inline const powertrain::ActuatorCommands &getCommands() const { return m_commands; }
         inline const config::ShiftRecorder &getShiftRecorder() const { return m_shiftRecorder; }
@@ -96,6 +103,10 @@ class PowertrainSystem {
 
         powertrain::PowertrainState m_state;
         powertrain::DriverInputs m_inputs;
+        powertrain::DriverInputs m_driven;
+        double m_driverPedal = 0.0;
+        double m_driverClutch = 1.0;
+        bool m_driverPrimed = false;
         powertrain::ActuatorCommands m_commands;
 
         Parameters m_params;

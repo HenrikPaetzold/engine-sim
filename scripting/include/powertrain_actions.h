@@ -34,6 +34,41 @@ namespace es_script {
         double m_value = 0.0;
     };
 
+    class SetAdaptiveNode : public Node {
+    public:
+        SetAdaptiveNode() { /* void */ }
+        virtual ~SetAdaptiveNode() { /* void */ }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("path", &m_path);
+            addInput("adaptive", &m_adaptive);
+            addInput("min", &m_min);
+            addInput("max", &m_max);
+
+            Node::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            readAllInputs();
+
+            if (m_path.empty()) return;
+
+            Compiler::Output::AdaptiveOverride override;
+            override.path = m_path;
+            override.adaptive = m_adaptive;
+            override.adaptMin = m_min;
+            override.adaptMax = m_max;
+
+            Compiler::output()->adaptiveOverrides.push_back(override);
+        }
+
+        std::string m_path;
+        bool m_adaptive = true;
+        double m_min = 0.0;
+        double m_max = 0.0;
+    };
+
     class SetMapCellNode : public Node {
     public:
         SetMapCellNode() { /* void */ }

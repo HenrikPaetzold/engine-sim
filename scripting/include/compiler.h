@@ -29,6 +29,15 @@ namespace es_script {
 
             std::vector<Function *> functions;
             std::vector<std::pair<std::string, double>> parameterOverrides;
+
+            struct AdaptiveOverride {
+                std::string path;
+                bool adaptive = true;
+                double adaptMin = 0.0;
+                double adaptMax = 0.0;
+            };
+
+            std::vector<AdaptiveOverride> adaptiveOverrides;
         };
 
     private:

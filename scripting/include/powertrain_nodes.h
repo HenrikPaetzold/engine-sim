@@ -39,6 +39,9 @@ namespace es_script {
             if (m_lambdaTrimMap != nullptr && !m_lambdaTrimMap->isEmpty()) {
                 m_lambdaTrimMap->generate(&ecu->getLambdaTrimMap());
             }
+            if (m_timingMap != nullptr && !m_timingMap->isEmpty()) {
+                m_timingMap->generate(&ecu->getTimingMap());
+            }
         }
 
     protected:
@@ -68,6 +71,8 @@ namespace es_script {
             addInput("max_torque_map", &m_maxTorqueMap, InputTarget::Type::Object);
             addInput("pedal_map", &m_pedalMap, InputTarget::Type::Object);
             addInput("lambda_trim_map", &m_lambdaTrimMap, InputTarget::Type::Object);
+            addInput("timing_map", &m_timingMap, InputTarget::Type::Object);
+            addInput("timing_map_enabled", &m_parameters.timingMapEnabled);
 
             ObjectReferenceNode<EngineControlUnitNode>::registerInputs();
         }
@@ -85,6 +90,7 @@ namespace es_script {
         Map2dNode *m_maxTorqueMap = nullptr;
         Map2dNode *m_pedalMap = nullptr;
         Map2dNode *m_lambdaTrimMap = nullptr;
+        Map2dNode *m_timingMap = nullptr;
     };
 
     class TransmissionControlUnitNode

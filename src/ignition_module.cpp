@@ -17,6 +17,8 @@ IgnitionModule::IgnitionModule() {
     m_revLimit = 0;
     m_limiterDuration = 0;
     m_timingOffset = 0.0;
+    m_timingOverride = 0.0;
+    m_timingOverrideActive = false;
     m_cutFraction = 0.0;
     m_cutAccumulator = 0.0;
 }
@@ -111,12 +113,20 @@ void IgnitionModule::resetIgnitionEvents() {
 }
 
 double IgnitionModule::getTimingAdvance() {
-    return m_timingCurve->sampleTriangle(-m_crankshaft->m_body.v_theta)
-        + m_timingOffset;
+    const double base = m_timingOverrideActive
+        ? m_timingOverride
+        : m_timingCurve->sampleTriangle(-m_crankshaft->m_body.v_theta);
+
+    return base + m_timingOffset;
 }
 
 void IgnitionModule::setTimingOffset(double offset) {
     m_timingOffset = offset;
+}
+
+void IgnitionModule::setTimingOverride(double advance, bool active) {
+    m_timingOverride = advance;
+    m_timingOverrideActive = active;
 }
 
 void IgnitionModule::setCutFraction(double fraction) {

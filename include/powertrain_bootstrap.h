@@ -20,12 +20,20 @@ namespace config {
 
 namespace powertrain {
 
+    struct AdaptiveOverride {
+        std::string path;
+        bool adaptive = true;
+        double adaptMin = 0.0;
+        double adaptMax = 0.0;
+    };
+
     struct BootstrapInputs {
         PowertrainUnit *unit = nullptr;
         ScriptedControlUnit *program = nullptr;
         adaptation::AdaptationManager::Parameters adaptation;
         std::string defaultMode;
         std::vector<std::pair<std::string, double>> parameterOverrides;
+        std::vector<AdaptiveOverride> adaptiveOverrides;
     };
 
     struct BootstrapContext {

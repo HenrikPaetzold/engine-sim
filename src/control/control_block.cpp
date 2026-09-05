@@ -241,9 +241,31 @@ void control::LearnerBlock::reset() {
 double control::LearnerBlock::evaluate(const BlockContext &context) {
     if (context.registry == nullptr || m_target.empty()) return m_value;
 
+    const bool zoned = getOperandCount() >= 4;
+
     if (getOperandCount() < 2 || operandValue(context, 1, 1.0) >= m_threshold) {
         const double error = operandValue(context, 0);
-        context.registry->adapt(m_target, -m_rate * error * context.dt);
+        const double delta = -m_rate * error * context.dt;
+
+        if (zoned) {
+            context.registry->accumulate(
+                m_target,
+                operandValue(context, 2),
+                operandValue(context, 3),
+                delta);
+        }
+        else {
+            context.registry->adapt(m_target, delta);
+        }
+    }
+
+    if (zoned) {
+        control::Map2d *map = context.registry->findMap(m_target);
+        m_value = (map != nullptr)
+            ? map->sample(operandValue(context, 2), operandValue(context, 3))
+            : 0.0;
+
+        return m_value;
     }
 
     context.registry->get(m_target, &m_value);

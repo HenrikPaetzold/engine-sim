@@ -450,3 +450,100 @@ TEST(EngineControlUnitTests, AColdEngineLimitsLowerThanAWarmOne) {
     EXPECT_LT(cold.revLimit, warm.revLimit);
     EXPECT_LT(cold.softLimitStart, warm.softLimitStart);
 }
+
+TEST(TimingMapTests, TheMapIsOffByDefaultAndCommandsNothing) {
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(powertrain::EngineControlUnit::Parameters());
+
+    powertrain::PowertrainState state;
+    state.coolantTemperature = units::celcius(90.0);
+    state.engineSpeed = units::rpm(3000.0);
+    state.engineRunning = true;
+    state.gear = 2;
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+    inputs.accelerator = 0.5;
+
+    powertrain::ActuatorCommands commands;
+    ecu.update(1e-3, state, inputs, &commands);
+
+    EXPECT_FALSE(commands.timingAdvanceValid);
+    EXPECT_NEAR(commands.timingAdvance, 0.0, 1e-12);
+}
+
+TEST(TimingMapTests, TheEnabledMapCommandsAnAbsoluteAdvance) {
+    powertrain::EngineControlUnit::Parameters params;
+    params.timingMapEnabled = true;
+
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(params);
+
+    control::Map2d &timing = ecu.getTimingMap();
+    for (int i = 0; i < timing.getXCount(); ++i) {
+        for (int j = 0; j < timing.getYCount(); ++j) {
+            timing.setValue(i, j, units::angle(24.0, units::deg));
+        }
+    }
+
+    powertrain::PowertrainState state;
+    state.coolantTemperature = units::celcius(90.0);
+    state.engineSpeed = units::rpm(3000.0);
+    state.engineRunning = true;
+    state.gear = 2;
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+    inputs.accelerator = 0.5;
+
+    powertrain::ActuatorCommands commands;
+    ecu.update(1e-3, state, inputs, &commands);
+
+    EXPECT_TRUE(commands.timingAdvanceValid);
+    EXPECT_NEAR(commands.timingAdvance, units::angle(24.0, units::deg), 1e-9);
+}
+
+TEST(TimingMapTests, TheColdStartRetardStaysOnTopOfTheMap) {
+    powertrain::EngineControlUnit::Parameters params;
+    params.timingMapEnabled = true;
+
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(params);
+
+    control::Map2d &timing = ecu.getTimingMap();
+    for (int i = 0; i < timing.getXCount(); ++i) {
+        for (int j = 0; j < timing.getYCount(); ++j) {
+            timing.setValue(i, j, units::angle(24.0, units::deg));
+        }
+    }
+
+    powertrain::PowertrainState state;
+    state.coolantTemperature = units::celcius(-10.0);
+    state.engineSpeed = units::rpm(1200.0);
+    state.engineRunning = true;
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+
+    powertrain::ActuatorCommands commands;
+    ecu.update(1e-3, state, inputs, &commands);
+
+    EXPECT_TRUE(commands.timingAdvanceValid);
+    EXPECT_NEAR(commands.timingAdvance, units::angle(24.0, units::deg), 1e-9);
+    EXPECT_LT(commands.timingOffset, 0.0);
+}
+
+TEST(TimingMapTests, TheMapIsOpenToTheRegistry) {
+    config::ParameterRegistry registry;
+
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(powertrain::EngineControlUnit::Parameters());
+    ecu.registerParameters(&registry, "");
+
+    ASSERT_TRUE(registry.contains("ecu.timing_map[0][0]"));
+    ASSERT_TRUE(registry.contains("ecu.timing.map_enabled"));
+
+    ASSERT_TRUE(registry.set("ecu.timing_map[2][1]", units::angle(18.0, units::deg)));
+    EXPECT_NEAR(
+        ecu.getTimingMap().getValue(2, 1), units::angle(18.0, units::deg), 1e-9);
+}

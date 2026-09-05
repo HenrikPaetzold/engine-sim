@@ -639,6 +639,7 @@ void EngineSimApplication::loadScript() {
     config::DriveModeSet driveModes;
     std::string defaultMode;
     std::vector<std::pair<std::string, double>> parameterOverrides;
+    std::vector<powertrain::AdaptiveOverride> adaptiveOverrides;
 
 #ifdef ATG_ENGINE_SIM_PIRANHA_ENABLED
     es_script::Compiler compiler;
@@ -658,6 +659,15 @@ void EngineSimApplication::loadScript() {
         driveModes = output.driveModes;
         defaultMode = output.defaultMode;
         parameterOverrides = output.parameterOverrides;
+
+        for (const auto &entry : output.adaptiveOverrides) {
+            powertrain::AdaptiveOverride override;
+            override.path = entry.path;
+            override.adaptive = entry.adaptive;
+            override.adaptMin = entry.adaptMin;
+            override.adaptMax = entry.adaptMax;
+            adaptiveOverrides.push_back(override);
+        }
     }
     else {
         engine = nullptr;
@@ -703,6 +713,7 @@ void EngineSimApplication::loadScript() {
         bootstrapInputs.adaptation = adaptationParams;
         bootstrapInputs.defaultMode = defaultMode;
         bootstrapInputs.parameterOverrides = parameterOverrides;
+        bootstrapInputs.adaptiveOverrides = adaptiveOverrides;
 
         powertrain::BootstrapContext bootstrapContext;
         bootstrapContext.system = &m_simulator->m_powertrain;
@@ -878,12 +889,12 @@ void EngineSimApplication::processEngineInput() {
         m_infoCluster->setLogMessage("Speed control set to " + std::to_string(m_targetSpeedSetting));
     }
 
-    m_speedSetting = m_targetSpeedSetting * 0.5 + 0.5 * m_speedSetting;
-
     if (powertrainActive()) {
+        m_speedSetting = m_targetSpeedSetting;
         m_simulator->m_powertrain.getDriverInputs().accelerator = m_speedSetting;
     }
     else {
+        m_speedSetting = m_targetSpeedSetting * 0.5 + 0.5 * m_speedSetting;
         m_iceEngine->setSpeedControl(m_speedSetting);
     }
     if (m_engine.ProcessKeyDown(ysKey::Code::M)) {
@@ -1047,11 +1058,15 @@ void EngineSimApplication::processEngineInput() {
         }
     }
 
+    const double clutchRate = powertrainActive()
+        ? m_simulator->m_powertrain.getParameters().clutchPedalRate
+        : 0.2;
+
     if (m_engine.IsKeyDown(ysKey::Code::T)) {
-        m_targetClutchPressure -= 0.2 * dt;
+        m_targetClutchPressure -= clutchRate * dt;
     }
     else if (m_engine.IsKeyDown(ysKey::Code::U)) {
-        m_targetClutchPressure += 0.2 * dt;
+        m_targetClutchPressure += clutchRate * dt;
     }
     else if (m_engine.IsKeyDown(ysKey::Code::Shift)) {
         m_targetClutchPressure = 0.0;
@@ -1063,18 +1078,20 @@ void EngineSimApplication::processEngineInput() {
 
     m_targetClutchPressure = clamp(m_targetClutchPressure);
 
-    double clutchRC = 0.001;
-    if (m_engine.IsKeyDown(ysKey::Code::Space)) {
-        clutchRC = 1.0;
-    }
-
-    const double clutch_s = dt / (dt + clutchRC);
-    m_clutchPressure = m_clutchPressure * (1 - clutch_s) + m_targetClutchPressure * clutch_s;
-
     if (powertrainActive()) {
+        m_clutchPressure = m_targetClutchPressure;
         m_simulator->m_powertrain.getDriverInputs().clutchPedal = 1.0 - m_clutchPressure;
     }
     else {
+        double clutchRC = 0.001;
+        if (m_engine.IsKeyDown(ysKey::Code::Space)) {
+            clutchRC = 1.0;
+        }
+
+        const double clutch_s = dt / (dt + clutchRC);
+        m_clutchPressure =
+            m_clutchPressure * (1 - clutch_s) + m_targetClutchPressure * clutch_s;
+
         m_simulator->getTransmission()->setClutchPressure(m_clutchPressure);
     }
 }

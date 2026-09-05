@@ -4,6 +4,7 @@
 #include "../include/config/parameter_registry.h"
 
 #include "../include/config/shift_recorder.h"
+#include "../include/powertrain/transmission_control_unit.h"
 
 #include <algorithm>
 #include <cmath>
@@ -247,4 +248,179 @@ TEST(ShiftRecorderTests, ASerializedRecordingCarriesSixChannels) {
 
     const std::string first = json.substr(open + 2, close - open - 2);
     EXPECT_EQ(std::count(first.begin(), first.end(), ','), 5);
+}
+
+namespace {
+    struct ZoneRig {
+        control::ControlProgram program;
+        config::ParameterRegistry registry;
+        control::Map2d map;
+
+        control::ConstantBlock *error = nullptr;
+        control::ConstantBlock *enable = nullptr;
+        control::ConstantBlock *x = nullptr;
+        control::ConstantBlock *y = nullptr;
+        control::LearnerBlock *learner = nullptr;
+
+        void build(bool adaptive, double rate = 1.0) {
+            map.initialize(3, 2, 0.0);
+            map.setXAxis(0, 0.0);
+            map.setXAxis(1, 50.0);
+            map.setXAxis(2, 100.0);
+            map.setYAxis(0, 0.0);
+            map.setYAxis(1, 10.0);
+
+            config::ParameterDescriptor d =
+                config::describeScalar("tcu.zone_map", -5.0, 5.0, 0.0, "");
+            d.type = config::ParameterType::Map;
+            d.adaptive = adaptive;
+            d.adaptMin = -5.0;
+            d.adaptMax = 5.0;
+            registry.registerMap(d, &map);
+
+            error = new control::ConstantBlock;
+            program.addBlock(error);
+
+            enable = new control::ConstantBlock;
+            enable->m_value = 1.0;
+            program.addBlock(enable);
+
+            x = new control::ConstantBlock;
+            program.addBlock(x);
+
+            y = new control::ConstantBlock;
+            program.addBlock(y);
+
+            learner = new control::LearnerBlock;
+            learner->m_name = "learner";
+            learner->m_target = "tcu.zone_map";
+            learner->m_rate = rate;
+            program.addBlock(learner);
+            learner->addOperand(error->m_index);
+            learner->addOperand(enable->m_index);
+            learner->addOperand(x->m_index);
+            learner->addOperand(y->m_index);
+
+            program.setRegistry(&registry);
+            program.compile();
+        }
+
+        void run(double at, double errorValue, int steps, double dt = 1e-3) {
+            x->m_value = at;
+            error->m_value = errorValue;
+            for (int i = 0; i < steps; ++i) program.update(dt);
+        }
+    };
+}
+
+TEST(ZoneLearnerTests, AMarkedMapLearnsAtTheOperatingPoint) {
+    ZoneRig rig;
+    rig.build(true);
+
+    rig.run(50.0, -1.0, 1000);
+
+    EXPECT_GT(rig.map.getValue(1, 0), 0.0);
+    EXPECT_NEAR(rig.map.getValue(0, 0), 0.0, 1e-12);
+    EXPECT_NEAR(rig.map.getValue(2, 0), 0.0, 1e-12);
+}
+
+TEST(ZoneLearnerTests, WithoutTheAdaptiveFlagNothingIsLearned) {
+    ZoneRig rig;
+    rig.build(false);
+
+    rig.run(50.0, -1.0, 1000);
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(rig.map.getValue(i, 0), 0.0, 1e-12);
+    }
+}
+
+TEST(ZoneLearnerTests, SetAdaptiveOpensTheGate) {
+    ZoneRig rig;
+    rig.build(false);
+
+    rig.run(50.0, -1.0, 500);
+    ASSERT_NEAR(rig.map.getValue(1, 0), 0.0, 1e-12);
+
+    ASSERT_TRUE(rig.registry.setAdaptive("tcu.zone_map", true, -5.0, 5.0));
+    rig.run(50.0, -1.0, 500);
+
+    EXPECT_GT(rig.map.getValue(1, 0), 0.0);
+}
+
+TEST(ZoneLearnerTests, TheLearnedZoneIsBounded) {
+    ZoneRig rig;
+    rig.build(true, 50.0);
+
+    rig.run(50.0, -1.0, 20000);
+
+    EXPECT_NEAR(rig.map.getValue(1, 0), 5.0, 1e-9);
+}
+
+TEST(ZoneLearnerTests, TwoZonesLearnIndependently) {
+    ZoneRig rig;
+    rig.build(true);
+
+    rig.run(0.0, -1.0, 1000);
+    rig.run(100.0, 2.0, 1000);
+
+    EXPECT_GT(rig.map.getValue(0, 0), 0.0);
+    EXPECT_LT(rig.map.getValue(2, 0), 0.0);
+    EXPECT_NEAR(rig.map.getValue(1, 0), 0.0, 1e-12);
+}
+
+TEST(RegistryAdaptTests, ACellPathIsAdaptableWhenTheMapIsMarked) {
+    config::ParameterRegistry registry;
+    control::Map2d map;
+    map.initialize(2, 2, 0.0);
+    map.setXAxis(0, 0.0);
+    map.setXAxis(1, 1.0);
+    map.setYAxis(0, 0.0);
+    map.setYAxis(1, 1.0);
+
+    config::ParameterDescriptor d =
+        config::describeScalar("tcu.cells", -1.0, 1.0, 0.0, "");
+    d.type = config::ParameterType::Map;
+    d.adaptive = true;
+    d.adaptMin = -0.5;
+    d.adaptMax = 0.5;
+    registry.registerMap(d, &map);
+
+    EXPECT_TRUE(registry.adapt("tcu.cells[1][1]", 0.2));
+    EXPECT_NEAR(map.getValue(1, 1), 0.2, 1e-12);
+
+    EXPECT_TRUE(registry.adapt("tcu.cells[1][1]", 10.0));
+    EXPECT_NEAR(map.getValue(1, 1), 0.5, 1e-12);
+
+    EXPECT_FALSE(registry.adapt("tcu.cells[9][0]", 0.1));
+    EXPECT_FALSE(registry.adapt("tcu.cells", 0.1));
+}
+
+TEST(RegistryAdaptTests, AnUnmarkedMapRefusesTheCellPath) {
+    config::ParameterRegistry registry;
+    control::Map2d map;
+    map.initialize(2, 2, 0.0);
+    map.setXAxis(0, 0.0);
+    map.setXAxis(1, 1.0);
+    map.setYAxis(0, 0.0);
+    map.setYAxis(1, 1.0);
+
+    config::ParameterDescriptor d =
+        config::describeScalar("tcu.cells", -1.0, 1.0, 0.0, "");
+    d.type = config::ParameterType::Map;
+    registry.registerMap(d, &map);
+
+    EXPECT_FALSE(registry.adapt("tcu.cells[1][1]", 0.2));
+    EXPECT_NEAR(map.getValue(1, 1), 0.0, 1e-12);
+}
+
+TEST(RegistryAdaptTests, TheTcuScheduleMapsAreOpenForLearning) {
+    config::ParameterRegistry registry;
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
+    tcu.registerParameters(&registry, "");
+
+    EXPECT_TRUE(registry.isAdaptive("tcu.upshift_map"));
+    EXPECT_TRUE(registry.isAdaptive("tcu.downshift_map"));
+    EXPECT_TRUE(registry.isAdaptive("tcu.lockup_map"));
 }

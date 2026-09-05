@@ -61,6 +61,7 @@ public node engine_control_unit => __engine_sim__engine_control_unit {
     input overrun_resume_speed [float]: 1400 * units.rpm;
     input cranking_speed [float]: 400 * units.rpm;
     input lambda_trim_load_manifold [bool]: false;
+    input timing_map_enabled [bool]: false;
 
     input idle_controller [pid_controller_channel]: pid_controller(kp: 0.004, ki: 0.02, min: 0.0, max: 1.0);
     input torque_controller [pid_controller_channel]: pid_controller(kp: 0.0008, ki: 0.004, min: -0.35, max: 0.35);
@@ -68,6 +69,7 @@ public node engine_control_unit => __engine_sim__engine_control_unit {
     input max_torque_map [map_2d_channel]: map_2d();
     input pedal_map [map_2d_channel]: map_2d();
     input lambda_trim_map [map_2d_channel]: map_2d();
+    input timing_map [map_2d_channel]: map_2d();
 
     alias output __out [ecu_channel];
 }
@@ -261,6 +263,13 @@ public node set_map_cell => __engine_sim__set_map_cell {
     input x [float];
     input y [float]: 0.0;
     input value [float];
+}
+
+public node set_adaptive => __engine_sim__set_adaptive {
+    input path [string];
+    input adaptive [bool]: true;
+    input min [float]: 0.0;
+    input max [float]: 0.0;
 }
 
 public node set_powertrain => __engine_sim__set_powertrain {

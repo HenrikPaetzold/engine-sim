@@ -418,6 +418,8 @@ add_executable(engine-sim-test
     test/config_server_tests.cpp
     test/single_source_tests.cpp
     test/powertrain_bootstrap_tests.cpp
+    test/throttle_actuator_tests.cpp
+    test/driver_model_tests.cpp
 )
 
 target_link_libraries(engine-sim-test

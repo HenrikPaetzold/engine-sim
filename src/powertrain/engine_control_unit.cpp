@@ -14,6 +14,8 @@ namespace {
     constexpr int IdleTrimPoints = 6;
     constexpr int LambdaTrimSpeedZones = 6;
     constexpr int LambdaTrimLoadZones = 4;
+    constexpr int TimingMapSpeedPoints = 10;
+    constexpr int TimingMapLoadPoints = 6;
 
     config::ParameterDescriptor describe(
         const std::string &path,
@@ -102,6 +104,19 @@ void powertrain::EngineControlUnit::buildDefaultMaps() {
     for (int j = 0; j < LambdaTrimLoadZones; ++j) {
         const double t = static_cast<double>(j) / (LambdaTrimLoadZones - 1);
         m_lambdaTrim.setYAxis(j, t * m_params.referenceTorque);
+    }
+
+    m_timingMap.initialize(TimingMapSpeedPoints, TimingMapLoadPoints, 0.0);
+    for (int i = 0; i < TimingMapSpeedPoints; ++i) {
+        const double t = static_cast<double>(i) / (TimingMapSpeedPoints - 1);
+        m_timingMap.setXAxis(
+            i,
+            units::rpm(500.0) + t * (m_params.revLimit - units::rpm(500.0)));
+    }
+
+    for (int j = 0; j < TimingMapLoadPoints; ++j) {
+        const double t = static_cast<double>(j) / (TimingMapLoadPoints - 1);
+        m_timingMap.setYAxis(j, t * m_params.referenceTorque);
     }
 
     m_pedalMap.initialize(PedalMapPoints, 1, 0.0);
@@ -334,6 +349,11 @@ void powertrain::EngineControlUnit::update(
     commands->fuelCutFraction = std::clamp(fuelCut, 0.0, 1.0);
     commands->fuelEnrichment = enrichment * m_fuelTrim * (1.0 + m_longTermTrim);
     commands->timingOffset = -m_params.coldStartTimingRetard * (1.0 - warm);
+    commands->timingAdvanceValid =
+        m_params.timingMapEnabled && m_timingMap.isInitialized();
+    commands->timingAdvance = commands->timingAdvanceValid
+        ? m_timingMap.sample(state.engineSpeed, m_torqueRequest)
+        : 0.0;
     commands->ignitionEnabled = inputs.ignitionKey;
     commands->starterEnabled =
         inputs.starterRequest && state.engineSpeed < m_params.crankingSpeed;
@@ -480,4 +500,14 @@ void powertrain::EngineControlUnit::registerParameters(
         describe(base + "lambda.trim_load_manifold", 0.0, 1.0,
             m_params.lambdaTrimLoadIsManifold ? 1.0 : 0.0, ""),
         &m_params.lambdaTrimLoadIsManifold);
+
+    registry->registerMap(
+        describe(base + "timing_map",
+            units::angle(-40.0, units::deg), units::angle(70.0, units::deg),
+            0.0, "rad"),
+        &m_timingMap);
+    registry->registerBoolean(
+        describe(base + "timing.map_enabled", 0.0, 1.0,
+            m_params.timingMapEnabled ? 1.0 : 0.0, ""),
+        &m_params.timingMapEnabled);
 }

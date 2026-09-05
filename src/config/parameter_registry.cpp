@@ -291,7 +291,30 @@ bool config::ParameterRegistry::isAdaptive(const std::string &path) const {
 
 bool config::ParameterRegistry::adapt(const std::string &path, double delta) {
     Entry *entry = find(path);
-    if (entry == nullptr) return false;
+
+    if (entry == nullptr) {
+        std::string base;
+        int x = 0, y = 0;
+        if (!parseCellPath(path, &base, &x, &y)) return false;
+
+        entry = find(base);
+        if (entry == nullptr) return false;
+        if (!entry->descriptor.adaptive) return false;
+        if (entry->descriptor.type != ParameterType::Map) return false;
+
+        control::Map2d *map = entry->mapTarget;
+        if (map == nullptr || !map->isInitialized()) return false;
+        if (x < 0 || x >= map->getXCount()) return false;
+        if (y < 0 || y >= map->getYCount()) return false;
+
+        map->setValue(x, y, std::clamp(
+            map->getValue(x, y) + delta,
+            entry->descriptor.adaptMin,
+            entry->descriptor.adaptMax));
+
+        return true;
+    }
+
     if (!entry->descriptor.adaptive) return false;
     if (entry->descriptor.type == ParameterType::Map) return false;
 
@@ -305,11 +328,49 @@ bool config::ParameterRegistry::adapt(const std::string &path, double delta) {
     return true;
 }
 
+bool config::ParameterRegistry::accumulate(
+    const std::string &path,
+    double x,
+    double y,
+    double delta)
+{
+    Entry *entry = find(path);
+    if (entry == nullptr) return false;
+    if (!entry->descriptor.adaptive) return false;
+    if (entry->descriptor.type != ParameterType::Map) return false;
+    if (entry->mapTarget == nullptr || !entry->mapTarget->isInitialized()) return false;
+
+    entry->mapTarget->accumulate(
+        x,
+        y,
+        delta,
+        entry->descriptor.adaptMin,
+        entry->descriptor.adaptMax);
+
+    return true;
+}
+
 bool config::ParameterRegistry::setAdaptive(const std::string &path, bool adaptive) {
     Entry *entry = find(path);
     if (entry == nullptr) return false;
 
     entry->descriptor.adaptive = adaptive;
+
+    return true;
+}
+
+bool config::ParameterRegistry::setAdaptive(
+    const std::string &path,
+    bool adaptive,
+    double adaptMin,
+    double adaptMax)
+{
+    Entry *entry = find(path);
+    if (entry == nullptr) return false;
+
+    entry->descriptor.adaptive = adaptive;
+    entry->descriptor.adaptMin = adaptMin;
+    entry->descriptor.adaptMax = adaptMax;
 
     return true;
 }

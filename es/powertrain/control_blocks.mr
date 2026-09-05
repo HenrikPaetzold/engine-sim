@@ -291,6 +291,25 @@ public node learner {
             .add_input(enable);
 }
 
+public node zone_learner {
+    input target [string];
+    input error [control_block_channel];
+    input x [control_block_channel];
+    input y [control_block_channel]: constant(0.0);
+    input rate [float]: 0.05;
+    input enable [control_block_channel]: constant(1.0);
+    input threshold [float]: 0.5;
+    input name [string]: "";
+
+    alias output __out [control_block_channel]:
+        control_block(kind: "learner", target: target, rate: rate,
+                      threshold: threshold, name: name)
+            .add_input(error)
+            .add_input(enable)
+            .add_input(x)
+            .add_input(y);
+}
+
 public node actuator {
     input channel [string];
     input a [control_block_channel];

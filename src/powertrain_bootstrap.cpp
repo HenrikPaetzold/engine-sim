@@ -50,6 +50,14 @@ powertrain::BootstrapResult powertrain::installPowertrain(
 
     system.registerParameters(context.registry);
 
+    for (const AdaptiveOverride &override : inputs.adaptiveOverrides) {
+        context.registry->setAdaptive(
+            override.path,
+            override.adaptive,
+            override.adaptMin,
+            override.adaptMax);
+    }
+
     for (const auto &override : inputs.parameterOverrides) {
         context.registry->set(override.first, override.second);
     }
