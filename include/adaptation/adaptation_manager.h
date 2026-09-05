@@ -28,6 +28,7 @@ namespace adaptation {
         double speedStabilityWindow = units::rpm(120.0);
         bool requireNoShift = true;
         bool requireNoLimiting = true;
+        bool requireUnsaturatedPlate = false;
         double minimumSpeed = units::rpm(500.0);
     };
 
@@ -42,12 +43,13 @@ namespace adaptation {
                 double throttleLearningRate = 0.5;
                 double throttleDeadband = 0.01;
                 double throttleCorrectionLimit = 0.35;
+                bool throttleLearnFromIntegrator = false;
 
                 double idleDrainRate = 0.6;
                 double idleTrimLimit = 0.35;
 
                 double lambdaShortTermGain = 0.8;
-                double lambdaLongTermRate = 0.05;
+                double lambdaLongTermRate = 0.0;
                 double lambdaTrimLimit = 0.30;
                 double lambdaTarget = 0.02;
 
@@ -81,6 +83,7 @@ namespace adaptation {
             double getShiftErrorNorm() const;
             inline const RlsEstimator &getTorqueModel() const { return m_torqueModel; }
             inline double getShortTermFuelTrim() const { return m_shortTermTrim; }
+            double getLongTermFuelTrim() const;
             inline int getThrottleUpdateCount() const { return m_throttleUpdates; }
             inline bool wasEnabledLastUpdate() const { return m_enabled; }
 

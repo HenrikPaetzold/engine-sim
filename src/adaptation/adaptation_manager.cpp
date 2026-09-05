@@ -97,6 +97,11 @@ bool adaptation::AdaptationManager::conditionsMet(
     if (c.requireNoLimiting && bus.engineState == powertrain::EngineState::Limiting) return false;
     if (c.requireSteadySpeed && m_speedDeviation > c.speedStabilityWindow) return false;
 
+    if (c.requireUnsaturatedPlate && m_ecu != nullptr) {
+        const double plate = m_ecu->getCommandedPlate();
+        if (plate <= 0.0 || plate >= 1.0) return false;
+    }
+
     return true;
 }
 
@@ -107,7 +112,9 @@ void adaptation::AdaptationManager::updateThrottleMap(
     if (!m_params.throttleMapEnabled || m_ecu == nullptr) return;
 
     control::PidController &torqueController = m_ecu->getTorqueController();
-    const double correction = torqueController.getOutput();
+    const double correction = m_params.throttleLearnFromIntegrator
+        ? torqueController.getIntegrator()
+        : torqueController.getOutput();
 
     if (std::abs(correction) < m_params.throttleDeadband) return;
 
@@ -172,6 +179,28 @@ void adaptation::AdaptationManager::updateLambdaTrim(
         m_params.lambdaTrimLimit);
 
     m_ecu->setFuelTrim(1.0 + m_shortTermTrim);
+
+    if (m_params.lambdaLongTermRate <= 0.0) return;
+
+    control::Map2d &trim = m_ecu->getLambdaTrimMap();
+    if (!trim.isInitialized()) return;
+
+    const double transfer = m_params.lambdaLongTermRate * m_shortTermTrim * dt;
+    if (transfer == 0.0) return;
+
+    trim.accumulate(
+        state.engineSpeed,
+        m_ecu->lambdaTrimLoad(state),
+        transfer,
+        -m_params.lambdaTrimLimit,
+        m_params.lambdaTrimLimit);
+
+    m_shortTermTrim -= transfer;
+    m_ecu->setFuelTrim(1.0 + m_shortTermTrim);
+}
+
+double adaptation::AdaptationManager::getLongTermFuelTrim() const {
+    return (m_ecu != nullptr) ? m_ecu->getLongTermFuelTrim() : 0.0;
 }
 
 void adaptation::AdaptationManager::updateShiftLearning(
@@ -256,6 +285,10 @@ void adaptation::AdaptationManager::registerParameters(
         describe(base + "throttle_map.deadband", 0.0, 0.5,
             m_params.throttleDeadband, ""),
         &m_params.throttleDeadband);
+    registry->registerBoolean(
+        describe(base + "throttle_map.learn_from_integrator", 0.0, 1.0,
+            m_params.throttleLearnFromIntegrator ? 1.0 : 0.0, ""),
+        &m_params.throttleLearnFromIntegrator);
 
     registry->registerBoolean(
         describe(base + "idle.enabled", 0.0, 1.0,
@@ -286,6 +319,10 @@ void adaptation::AdaptationManager::registerParameters(
         describe(base + "lambda.target", 0.0, 1.0,
             m_params.lambdaTarget, ""),
         &m_params.lambdaTarget);
+    registry->registerScalar(
+        describe(base + "lambda.long_term_rate", 0.0, 5.0,
+            m_params.lambdaLongTermRate, ""),
+        &m_params.lambdaLongTermRate);
 
     registry->registerBoolean(
         describe(base + "shift.enabled", 0.0, 1.0,
@@ -301,4 +338,8 @@ void adaptation::AdaptationManager::registerParameters(
         describe(base + "conditions.speed_window", 0.0, units::rpm(2000.0),
             m_params.conditions.speedStabilityWindow, "rad/s"),
         &m_params.conditions.speedStabilityWindow);
+    registry->registerBoolean(
+        describe(base + "conditions.require_unsaturated_plate", 0.0, 1.0,
+            m_params.conditions.requireUnsaturatedPlate ? 1.0 : 0.0, ""),
+        &m_params.conditions.requireUnsaturatedPlate);
 }

@@ -39,6 +39,8 @@ namespace powertrain {
                 double crankingSpeed = units::rpm(400.0);
                 double stallSpeed = units::rpm(200.0);
 
+                bool lambdaTrimLoadIsManifold = false;
+
                 control::PidController::Parameters idleController = defaultIdleController();
                 control::PidController::Parameters torqueController = defaultTorqueController();
             };
@@ -65,6 +67,7 @@ namespace powertrain {
 
             inline control::Map2d &getThrottleMap() { return m_throttleMap; }
             inline control::Map2d &getIdleTrimMap() { return m_idleTrim; }
+            inline control::Map2d &getLambdaTrimMap() { return m_lambdaTrim; }
             inline control::PidController &getIdleController() { return m_idleController; }
             inline control::PidController &getTorqueController() { return m_torqueController; }
             inline const control::PidController &getIdleController() const { return m_idleController; }
@@ -72,6 +75,8 @@ namespace powertrain {
 
             inline void setFuelTrim(double trim) { m_fuelTrim = trim; }
             inline double getFuelTrim() const { return m_fuelTrim; }
+            inline double getLongTermFuelTrim() const { return m_longTermTrim; }
+            double lambdaTrimLoad(const PowertrainState &state) const;
             inline double getFeedforwardPlate() const { return m_feedforwardPlate; }
             inline double getCommandedPlate() const { return m_commandedPlate; }
             inline control::Map2d &getMaxTorqueMap() { return m_maxTorqueMap; }
@@ -99,6 +104,7 @@ namespace powertrain {
 
             control::Map2d m_throttleMap;
             control::Map2d m_idleTrim;
+            control::Map2d m_lambdaTrim;
             control::Map2d m_maxTorqueMap;
             control::Map2d m_pedalMap;
 
@@ -113,6 +119,7 @@ namespace powertrain {
             double m_feedforwardPlate;
             double m_commandedPlate;
             double m_fuelTrim;
+            double m_longTermTrim;
 
             EngineState m_engineState;
     };

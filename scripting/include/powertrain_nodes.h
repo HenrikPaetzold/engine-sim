@@ -36,6 +36,9 @@ namespace es_script {
             if (m_pedalMap != nullptr && !m_pedalMap->isEmpty()) {
                 m_pedalMap->generate(&ecu->getPedalMap());
             }
+            if (m_lambdaTrimMap != nullptr && !m_lambdaTrimMap->isEmpty()) {
+                m_lambdaTrimMap->generate(&ecu->getLambdaTrimMap());
+            }
         }
 
     protected:
@@ -60,9 +63,11 @@ namespace es_script {
 
             addInput("idle_controller", &m_idleController, InputTarget::Type::Object);
             addInput("torque_controller", &m_torqueController, InputTarget::Type::Object);
+            addInput("lambda_trim_load_manifold", &m_parameters.lambdaTrimLoadIsManifold);
             addInput("throttle_map", &m_throttleMap, InputTarget::Type::Object);
             addInput("max_torque_map", &m_maxTorqueMap, InputTarget::Type::Object);
             addInput("pedal_map", &m_pedalMap, InputTarget::Type::Object);
+            addInput("lambda_trim_map", &m_lambdaTrimMap, InputTarget::Type::Object);
 
             ObjectReferenceNode<EngineControlUnitNode>::registerInputs();
         }
@@ -79,6 +84,7 @@ namespace es_script {
         Map2dNode *m_throttleMap = nullptr;
         Map2dNode *m_maxTorqueMap = nullptr;
         Map2dNode *m_pedalMap = nullptr;
+        Map2dNode *m_lambdaTrimMap = nullptr;
     };
 
     class TransmissionControlUnitNode
@@ -279,6 +285,11 @@ namespace es_script {
             addInput("lambda_gain", &m_parameters.lambdaShortTermGain);
             addInput("lambda_limit", &m_parameters.lambdaTrimLimit);
             addInput("lambda_target", &m_parameters.lambdaTarget);
+            addInput("lambda_long_term_rate", &m_parameters.lambdaLongTermRate);
+            addInput("throttle_learn_from_integrator",
+                &m_parameters.throttleLearnFromIntegrator);
+            addInput("require_unsaturated_plate",
+                &m_parameters.conditions.requireUnsaturatedPlate);
             addInput("warm_temperature", &m_parameters.conditions.warmTemperature);
             addInput("speed_window", &m_parameters.conditions.speedStabilityWindow);
 

@@ -104,6 +104,8 @@ void powertrain::PowertrainUnit::fillChannels(config::ChannelTable *table) const
 
     table->set("ecu.torque_request", m_ecu.getTorqueRequest());
     table->set("ecu.fuel_trim", m_ecu.getFuelTrim());
+    table->set("ecu.lambda.short_term", m_ecu.getFuelTrim() - 1.0);
+    table->set("ecu.lambda.long_term", m_ecu.getLongTermFuelTrim());
     table->set("tcu.engage_phase", m_tcu.getEngagePhase());
     table->set("tcu.shift_error_norm", m_tcu.getEngageProfile().getLastErrorNorm());
     table->set("tcu.shifts_learned", m_tcu.getEngageProfile().getIterationCount());

@@ -12,6 +12,8 @@ namespace {
     constexpr int TorqueCurvePoints = 12;
     constexpr int PedalMapPoints = 6;
     constexpr int IdleTrimPoints = 6;
+    constexpr int LambdaTrimSpeedZones = 6;
+    constexpr int LambdaTrimLoadZones = 4;
 
     config::ParameterDescriptor describe(
         const std::string &path,
@@ -62,6 +64,7 @@ powertrain::EngineControlUnit::EngineControlUnit() {
     m_feedforwardPlate = 0.0;
     m_commandedPlate = 0.0;
     m_fuelTrim = 1.0;
+    m_longTermTrim = 0.0;
     m_engineState = EngineState::Off;
 }
 
@@ -86,6 +89,19 @@ void powertrain::EngineControlUnit::buildDefaultMaps() {
         m_idleTrim.setXAxis(
             i,
             m_params.coldTemperature + t * (m_params.warmTemperature - m_params.coldTemperature));
+    }
+
+    m_lambdaTrim.initialize(LambdaTrimSpeedZones, LambdaTrimLoadZones, 0.0);
+    for (int i = 0; i < LambdaTrimSpeedZones; ++i) {
+        const double t = static_cast<double>(i) / (LambdaTrimSpeedZones - 1);
+        m_lambdaTrim.setXAxis(
+            i,
+            units::rpm(500.0) + t * (m_params.revLimit - units::rpm(500.0)));
+    }
+
+    for (int j = 0; j < LambdaTrimLoadZones; ++j) {
+        const double t = static_cast<double>(j) / (LambdaTrimLoadZones - 1);
+        m_lambdaTrim.setYAxis(j, t * m_params.referenceTorque);
     }
 
     m_pedalMap.initialize(PedalMapPoints, 1, 0.0);
@@ -149,7 +165,14 @@ void powertrain::EngineControlUnit::reset() {
     m_feedforwardPlate = 0.0;
     m_commandedPlate = 0.0;
     m_fuelTrim = 1.0;
+    m_longTermTrim = 0.0;
     m_engineState = EngineState::Off;
+}
+
+double powertrain::EngineControlUnit::lambdaTrimLoad(const PowertrainState &state) const {
+    return m_params.lambdaTrimLoadIsManifold
+        ? state.manifoldPressure
+        : m_torqueRequest;
 }
 
 double powertrain::EngineControlUnit::maxTorqueAt(double engineSpeed) const {
@@ -283,6 +306,10 @@ void powertrain::EngineControlUnit::update(
     const bool limiterActive = (ignitionCut > 0.0) || (fuelCut > 0.0 && !overrun);
     m_engineState = resolveState(state, inputs, limiterActive);
 
+    m_longTermTrim = m_lambdaTrim.isInitialized()
+        ? m_lambdaTrim.sample(state.engineSpeed, lambdaTrimLoad(state))
+        : 0.0;
+
     const double enrichment =
         m_params.coldStartEnrichment + (1.0 - m_params.coldStartEnrichment) * warm;
 
@@ -305,7 +332,7 @@ void powertrain::EngineControlUnit::update(
     commands->limiterDuration = m_params.limiterDuration;
     commands->ignitionCutFraction = ignitionCut;
     commands->fuelCutFraction = std::clamp(fuelCut, 0.0, 1.0);
-    commands->fuelEnrichment = enrichment * m_fuelTrim;
+    commands->fuelEnrichment = enrichment * m_fuelTrim * (1.0 + m_longTermTrim);
     commands->timingOffset = -m_params.coldStartTimingRetard * (1.0 - warm);
     commands->ignitionEnabled = inputs.ignitionKey;
     commands->starterEnabled =
@@ -441,4 +468,16 @@ void powertrain::EngineControlUnit::registerParameters(
     idleTrim.adaptMin = -1.0;
     idleTrim.adaptMax = 1.0;
     registry->registerMap(idleTrim, &m_idleTrim);
+
+    config::ParameterDescriptor lambdaTrim =
+        describe(base + "lambda.trim", -1.0, 1.0, 0.0, "");
+    lambdaTrim.adaptive = true;
+    lambdaTrim.adaptMin = -1.0;
+    lambdaTrim.adaptMax = 1.0;
+    registry->registerMap(lambdaTrim, &m_lambdaTrim);
+
+    registry->registerBoolean(
+        describe(base + "lambda.trim_load_manifold", 0.0, 1.0,
+            m_params.lambdaTrimLoadIsManifold ? 1.0 : 0.0, ""),
+        &m_params.lambdaTrimLoadIsManifold);
 }
