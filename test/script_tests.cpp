@@ -1184,7 +1184,7 @@ TEST_F(ScriptFixture, AShiftMapWithItsOwnPedalAxisSurvivesTheHandshake) {
     EXPECT_NEAR(map.getValue(1, 1), 28.0, 1e-9);
 }
 
-TEST_F(ScriptFixture, SetAdaptiveOpensAPathForLearning) {
+TEST_F(ScriptFixture, SetAdaptiveReachesTheCompilerOutput) {
     ASSERT_TRUE(run(
         "set_powertrain(tcu: transmission_control_unit())\n"
         "set_adaptive(path: \"tcu.shift.min_gear_time\", adaptive: true,\n"
@@ -1235,7 +1235,7 @@ TEST_F(ScriptFixture, AZoneLearnerLearnsTheCellAtTheOperatingPoint) {
     EXPECT_GT(mapTotal(tcu.getLockupMap()), before);
 }
 
-TEST_F(ScriptFixture, WithoutSetAdaptiveTheZoneLearnerCannotWrite) {
+TEST_F(ScriptFixture, ANonAdaptiveTargetSilentlySwallowsTheZoneLearner) {
     ASSERT_TRUE(run(
         "set_control_program(\n"
         "    control_program()\n"
@@ -1431,4 +1431,46 @@ TEST_F(ScriptFixture, TheEngageProfileIsAlsoLive) {
             .getParameters().learningRate,
         0.11,
         1e-12);
+}
+
+TEST_F(ScriptFixture, TheRateLimitTakesALiveEditWhileItRuns) {
+    ASSERT_TRUE(run(
+        "set_control_program(\n"
+        "    control_program()\n"
+        "        .add_output(\n"
+        "            actuator(\n"
+        "                channel: \"throttle_plate\",\n"
+        "                a: rate_limit(name: \"ramp\",\n"
+        "                              a: signal(channel: \"accelerator\"),\n"
+        "                              rise: 1.0, fall: 1.0))))\n"));
+
+    powertrain::ScriptedControlUnit *program =
+        es_script::Compiler::output()->controlProgram;
+    ASSERT_NE(program, nullptr);
+
+    config::ParameterRegistry registry;
+    program->registerParameters(&registry, "");
+
+    ASSERT_TRUE(registry.contains("program.ramp.rise"));
+
+    powertrain::PowertrainState state;
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    runProgram(program, state, inputs, &commands, 10);
+    ASSERT_NEAR(commands.throttlePlate, 0.0, 1e-12);
+
+    inputs.accelerator = 1.0;
+    runProgram(program, state, inputs, &commands, 100);
+    const double slow = commands.throttlePlate;
+
+    ASSERT_GT(slow, 0.0);
+    ASSERT_LT(slow, 0.5);
+
+    ASSERT_TRUE(registry.set("program.ramp.rise", 50.0));
+
+    runProgram(program, state, inputs, &commands, 10);
+
+    EXPECT_GT(commands.throttlePlate - slow, 0.4)
+        << "the live edit to program.ramp.rise never reached the limiter";
 }

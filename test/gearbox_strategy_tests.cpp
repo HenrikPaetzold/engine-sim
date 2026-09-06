@@ -116,7 +116,8 @@ TEST(DualClutchTests, TheRolesSwapAfterAShift) {
     step(tcu, state, inputs, commands, 4000);
 
     EXPECT_NE(tcu.getActiveClutch(), before) << "the same clutch carried both gears";
-    EXPECT_EQ(tcu.getActiveClutch(), tcu.clutchForGear(tcu.getTargetGear()));
+    EXPECT_EQ(tcu.getActiveClutch(), tcu.getTargetGear() % 2)
+        << "the dual clutch left its even/odd parity";
 }
 
 TEST(DualClutchTests, TorqueNeverCollapsesDuringTheOverlap) {
@@ -255,7 +256,7 @@ TEST(DualClutchTests, BackToBackShiftsBeatTheTorqueInterruptPath) {
 
 // --- Torque converter ----------------------------------------------------
 
-TEST(TorqueConverterStrategyTests, LockupOpensBelowTheScheduleAndClosesAbove) {
+TEST(TorqueConverterStrategyTests, LockupOpensWhenSlowAndClosesWhenFast) {
     powertrain::TransmissionControlUnit tcu;
     tcu.initialize(converterParameters());
 
@@ -918,7 +919,7 @@ TEST(MultiShiftTests, ALongJumpFallsBackToTheInterrupt) {
         << "a jump beyond the limit should interrupt";
 }
 
-TEST(MultiShiftTests, ADoubleShiftTrainsTheProfileTwice) {
+TEST(MultiShiftTests, ADoubleShiftCompletesTwoHandovers) {
     powertrain::TransmissionControlUnit tcu;
     tcu.initialize(bridgeParameters());
 

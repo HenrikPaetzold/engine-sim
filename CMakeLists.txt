@@ -402,7 +402,8 @@ add_executable(engine-sim-test
     test/synthesizer_tests.cpp
     test/control_tests.cpp
     test/parameter_registry_tests.cpp
-    test/powertrain_tests.cpp
+    test/powertrain_attach_tests.cpp
+        test/powertrain_tests.cpp
     test/thermal_tests.cpp
     test/ecu_tests.cpp
     test/tcu_tests.cpp

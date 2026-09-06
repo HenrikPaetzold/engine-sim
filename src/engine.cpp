@@ -157,6 +157,7 @@ void Engine::destroy() {
 }
 
 Crankshaft *Engine::getOutputCrankshaft() const {
+    if (m_crankshafts == nullptr || m_crankshaftCount <= 0) return nullptr;
     return &m_crankshafts[0];
 }
 

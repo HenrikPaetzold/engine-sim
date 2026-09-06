@@ -113,7 +113,10 @@ void IgnitionModule::resetIgnitionEvents() {
 }
 
 double IgnitionModule::getTimingAdvance() {
-    const double base = m_timingOverrideActive
+    const bool curveAvailable =
+        m_timingCurve != nullptr && m_crankshaft != nullptr;
+
+    const double base = (m_timingOverrideActive || !curveAvailable)
         ? m_timingOverride
         : m_timingCurve->sampleTriangle(-m_crankshaft->m_body.v_theta);
 

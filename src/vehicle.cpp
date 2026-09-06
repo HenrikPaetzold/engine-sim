@@ -74,6 +74,8 @@ void Vehicle::addToSystem(atg_scs::RigidBodySystem *system, atg_scs::RigidBody *
 }
 
 double Vehicle::getSpeed() const {
+    if (m_rotatingMass == nullptr || m_mass <= 0.0) return 0.0;
+
     const double E_r = 0.5 * m_rotatingMass->I * m_rotatingMass->v_theta * m_rotatingMass->v_theta;
     const double vehicleSpeed = std::sqrt(2 * E_r / m_mass);
 

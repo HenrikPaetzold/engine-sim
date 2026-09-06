@@ -48,6 +48,10 @@ TEST(ThrottleActuatorTests, TheLagApproachesTheCommandWithoutOvershoot) {
         ASSERT_GE(now, previous - 1e-12);
         ASSERT_LE(now, 1.0 + 1e-12);
         previous = now;
+
+        const double alpha = 1e-3 / (1e-3 + 0.05);
+        ASSERT_NEAR(now, 1.0 - std::pow(1.0 - alpha, i + 1), 1e-9)
+            << "step " << i << " left the first order response";
     }
 
     EXPECT_GT(throttle.getPlatePosition(), 0.99);
@@ -65,9 +69,13 @@ TEST(ThrottleActuatorTests, TheLagIsTimeCorrect) {
         return throttle.getPlatePosition();
     };
 
+    const double reference = 1.0 - std::exp(-0.1 / 0.05);
+
     const double fine = settle(1e-4, 1000);
     const double coarse = settle(1e-3, 100);
 
+    EXPECT_NEAR(fine, reference, 2e-3);
+    EXPECT_NEAR(coarse, reference, 2e-2);
     EXPECT_NEAR(fine, coarse, 1e-2);
 }
 

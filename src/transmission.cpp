@@ -321,7 +321,11 @@ double Transmission::getGearRatio(int gear) const {
 
 double Transmission::getInputSpeed() const {
     if (m_engine == nullptr) return 0.0;
-    return m_engine->getOutputCrankshaft()->m_body.v_theta;
+
+    const Crankshaft *crankshaft = m_engine->getOutputCrankshaft();
+    if (crankshaft == nullptr) return 0.0;
+
+    return crankshaft->m_body.v_theta;
 }
 
 double Transmission::getOutputSpeed() const {
@@ -358,7 +362,7 @@ void Transmission::changeGear(int newGear) {
         return;
     }
 
-    if (newGear != -1) {
+    if (newGear != -1 && m_vehicle != nullptr && m_rotatingMass != nullptr) {
         const double m_car = m_vehicle->getMass();
         const double gear_ratio = m_gearRatios[newGear];
         const double diff_ratio = m_vehicle->getDiffRatio();
