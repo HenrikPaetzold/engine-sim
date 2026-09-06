@@ -719,6 +719,15 @@ TEST_F(ScriptFixture, ADriveModeSwitchesTheDoubleDownshiftStrategy) {
 }
 
 namespace {
+    double mapTotal(const control::Map2d &map) {
+        double total = 0.0;
+        for (int i = 0; i < map.getXCount(); ++i) {
+            for (int j = 0; j < map.getYCount(); ++j) total += map.getValue(i, j);
+        }
+
+        return total;
+    }
+
     void runProgram(
         powertrain::ScriptedControlUnit *unit,
         const powertrain::PowertrainState &state,
@@ -1051,4 +1060,214 @@ TEST_F(ScriptFixture, AnOverlayProgramCanTakeOverAClutch) {
     }
 
     EXPECT_NEAR(commands.clutchPressure[0], 0.3, 1e-9);
+}
+
+TEST_F(ScriptFixture, TheAdaptationSwitchesReachTheManager) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    adaptation: adaptation(\n"
+        "        lambda_long_term_rate: 0.4,\n"
+        "        throttle_learn_from_integrator: true,\n"
+        "        require_unsaturated_plate: true,\n"
+        "        idle_speed_margin: 450 * units.rpm))\n"));
+
+    const adaptation::AdaptationManager::Parameters &params =
+        es_script::Compiler::output()->adaptation;
+
+    EXPECT_NEAR(params.lambdaLongTermRate, 0.4, 1e-12);
+    EXPECT_TRUE(params.throttleLearnFromIntegrator);
+    EXPECT_TRUE(params.conditions.requireUnsaturatedPlate);
+    EXPECT_NEAR(params.idleSpeedMargin, units::rpm(450.0), 1e-9);
+}
+
+TEST_F(ScriptFixture, TheTimingMapReachesTheEngineControlUnit) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    ecu: engine_control_unit(\n"
+        "        timing_map_enabled: true,\n"
+        "        timing_map: map_2d()\n"
+        "            .add_map_sample(x: 1000 * units.rpm, y: 0.0, value: 10 * units.deg)\n"
+        "            .add_map_sample(x: 6000 * units.rpm, y: 0.0, value: 30 * units.deg)\n"
+        "            .add_map_sample(x: 1000 * units.rpm, y: 200 * units.Nm, value: 6 * units.deg)\n"
+        "            .add_map_sample(x: 6000 * units.rpm, y: 200 * units.Nm, value: 22 * units.deg)))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    powertrain::EngineControlUnit &ecu = unit->getEngineControlUnit();
+
+    EXPECT_TRUE(ecu.getParameters().timingMapEnabled);
+    EXPECT_EQ(ecu.getTimingMap().getXCount(), 2);
+    EXPECT_NEAR(
+        ecu.getTimingMap().sample(units::rpm(6000.0), 0.0),
+        units::angle(30.0, units::deg),
+        1e-9);
+}
+
+TEST_F(ScriptFixture, TheLambdaTrimMapAndItsLoadAxisReachTheEngineControlUnit) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    ecu: engine_control_unit(\n"
+        "        lambda_trim_load_manifold: true,\n"
+        "        lambda_trim_map: map_2d()\n"
+        "            .add_map_sample(x: 1000 * units.rpm, y: 0.0, value: 0.01)\n"
+        "            .add_map_sample(x: 5000 * units.rpm, y: 0.0, value: 0.03)))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    powertrain::EngineControlUnit &ecu = unit->getEngineControlUnit();
+
+    EXPECT_TRUE(ecu.getParameters().lambdaTrimLoadIsManifold);
+    EXPECT_NEAR(
+        ecu.getLambdaTrimMap().sample(units::rpm(5000.0), 0.0), 0.03, 1e-12);
+
+    powertrain::PowertrainState state;
+    state.manifoldPressure = 71000.0;
+    EXPECT_NEAR(ecu.lambdaTrimLoad(state), 71000.0, 1e-9);
+}
+
+TEST_F(ScriptFixture, TheKickdownMapSurvivesTheGearboxHandshakeFromAScript) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    tcu: transmission_control_unit(\n"
+        "        kickdown_map: map_2d()\n"
+        "            .add_map_sample(x: 0.0, y: 0.0, value: 3000 * units.rpm)\n"
+        "            .add_map_sample(x: 1.0, y: 0.0, value: 5200 * units.rpm)))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    powertrain::TransmissionControlUnit &tcu = unit->getTransmissionControlUnit();
+
+    double ratios[6] = { 3.6, 2.19, 1.41, 1.0, 0.83, 0.69 };
+    powertrain::GearboxCapabilities caps;
+    caps.gearCount = 6;
+    caps.gearRatios = ratios;
+    caps.finalDrive = 3.42;
+    caps.tireRadius = units::distance(12.0, units::inch);
+    tcu.configureGearbox(caps);
+
+    EXPECT_NEAR(tcu.getKickdownMap().sample(1.0, 0.0), units::rpm(5200.0), 1e-6);
+}
+
+TEST_F(ScriptFixture, AShiftMapWithItsOwnPedalAxisSurvivesTheHandshake) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    tcu: transmission_control_unit(\n"
+        "        upshift_map: map_2d()\n"
+        "            .add_map_sample(x: 0.2, y: 0, value: 9.0)\n"
+        "            .add_map_sample(x: 0.9, y: 0, value: 21.0)\n"
+        "            .add_map_sample(x: 0.2, y: 1, value: 14.0)\n"
+        "            .add_map_sample(x: 0.9, y: 1, value: 28.0)))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    powertrain::TransmissionControlUnit &tcu = unit->getTransmissionControlUnit();
+
+    double ratios[6] = { 3.6, 2.19, 1.41, 1.0, 0.83, 0.69 };
+    powertrain::GearboxCapabilities caps;
+    caps.gearCount = 6;
+    caps.gearRatios = ratios;
+    caps.finalDrive = 3.42;
+    caps.tireRadius = units::distance(12.0, units::inch);
+    tcu.configureGearbox(caps);
+
+    const control::Map2d &map = tcu.getUpshiftMap();
+
+    EXPECT_EQ(map.getXCount(), 2);
+    EXPECT_EQ(map.getYCount(), 6);
+    EXPECT_NEAR(map.getXAxis(0), 0.2, 1e-12);
+    EXPECT_NEAR(map.getValue(0, 0), 9.0, 1e-9);
+    EXPECT_NEAR(map.getValue(1, 1), 28.0, 1e-9);
+}
+
+TEST_F(ScriptFixture, SetAdaptiveOpensAPathForLearning) {
+    ASSERT_TRUE(run(
+        "set_powertrain(tcu: transmission_control_unit())\n"
+        "set_adaptive(path: \"tcu.shift.min_gear_time\", adaptive: true,\n"
+        "             min: 0.1, max: 2.0)\n"));
+
+    const auto &grants = es_script::Compiler::output()->adaptiveOverrides;
+    ASSERT_EQ(grants.size(), 1u);
+    EXPECT_EQ(grants[0].path, "tcu.shift.min_gear_time");
+    EXPECT_TRUE(grants[0].adaptive);
+    EXPECT_NEAR(grants[0].adaptMin, 0.1, 1e-12);
+    EXPECT_NEAR(grants[0].adaptMax, 2.0, 1e-12);
+}
+
+TEST_F(ScriptFixture, AZoneLearnerLearnsTheCellAtTheOperatingPoint) {
+    ASSERT_TRUE(run(
+        "set_control_program(\n"
+        "    control_program()\n"
+        "        .add_output(\n"
+        "            zone_learner(\n"
+        "                name: \"zone\",\n"
+        "                target: \"tcu.lockup_map\",\n"
+        "                error: constant(-1.0),\n"
+        "                x: signal(channel: \"accelerator\"),\n"
+        "                y: signal(channel: \"gear\"),\n"
+        "                rate: 1.0)))\n"));
+
+    powertrain::ScriptedControlUnit *program =
+        es_script::Compiler::output()->controlProgram;
+    ASSERT_NE(program, nullptr);
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
+
+    config::ParameterRegistry registry;
+    tcu.registerParameters(&registry, "");
+    program->registerParameters(&registry, "");
+
+    const double before = mapTotal(tcu.getLockupMap());
+
+    powertrain::PowertrainState state;
+    powertrain::DriverInputs inputs;
+    inputs.accelerator = 1.0;
+    state.gear = 2;
+
+    powertrain::ActuatorCommands commands;
+    runProgram(program, state, inputs, &commands, 500);
+
+    EXPECT_GT(mapTotal(tcu.getLockupMap()), before);
+}
+
+TEST_F(ScriptFixture, WithoutSetAdaptiveTheZoneLearnerCannotWrite) {
+    ASSERT_TRUE(run(
+        "set_control_program(\n"
+        "    control_program()\n"
+        "        .add_output(\n"
+        "            zone_learner(\n"
+        "                name: \"zone\",\n"
+        "                target: \"tcu.kickdown_map\",\n"
+        "                error: constant(-1.0),\n"
+        "                x: signal(channel: \"accelerator\"),\n"
+        "                y: signal(channel: \"gear\"),\n"
+        "                rate: 1.0)))\n"));
+
+    powertrain::ScriptedControlUnit *program =
+        es_script::Compiler::output()->controlProgram;
+    ASSERT_NE(program, nullptr);
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
+
+    config::ParameterRegistry registry;
+    tcu.registerParameters(&registry, "");
+    program->registerParameters(&registry, "");
+
+    ASSERT_FALSE(registry.isAdaptive("tcu.kickdown_map"));
+
+    const double before = mapTotal(tcu.getKickdownMap());
+
+    powertrain::PowertrainState state;
+    powertrain::DriverInputs inputs;
+    inputs.accelerator = 1.0;
+
+    powertrain::ActuatorCommands commands;
+    runProgram(program, state, inputs, &commands, 500);
+
+    EXPECT_NEAR(mapTotal(tcu.getKickdownMap()), before, 1e-12);
 }

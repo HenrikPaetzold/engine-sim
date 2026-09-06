@@ -189,3 +189,49 @@ TEST(PowertrainBootstrapTests, WithoutAControllerNothingIsInstalled) {
     EXPECT_EQ(fixture.system.getController(), nullptr);
     EXPECT_FALSE(result.adaptationAttached);
 }
+
+TEST(PowertrainBootstrapTests, AdaptiveGrantsLandAfterTheRegistryIsBuilt) {
+    Fixture fixture;
+
+    powertrain::BootstrapInputs inputs;
+    inputs.unit = makeUnit();
+
+    powertrain::AdaptiveOverride grant;
+    grant.path = "tcu.shift.min_gear_time";
+    grant.adaptive = true;
+    grant.adaptMin = 0.1;
+    grant.adaptMax = 2.0;
+    inputs.adaptiveOverrides.push_back(grant);
+
+    powertrain::installPowertrain(inputs, fixture.context());
+
+    ASSERT_TRUE(fixture.registry.isAdaptive("tcu.shift.min_gear_time"));
+    ASSERT_TRUE(fixture.registry.adapt("tcu.shift.min_gear_time", 0.2));
+
+    EXPECT_NEAR(
+        inputs.unit->getTransmissionControlUnit().getParameters().minGearTime,
+        1.0,
+        1e-9);
+
+    ASSERT_TRUE(fixture.registry.adapt("tcu.shift.min_gear_time", 10.0));
+    EXPECT_NEAR(
+        inputs.unit->getTransmissionControlUnit().getParameters().minGearTime,
+        2.0,
+        1e-9);
+
+    delete inputs.unit;
+}
+
+TEST(PowertrainBootstrapTests, WithoutAGrantTheRegistryStillRefuses) {
+    Fixture fixture;
+
+    powertrain::BootstrapInputs inputs;
+    inputs.unit = makeUnit();
+
+    powertrain::installPowertrain(inputs, fixture.context());
+
+    EXPECT_FALSE(fixture.registry.isAdaptive("tcu.shift.min_gear_time"));
+    EXPECT_FALSE(fixture.registry.adapt("tcu.shift.min_gear_time", 0.2));
+
+    delete inputs.unit;
+}
