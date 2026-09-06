@@ -341,7 +341,9 @@ void Engine::updateThermal(double dt, double vehicleSpeed) {
 
     m_thermalModel.addHeat(heat * m_thermalModel.getParameters().combustionHeatFraction);
     m_thermalModel.update(dt, vehicleSpeed);
+}
 
+void Engine::applyWallTemperature() {
     const double wallTemperature = m_thermalModel.getBlockTemperature();
     for (int i = 0; i < m_cylinderCount; ++i) {
         m_combustionChambers[i].m_wallTemperature = wallTemperature;

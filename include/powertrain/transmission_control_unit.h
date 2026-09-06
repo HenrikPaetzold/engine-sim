@@ -232,6 +232,7 @@ namespace powertrain {
             int m_completedShifts;
 
             double m_clutchPressure;
+            double m_releasePressure;
             double m_secondaryPressure;
 
             bool m_previousShiftUp;

@@ -111,6 +111,7 @@ bool Simulator::simulateStep() {
 
     m_engine->update(timestep);
     m_engine->updateThermal(timestep, m_vehicle->getSpeed());
+    if (m_powertrain.isActive()) m_engine->applyWallTemperature();
     m_vehicle->update(timestep);
     m_transmission->update(timestep);
 

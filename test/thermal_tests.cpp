@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "../include/thermal_model.h"
+#include "../include/engine.h"
 #include "../include/ignition_module.h"
 #include "../include/intake.h"
 #include "../include/units.h"
@@ -21,6 +22,18 @@ namespace {
         params.ambientTemperature = units::celcius(20.0);
 
         return params;
+    }
+
+    void buildSingleCylinder(Engine *engine) {
+        Engine::Parameters params{};
+        params.cylinderBanks = 1;
+        params.cylinderCount = 1;
+        params.crankshaftCount = 1;
+        params.exhaustSystemCount = 1;
+        params.intakeCount = 1;
+        params.throttle = nullptr;
+
+        engine->initialize(params);
     }
 }
 
@@ -253,4 +266,34 @@ TEST(IntakeTests, UnityFactorIsANoOp) {
     EXPECT_NEAR(scaled.p_fuel, mix.p_fuel, 1e-12);
     EXPECT_NEAR(scaled.p_inert, mix.p_inert, 1e-12);
     EXPECT_NEAR(scaled.p_o2, mix.p_o2, 1e-12);
+}
+
+TEST(WallTemperatureTests, TheThermalModelDoesNotTouchTheCylinderWallOnItsOwn) {
+    Engine engine;
+    buildSingleCylinder(&engine);
+
+    ASSERT_NEAR(engine.getChamber(0)->m_wallTemperature, units::celcius(90.0), 1e-9);
+    ASSERT_LT(engine.getThermalModel().getBlockTemperature(), units::celcius(30.0));
+
+    for (int i = 0; i < 1000; ++i) engine.updateThermal(1e-3, 0.0);
+
+    EXPECT_NEAR(engine.getChamber(0)->m_wallTemperature, units::celcius(90.0), 1e-9)
+        << "a script without a powertrain no longer burns against a 90 C wall";
+
+    engine.destroy();
+}
+
+TEST(WallTemperatureTests, TheCouplingStillArrivesWhenItIsAskedFor) {
+    Engine engine;
+    buildSingleCylinder(&engine);
+
+    for (int i = 0; i < 1000; ++i) engine.updateThermal(1e-3, 0.0);
+    engine.applyWallTemperature();
+
+    EXPECT_NEAR(
+        engine.getChamber(0)->m_wallTemperature,
+        engine.getThermalModel().getBlockTemperature(),
+        1e-9);
+
+    engine.destroy();
 }

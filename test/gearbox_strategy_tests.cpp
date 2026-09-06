@@ -1110,3 +1110,65 @@ TEST(AuthoredMapTests, AShiftMapFollowsANewGearCount) {
     EXPECT_NEAR(result.getValue(0, 2), 12.0, 1e-9);
     EXPECT_NEAR(result.getValue(0, 5), 13.0, 1e-9);
 }
+
+namespace {
+    double releasePressureAt(double dt, double fraction) {
+        powertrain::TransmissionControlUnit::Parameters params = amtParameters();
+
+        powertrain::TransmissionControlUnit tcu;
+        tcu.initialize(params);
+
+        powertrain::PowertrainState state = drivingState(2, 20.0);
+
+        powertrain::DriverInputs inputs;
+        inputs.ignitionKey = true;
+        inputs.manualMode = true;
+        inputs.accelerator = 0.5;
+        inputs.gatePosition = tcu.getGate().find("D");
+
+        powertrain::ActuatorCommands commands;
+
+        for (int i = 0; i < 500; ++i) tcu.update(dt, state, inputs, &commands);
+
+        tcu.beginShiftForTest(3);
+
+        double elapsed = 0.0;
+        bool releasing = false;
+
+        for (int i = 0; i < 200000; ++i) {
+            tcu.update(dt, state, inputs, &commands);
+            if (tcu.getShiftState() != powertrain::ShiftState::ClutchRelease) continue;
+
+            if (!releasing) {
+                releasing = true;
+                elapsed = 0.0;
+            }
+
+            elapsed += dt;
+            if (elapsed >= fraction * params.clutchReleaseTime) {
+                return commands.clutchPressure[0];
+            }
+        }
+
+        return -1.0;
+    }
+}
+
+TEST(ShiftShapeTests, TheClutchReleaseIsARampNotAnExponential) {
+    const double coarse = releasePressureAt(1e-3, 0.5);
+
+    ASSERT_GE(coarse, 0.0) << "the release phase was never reached";
+    EXPECT_NEAR(coarse, 0.5, 0.02)
+        << "half of clutch_release_time did not release half the pressure";
+}
+
+TEST(ShiftShapeTests, TheReleaseDoesNotDependOnTheControlRate) {
+    const double coarse = releasePressureAt(1e-3, 0.1);
+    const double fine = releasePressureAt(1e-4, 0.1);
+
+    ASSERT_GE(coarse, 0.0);
+    ASSERT_GE(fine, 0.0);
+
+    EXPECT_NEAR(coarse, fine, 0.02)
+        << "the shift shape changed with control.frequency";
+}

@@ -49,6 +49,7 @@ powertrain::TransmissionControlUnit::TransmissionControlUnit() {
     m_targetGear = -1;
     m_previousGear = -1;
     m_clutchPressure = 0.0;
+    m_releasePressure = 0.0;
     m_secondaryPressure = 0.0;
     m_engagePhase = 0.0;
     m_completedShifts = 0;
@@ -238,6 +239,7 @@ void powertrain::TransmissionControlUnit::reset() {
     m_targetGear = -1;
     m_previousGear = -1;
     m_clutchPressure = 0.0;
+    m_releasePressure = 0.0;
     m_secondaryPressure = 0.0;
     m_engagePhase = 0.0;
     m_completedShifts = 0;
@@ -675,6 +677,7 @@ void powertrain::TransmissionControlUnit::advanceShift(
 
         if (t >= 1.0) {
             m_shiftState = ShiftState::ClutchRelease;
+            m_releasePressure = m_clutchPressure;
             m_shiftTimer.reset();
         }
         break;
@@ -685,7 +688,7 @@ void powertrain::TransmissionControlUnit::advanceShift(
             ? std::clamp(m_shiftTimer.getElapsed() / m_params.clutchReleaseTime, 0.0, 1.0)
             : 1.0;
 
-        m_clutchPressure = m_clutchPressure * (1.0 - t);
+        m_clutchPressure = m_releasePressure * (1.0 - t);
         m_bus.torqueReductionRequest = m_params.shiftTorqueCut;
 
         if (t >= 1.0) {

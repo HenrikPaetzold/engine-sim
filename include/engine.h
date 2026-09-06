@@ -70,6 +70,7 @@ class Engine : public Part {
         virtual double getIntakeFlowRate() const;
         virtual void update(double dt);
         virtual void updateThermal(double dt, double vehicleSpeed);
+        void applyWallTemperature();
 
         inline ThermalModel &getThermalModel() { return m_thermalModel; }
         inline const ThermalModel &getThermalModel() const { return m_thermalModel; }
