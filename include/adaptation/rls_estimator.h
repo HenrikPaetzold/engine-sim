@@ -24,6 +24,11 @@ namespace adaptation {
 
             double update(double regressor, double observation);
 
+            inline const Parameters &getParameters() const { return m_params; }
+            inline void setForgettingFactor(double factor) {
+                m_params.forgettingFactor = factor;
+            }
+
             inline double getEstimate() const { return m_estimate; }
             inline double getCovariance() const { return m_covariance; }
             inline double getResidual() const { return m_residual; }

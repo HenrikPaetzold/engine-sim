@@ -79,6 +79,9 @@ namespace adaptation {
                 const powertrain::PowertrainState &state,
                 const powertrain::PowertrainBus &bus) const;
 
+            bool shiftConditionsMet(
+                const powertrain::PowertrainState &state) const;
+
             int getShiftIterationCount() const;
             double getShiftErrorNorm() const;
             inline const RlsEstimator &getTorqueModel() const { return m_torqueModel; }

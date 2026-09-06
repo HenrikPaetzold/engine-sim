@@ -1052,6 +1052,22 @@ void powertrain::TransmissionControlUnit::registerParameters(
     registry->registerScalar(
         describe(base + "gate.step_time", 0.0, 2.0, m_params.gateStepTime, "s"),
         &m_params.gateStepTime);
+    registry->registerScalar(
+        describe(base + "kickdown.target_speed", units::rpm(1000.0),
+            units::rpm(12000.0), m_params.kickdownTargetSpeed, "rad/s"),
+        &m_params.kickdownTargetSpeed);
+    registry->registerScalar(
+        describe(base + "engage.learning_rate", 0.0, 2.0,
+            m_engageProfile.getParametersMutable().learningRate, ""),
+        &m_engageProfile.getParametersMutable().learningRate);
+    registry->registerScalar(
+        describe(base + "engage.smoothing", 0.0, 1.0,
+            m_engageProfile.getParametersMutable().smoothing, ""),
+        &m_engageProfile.getParametersMutable().smoothing);
+    registry->registerScalar(
+        describe(base + "engage.limit", 0.0, 1.0,
+            m_engageProfile.getParametersMutable().outputMax, ""),
+        &m_engageProfile.getParametersMutable().outputMax);
     registry->registerBoolean(
         describe(base + "gate.brake_interlock", 0.0, 1.0,
             m_params.brakeInterlock ? 1.0 : 0.0, ""),

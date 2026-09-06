@@ -142,6 +142,14 @@ wirklich in Leerlaufnähe liegt (`idle_speed_margin`, ab Werk 300/min). Ohne sie
 lernte er im Schub bei 3000/min aus einem gesättigten Integrator ins bleibende
 Kennfeld.
 
+Für das Schaltlernen gilt davon nur die erste Hälfte der Tabelle:
+`require_warm`/`warm_temperature` und `minimum_speed`. Die übrigen vier
+beschreiben genau den Zustand, den eine Schaltung selbst herstellt — die
+Schaltung *ist* der Schaltvorgang, ihre eigene Momentenrücknahme setzt den Motor
+auf `Limiting`, die Drehzahl bricht ein und die Klappe geht an den Anschlag.
+Angewandt sperrten sie das Schaltlernen restlos, statt es zu schützen.
+`adaptation.shift.enabled` bleibt der Schalter dafür.
+
 Dazu kommt:
 
 ```

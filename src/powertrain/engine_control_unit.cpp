@@ -513,6 +513,14 @@ void powertrain::EngineControlUnit::registerParameters(
             units::angle(-40.0, units::deg), units::angle(70.0, units::deg),
             0.0, "rad"),
         &m_timingMap);
+    registry->registerScalar(
+        describe(base + "cold_temperature", units::celcius(-40.0),
+            units::celcius(60.0), m_params.coldTemperature, "K"),
+        &m_params.coldTemperature);
+    registry->registerScalar(
+        describe(base + "warm_temperature", units::celcius(20.0),
+            units::celcius(120.0), m_params.warmTemperature, "K"),
+        &m_params.warmTemperature);
     registry->registerBoolean(
         describe(base + "timing.map_enabled", 0.0, 1.0,
             m_params.timingMapEnabled ? 1.0 : 0.0, ""),

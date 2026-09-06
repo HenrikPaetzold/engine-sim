@@ -1408,3 +1408,27 @@ TEST_F(ScriptFixture, MoreGearsThanFitAreVisiblyTruncated) {
     EXPECT_EQ(tcu.getParameters().gearCount, powertrain::MaxGears);
     EXPECT_EQ(tcu.getRequestedGearCount(), powertrain::MaxGears + 4);
 }
+
+TEST_F(ScriptFixture, TheEngageProfileIsAlsoLive) {
+    ASSERT_TRUE(run("set_powertrain(tcu: transmission_control_unit())\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    config::ParameterRegistry registry;
+    unit->registerParameters(&registry, "");
+
+    ASSERT_TRUE(registry.contains("tcu.engage.learning_rate"));
+    ASSERT_TRUE(registry.contains("tcu.engage.smoothing"));
+    ASSERT_TRUE(registry.contains("tcu.engage.limit"));
+    ASSERT_TRUE(registry.contains("tcu.kickdown.target_speed"));
+    ASSERT_TRUE(registry.contains("ecu.cold_temperature"));
+    ASSERT_TRUE(registry.contains("ecu.warm_temperature"));
+
+    ASSERT_TRUE(registry.set("tcu.engage.learning_rate", 0.11));
+    EXPECT_NEAR(
+        unit->getTransmissionControlUnit().getEngageProfile()
+            .getParameters().learningRate,
+        0.11,
+        1e-12);
+}

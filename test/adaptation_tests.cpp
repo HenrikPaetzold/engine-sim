@@ -1106,3 +1106,110 @@ TEST(ShiftLearningTests, ADoubleDownshiftCountsAsTwoIterations) {
     EXPECT_EQ(
         manager.getShiftIterationCount() - before, tcu.getCompletedShiftCount());
 }
+
+TEST(TorqueModelTests, TheForgettingFactorIsLive) {
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(powertrain::EngineControlUnit::Parameters());
+
+    adaptation::AdaptationManager manager;
+    manager.initialize(managerParameters());
+    manager.attach(&ecu, nullptr);
+
+    config::ParameterRegistry registry;
+    manager.registerParameters(&registry, "");
+
+    ASSERT_TRUE(registry.set("adaptation.torque_model.forgetting", 0.6));
+
+    powertrain::PowertrainState state = adaptationState();
+    powertrain::PowertrainBus bus;
+    manager.update(1e-3, state, bus);
+
+    EXPECT_NEAR(
+        manager.getTorqueModel().getParameters().forgettingFactor, 0.6, 1e-12);
+}
+
+TEST(ShiftLearningTests, TheEnableConditionsGateTheShiftLearner) {
+    powertrain::TransmissionControlUnit::Parameters tcuParams;
+    tcuParams.gearCount = 6;
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(tcuParams);
+
+    adaptation::AdaptationManager::Parameters params = managerParameters();
+    params.conditions.requireWarm = true;
+    params.conditions.warmTemperature = units::celcius(70.0);
+
+    adaptation::AdaptationManager manager;
+    manager.initialize(params);
+    manager.attach(nullptr, &tcu);
+
+    powertrain::PowertrainState state = adaptationState();
+    state.coolantTemperature = units::celcius(20.0);
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+    inputs.gatePosition = tcu.getGate().find("D");
+    inputs.accelerator = 0.6;
+
+    powertrain::ActuatorCommands commands;
+    powertrain::PowertrainBus bus;
+
+    tcu.beginShiftForTest(2);
+
+    for (int i = 0; i < 4000; ++i) {
+        tcu.update(1e-3, state, inputs, &commands);
+        bus.shiftInProgress = tcu.isShifting();
+        manager.update(1e-3, state, bus);
+    }
+
+    ASSERT_FALSE(manager.wasEnabledLastUpdate());
+    EXPECT_EQ(manager.getShiftIterationCount(), 0);
+}
+
+TEST(ShiftLearningTests, TheTorqueReductionOfAShiftDoesNotBlockTheLearner) {
+    powertrain::TransmissionControlUnit::Parameters params;
+    params.gearCount = 6;
+    params.supportsPreselect = true;
+    params.requiresTorqueInterrupt = false;
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(params);
+
+    const adaptation::AdaptationManager::Parameters managerParams =
+        managerParameters();
+
+    ASSERT_TRUE(managerParams.conditions.requireNoLimiting);
+    ASSERT_TRUE(managerParams.conditions.requireNoShift);
+
+    adaptation::AdaptationManager manager;
+    manager.initialize(managerParams);
+    manager.attach(nullptr, &tcu);
+
+    powertrain::PowertrainState state = adaptationState();
+    state.gear = 2;
+    state.vehicleSpeed = 20.0;
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+    inputs.gatePosition = tcu.getGate().find("D");
+    inputs.accelerator = 0.9;
+
+    powertrain::ActuatorCommands commands;
+    powertrain::PowertrainBus bus;
+
+    tcu.beginShiftForTest(3);
+
+    for (int i = 0; i < 4000; ++i) {
+        tcu.update(1e-3, state, inputs, &commands);
+        state.gear = tcu.getTargetGear();
+        bus.shiftInProgress = tcu.isShifting();
+        bus.engineState = bus.shiftInProgress
+            ? powertrain::EngineState::Limiting
+            : powertrain::EngineState::Running;
+        manager.update(1e-3, state, bus);
+    }
+
+    ASSERT_GE(tcu.getCompletedShiftCount(), 1);
+    EXPECT_GT(manager.getShiftIterationCount(), 0)
+        << "the shift's own torque reduction locked the learner out";
+}

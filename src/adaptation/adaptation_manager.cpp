@@ -105,6 +105,17 @@ bool adaptation::AdaptationManager::conditionsMet(
     return true;
 }
 
+bool adaptation::AdaptationManager::shiftConditionsMet(
+    const powertrain::PowertrainState &state) const
+{
+    const EnableConditions &c = m_params.conditions;
+
+    if (state.engineSpeed < c.minimumSpeed) return false;
+    if (c.requireWarm && state.coolantTemperature < c.warmTemperature) return false;
+
+    return true;
+}
+
 void adaptation::AdaptationManager::updateThrottleMap(
     double dt,
     const powertrain::PowertrainState &state)
@@ -266,7 +277,9 @@ void adaptation::AdaptationManager::update(
         m_speedDeviation += alpha * (std::abs(difference) - m_speedDeviation);
     }
 
-    updateShiftLearning(dt, state);
+    m_torqueModel.setForgettingFactor(m_params.torqueModel.forgettingFactor);
+
+    if (shiftConditionsMet(state)) updateShiftLearning(dt, state);
 
     m_enabled = conditionsMet(state, bus);
     if (!m_enabled) return;

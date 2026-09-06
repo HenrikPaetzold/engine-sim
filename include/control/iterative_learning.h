@@ -30,6 +30,7 @@ namespace control {
 
             inline int getBinCount() const { return m_params.binCount; }
             inline const Parameters &getParameters() const { return m_params; }
+            inline Parameters &getParametersMutable() { return m_params; }
             double getBin(int i) const;
             double getLastErrorNorm() const { return m_lastErrorNorm; }
             inline int getIterationCount() const { return m_iterationCount; }
