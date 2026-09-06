@@ -72,6 +72,7 @@ namespace powertrain {
             IgnitionEnabled,
             GatePosition,
             ParkLock,
+            Engagement,
             Count
         };
 

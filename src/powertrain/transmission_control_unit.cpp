@@ -65,6 +65,7 @@ powertrain::TransmissionControlUnit::TransmissionControlUnit() {
     m_downshiftAuthored = false;
     m_lockupAuthored = false;
     m_kickdownAuthored = false;
+    m_requestedGears = 0;
     m_intermediateAuthored = false;
 }
 
@@ -1119,6 +1120,7 @@ void powertrain::TransmissionControlUnit::configureGearbox(
     }
 
     if (capabilities.gearRatios != nullptr && capabilities.gearCount > 0) {
+        m_requestedGears = capabilities.gearCount;
         m_params.gearCount = std::min(capabilities.gearCount, MaxGears);
         for (int i = 0; i < m_params.gearCount; ++i) {
             m_params.gearRatios[i] = capabilities.gearRatios[i];

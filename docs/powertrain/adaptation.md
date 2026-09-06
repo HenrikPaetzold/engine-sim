@@ -27,8 +27,14 @@ kennfeld.accumulate(x, y, transfer, min, max)
 integrator -= transfer
 ```
 
-Was rausfließt, fließt rein. Die Summe bleibt gleich, die Korrektur wandert vom
-flüchtigen Regler ins bleibende Kennfeld — und wirkt dort ohne Regelabweichung.
+Was rausfließt, fließt rein: die **Summe über alle Kennfeldzellen** bleibt
+gleich, die Korrektur wandert vom flüchtigen Regler ins bleibende Kennfeld.
+
+> Genau genommen verteilt `Map2d::accumulate` den Betrag bilinear auf vier
+> Ecken. Der am selben Punkt *abgetastete* Wert steigt deshalb nur um
+> `Σw²·delta` — in der Zellmitte um ein Viertel, exakt auf einem Gitterpunkt um
+> den vollen Betrag. Die Zellsumme stimmt, die Sofortwirkung am Betriebspunkt
+> ist kleiner. Der Regler holt das nach.
 
 ## Die vier Lernpfade
 
@@ -41,7 +47,9 @@ flüchtigen Regler ins bleibende Kennfeld — und wirkt dort ohne Regelabweichun
 
 Dazu der `RlsEstimator`: er schätzt das Moment je Klappenstellung. Das ist keine
 Regleranpassung, sondern **Streckenidentifikation** — das Steuergerät lernt den
-Motor, nicht sich selbst.
+Motor, nicht sich selbst. Zusehen kann man ihm auf
+`adaptation.torque_model.gain`, `.residual` und `.covariance`; sein
+Vergessensfaktor ist über `torque_model_forgetting` bedatbar.
 
 ## Kurzzeit- und Langzeit-Kraftstofftrimm
 
@@ -118,8 +126,23 @@ Beide Verhalten sind erreichbar, weil der Unterschied selbst lehrreich ist. Auf
 
 ## Freigabebedingungen
 
-Adaption läuft nur, wenn der Betriebspunkt sie zulässt — warm, keine Schaltung,
-kein Begrenzer, stationäre Drehzahl. Dazu kommt:
+Adaption läuft nur, wenn der Betriebspunkt sie zulässt. **Alle sieben
+Bedingungen sind bedatbar**, im Skript wie im Browser:
+
+| Eingang | Vorgabe |
+|---|---|
+| `require_warm`, `warm_temperature` | an, 70 °C |
+| `require_steady_speed`, `speed_window` | an, 120/min |
+| `require_no_shift`, `require_no_limiting` | an |
+| `minimum_speed` | 500/min |
+| `require_unsaturated_plate` | **aus** |
+
+Der Leerlauftrimm hat zusätzlich eine eigene: er lernt nur, wenn die Drehzahl
+wirklich in Leerlaufnähe liegt (`idle_speed_margin`, ab Werk 300/min). Ohne sie
+lernte er im Schub bei 3000/min aus einem gesättigten Integrator ins bleibende
+Kennfeld.
+
+Dazu kommt:
 
 ```
 adaptation(require_unsaturated_plate: true)

@@ -351,4 +351,28 @@ void adaptation::AdaptationManager::registerParameters(
         describe(base + "conditions.require_unsaturated_plate", 0.0, 1.0,
             m_params.conditions.requireUnsaturatedPlate ? 1.0 : 0.0, ""),
         &m_params.conditions.requireUnsaturatedPlate);
+    registry->registerBoolean(
+        describe(base + "conditions.require_warm", 0.0, 1.0,
+            m_params.conditions.requireWarm ? 1.0 : 0.0, ""),
+        &m_params.conditions.requireWarm);
+    registry->registerBoolean(
+        describe(base + "conditions.require_steady_speed", 0.0, 1.0,
+            m_params.conditions.requireSteadySpeed ? 1.0 : 0.0, ""),
+        &m_params.conditions.requireSteadySpeed);
+    registry->registerBoolean(
+        describe(base + "conditions.require_no_shift", 0.0, 1.0,
+            m_params.conditions.requireNoShift ? 1.0 : 0.0, ""),
+        &m_params.conditions.requireNoShift);
+    registry->registerBoolean(
+        describe(base + "conditions.require_no_limiting", 0.0, 1.0,
+            m_params.conditions.requireNoLimiting ? 1.0 : 0.0, ""),
+        &m_params.conditions.requireNoLimiting);
+    registry->registerScalar(
+        describe(base + "conditions.minimum_speed", 0.0, units::rpm(4000.0),
+            m_params.conditions.minimumSpeed, "rad/s"),
+        &m_params.conditions.minimumSpeed);
+    registry->registerScalar(
+        describe(base + "torque_model.forgetting", 0.5, 1.0,
+            m_params.torqueModel.forgettingFactor, ""),
+        &m_params.torqueModel.forgettingFactor);
 }

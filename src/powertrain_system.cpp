@@ -67,6 +67,18 @@ void PowertrainSystem::fillChannels(double dt) {
     m_channels.set("driver.pedal_raw", m_inputs.accelerator);
     m_channels.set("driver.clutch_raw", m_inputs.clutchPedal);
 
+    if (m_adaptation != nullptr) {
+        const adaptation::RlsEstimator &model = m_adaptation->getTorqueModel();
+        m_channels.set("adaptation.torque_model.gain", model.getEstimate());
+        m_channels.set("adaptation.torque_model.residual", model.getResidual());
+        m_channels.set("adaptation.torque_model.covariance", model.getCovariance());
+        m_channels.set(
+            "adaptation.enabled", m_adaptation->wasEnabledLastUpdate() ? 1.0 : 0.0);
+        m_channels.set(
+            "adaptation.throttle_updates",
+            static_cast<double>(m_adaptation->getThrottleUpdateCount()));
+    }
+
     if (m_controller != nullptr) m_controller->fillChannels(&m_channels);
     if (m_overlay != nullptr) m_overlay->fillChannels(&m_channels);
 }

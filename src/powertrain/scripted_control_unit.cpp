@@ -69,7 +69,8 @@ namespace {
         "starter_enabled",
         "ignition_enabled",
         "gate_position",
-        "park_lock" };
+        "park_lock",
+        "engagement" };
 
     static_assert(
         sizeof(s_actuatorNames) / sizeof(s_actuatorNames[0])
@@ -189,6 +190,26 @@ void powertrain::ScriptedControlUnit::registerParameters(
                 describe(base + block->m_name + ".tau", lowPass->m_timeConstant),
                 &lowPass->m_timeConstant);
         }
+        else if (control::LearnerBlock *learner =
+            dynamic_cast<control::LearnerBlock *>(block))
+        {
+            registry->registerScalar(
+                describe(base + block->m_name + ".rate", learner->m_rate),
+                &learner->m_rate);
+            registry->registerScalar(
+                describe(base + block->m_name + ".threshold", learner->m_threshold),
+                &learner->m_threshold);
+        }
+        else if (control::IntegratorBlock *integrator =
+            dynamic_cast<control::IntegratorBlock *>(block))
+        {
+            registry->registerScalar(
+                describe(base + block->m_name + ".min", integrator->m_min),
+                &integrator->m_min);
+            registry->registerScalar(
+                describe(base + block->m_name + ".max", integrator->m_max),
+                &integrator->m_max);
+        }
     }
 }
 
@@ -276,6 +297,7 @@ void powertrain::sampleActuatorTable(
     table.set(actuators::IgnitionEnabled, commands.ignitionEnabled ? 1.0 : 0.0);
     table.set(actuators::GatePosition, commands.gatePosition);
     table.set(actuators::ParkLock, commands.parkLock ? 1.0 : 0.0);
+    table.set(actuators::Engagement, static_cast<double>(commands.engagement));
 }
 
 void powertrain::ScriptedControlUnit::sampleSignals(
@@ -312,6 +334,7 @@ void powertrain::ScriptedControlUnit::seedActuators(
         table.set(actuators::IgnitionEnabled, commands.ignitionEnabled ? 1.0 : 0.0);
         table.set(actuators::GatePosition, commands.gatePosition);
         table.set(actuators::ParkLock, commands.parkLock ? 1.0 : 0.0);
+        table.set(actuators::Engagement, static_cast<double>(commands.engagement));
         return;
     }
 
@@ -324,6 +347,7 @@ void powertrain::ScriptedControlUnit::seedActuators(
     table.set(actuators::IgnitionEnabled, 1.0);
     table.set(actuators::GatePosition, state.gatePosition);
     table.set(actuators::ParkLock, state.parkLockEngaged ? 1.0 : 0.0);
+    table.set(actuators::Engagement, static_cast<double>(state.engagement));
 }
 
 void powertrain::ScriptedControlUnit::applyActuators(ActuatorCommands *commands) const {
@@ -359,6 +383,12 @@ void powertrain::ScriptedControlUnit::applyActuators(ActuatorCommands *commands)
     commands->gatePosition =
         static_cast<int>(std::lround(table.get(actuators::GatePosition)));
     commands->parkLock = table.get(actuators::ParkLock) >= 0.5;
+
+    const int engagement =
+        static_cast<int>(std::lround(table.get(actuators::Engagement)));
+    if (engagement >= 0 && engagement <= static_cast<int>(GateEngagement::Forward)) {
+        commands->engagement = static_cast<GateEngagement>(engagement);
+    }
 }
 
 void powertrain::ScriptedControlUnit::update(

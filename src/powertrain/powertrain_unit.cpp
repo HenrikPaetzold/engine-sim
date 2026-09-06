@@ -113,6 +113,8 @@ void powertrain::PowertrainUnit::fillChannels(config::ChannelTable *table) const
     table->set("tcu.active_clutch", m_tcu.getActiveClutch());
     table->set("tcu.pedal_rate", m_tcu.getPedalRate());
     table->set("tcu.shifting", m_tcu.isShifting() ? 1.0 : 0.0);
+    table->set("tcu.gear_count", m_tcu.getParameters().gearCount);
+    table->set("tcu.gears_requested", m_tcu.getRequestedGearCount());
 }
 
 void powertrain::PowertrainUnit::update(

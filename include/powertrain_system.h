@@ -70,6 +70,7 @@ class PowertrainSystem {
         inline const config::ShiftRecorder &getShiftRecorder() const { return m_shiftRecorder; }
 
         void sampleState(double dt);
+        void fillChannels(double dt);
         void syncGearbox();
         void applyGateMode();
         void recordShift(double dt);
@@ -89,7 +90,6 @@ class PowertrainSystem {
         std::vector<int> m_actuatorChannel;
         bool m_channelsDefined = false;
 
-        void fillChannels(double dt);
         adaptation::AdaptationManager *m_adaptation;
         config::ConfigServer *m_server;
         config::ShiftRecorder m_shiftRecorder;

@@ -9,6 +9,7 @@
 #include "../include/units.h"
 
 #include <fstream>
+#include <vector>
 #include <sstream>
 #include <string>
 
@@ -1270,4 +1271,140 @@ TEST_F(ScriptFixture, WithoutSetAdaptiveTheZoneLearnerCannotWrite) {
     runProgram(program, state, inputs, &commands, 500);
 
     EXPECT_NEAR(mapTotal(tcu.getKickdownMap()), before, 1e-12);
+}
+
+TEST_F(ScriptFixture, TheEngageProfileIsScriptable) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    tcu: transmission_control_unit(\n"
+        "        engage_bins: 12,\n"
+        "        engage_learning_rate: 0.15,\n"
+        "        engage_smoothing: 0.4,\n"
+        "        engage_limit: 0.6))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    const control::IterativeLearningControl::Parameters &params =
+        unit->getTransmissionControlUnit().getEngageProfile().getParameters();
+
+    EXPECT_EQ(params.binCount, 12);
+    EXPECT_NEAR(params.learningRate, 0.15, 1e-12);
+    EXPECT_NEAR(params.smoothing, 0.4, 1e-12);
+    EXPECT_NEAR(params.outputMax, 0.6, 1e-12);
+    EXPECT_NEAR(params.outputMin, -0.6, 1e-12);
+}
+
+TEST_F(ScriptFixture, TheTorqueModelIsScriptable) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    adaptation: adaptation(\n"
+        "        torque_model_forgetting: 0.99,\n"
+        "        torque_model_initial: 2.5))\n"));
+
+    const adaptation::AdaptationManager::Parameters &params =
+        es_script::Compiler::output()->adaptation;
+
+    EXPECT_NEAR(params.torqueModel.forgettingFactor, 0.99, 1e-12);
+    EXPECT_NEAR(params.torqueModel.initialEstimate, 2.5, 1e-12);
+}
+
+TEST_F(ScriptFixture, TheEnableConditionsAreScriptable) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    adaptation: adaptation(\n"
+        "        require_warm: false,\n"
+        "        require_steady_speed: false,\n"
+        "        require_no_shift: false,\n"
+        "        require_no_limiting: false,\n"
+        "        minimum_speed: 900 * units.rpm))\n"));
+
+    const adaptation::EnableConditions &c =
+        es_script::Compiler::output()->adaptation.conditions;
+
+    EXPECT_FALSE(c.requireWarm);
+    EXPECT_FALSE(c.requireSteadySpeed);
+    EXPECT_FALSE(c.requireNoShift);
+    EXPECT_FALSE(c.requireNoLimiting);
+    EXPECT_NEAR(c.minimumSpeed, units::rpm(900.0), 1e-9);
+}
+
+TEST_F(ScriptFixture, TheIdleTrimMapAndLimiterDurationAreScriptable) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    ecu: engine_control_unit(\n"
+        "        limiter_duration: 0.8 * units.sec,\n"
+        "        idle_trim_map: map_2d()\n"
+        "            .add_map_sample(x: 250.0, y: 0.0, value: 0.05)\n"
+        "            .add_map_sample(x: 380.0, y: 0.0, value: -0.02)))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    powertrain::EngineControlUnit &ecu = unit->getEngineControlUnit();
+
+    EXPECT_NEAR(ecu.getParameters().limiterDuration, 0.8, 1e-12);
+    EXPECT_EQ(ecu.getIdleTrimMap().getXCount(), 2);
+    EXPECT_NEAR(ecu.getIdleTrimMap().sample(250.0, 0.0), 0.05, 1e-12);
+}
+
+TEST_F(ScriptFixture, AProgramCanCommandTheEngagement) {
+    ASSERT_TRUE(run(
+        "set_control_program(\n"
+        "    control_program()\n"
+        "        .add_output(actuator(channel: \"engagement\", a: constant(3.0))))\n"));
+
+    powertrain::ScriptedControlUnit *program =
+        es_script::Compiler::output()->controlProgram;
+    ASSERT_NE(program, nullptr);
+
+    powertrain::PowertrainState state;
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    ASSERT_EQ(commands.engagement, powertrain::GateEngagement::Neutral);
+    runProgram(program, state, inputs, &commands);
+
+    EXPECT_EQ(commands.engagement, powertrain::GateEngagement::Forward);
+}
+
+TEST_F(ScriptFixture, TheLearnerRateIsLiveEditable) {
+    ASSERT_TRUE(run(
+        "set_control_program(\n"
+        "    control_program()\n"
+        "        .add_output(\n"
+        "            learner(name: \"trim\", target: \"program.trim.rate\",\n"
+        "                    error: constant(0.0), rate: 0.05)))\n"));
+
+    powertrain::ScriptedControlUnit *program =
+        es_script::Compiler::output()->controlProgram;
+    ASSERT_NE(program, nullptr);
+
+    config::ParameterRegistry registry;
+    program->registerParameters(&registry, "");
+
+    ASSERT_TRUE(registry.contains("program.trim.rate"));
+    ASSERT_TRUE(registry.contains("program.trim.threshold"));
+    ASSERT_TRUE(registry.set("program.trim.rate", 0.5));
+
+    double value = 0.0;
+    ASSERT_TRUE(registry.get("program.trim.rate", &value));
+    EXPECT_NEAR(value, 0.5, 1e-12);
+}
+
+TEST_F(ScriptFixture, MoreGearsThanFitAreVisiblyTruncated) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
+
+    std::vector<double> ratios(powertrain::MaxGears + 4, 1.0);
+
+    powertrain::GearboxCapabilities caps;
+    caps.gearCount = static_cast<int>(ratios.size());
+    caps.gearRatios = ratios.data();
+    caps.finalDrive = 3.42;
+    caps.tireRadius = units::distance(12.0, units::inch);
+    tcu.configureGearbox(caps);
+
+    EXPECT_EQ(tcu.getParameters().gearCount, powertrain::MaxGears);
+    EXPECT_EQ(tcu.getRequestedGearCount(), powertrain::MaxGears + 4);
 }

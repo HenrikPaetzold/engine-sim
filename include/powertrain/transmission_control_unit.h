@@ -15,7 +15,7 @@
 
 namespace powertrain {
 
-    static constexpr int MaxGears = 10;
+    static constexpr int MaxGears = 16;
 
     enum class ShiftState {
         Idle,
@@ -32,7 +32,7 @@ namespace powertrain {
             struct Parameters {
                 int gearCount = 6;
                 double gearRatios[MaxGears] = {
-                    3.60, 2.19, 1.41, 1.00, 0.83, 0.69, 0.0, 0.0, 0.0, 0.0 };
+                    3.60, 2.19, 1.41, 1.00, 0.83, 0.69 };
                 double finalDrive = 3.42;
                 double tireRadius = units::distance(12.0, units::inch);
 
@@ -149,6 +149,7 @@ namespace powertrain {
             int kickdownGear(double pedal, double vehicleSpeed) const;
             int intermediateGear(int from, int to, double pedal) const;
             inline int getFinalGear() const { return m_finalGear; }
+            inline int getRequestedGearCount() const { return m_requestedGears; }
             inline double getPedalRate() const { return m_pedalRate; }
             int scheduleGear(
                 int currentGear,
@@ -195,6 +196,7 @@ namespace powertrain {
             control::Map2d m_overlapShape;
             control::Map2d m_engageShape;
             int m_finalGear;
+            int m_requestedGears;
             double m_pedalFiltered;
             double m_pedalRate;
             double m_revLimit;

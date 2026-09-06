@@ -7,6 +7,7 @@
 #include "../include/powertrain/transmission_control_unit.h"
 #include "../include/powertrain/powertrain_unit.h"
 #include "../include/config/channel_recorder.h"
+#include "../include/powertrain_system.h"
 #include "../include/config/parameter_registry.h"
 #include "../include/units.h"
 
@@ -1008,4 +1009,51 @@ TEST(IdleTrimTests, TheRealIdleStillTeachesIt) {
     }
 
     EXPECT_GT(ecu.getIdleTrimMap().sample(state.coolantTemperature, 0.0), 0.0);
+}
+
+TEST(TorqueModelTests, TheEstimateReachesTheChannels) {
+    PowertrainSystem system;
+    system.initialize(PowertrainSystem::Parameters());
+
+    powertrain::PowertrainUnit unit;
+    unit.initialize(
+        powertrain::EngineControlUnit::Parameters(),
+        powertrain::TransmissionControlUnit::Parameters());
+
+    adaptation::AdaptationManager manager;
+    manager.initialize(managerParameters());
+    manager.attach(&unit.getEngineControlUnit(), &unit.getTransmissionControlUnit());
+
+    system.setController(&unit);
+    system.setAdaptationManager(&manager);
+
+    config::ChannelTable channels;
+    system.fillChannels(1e-3);
+
+    const config::ChannelTable &table = system.getChannels();
+
+    ASSERT_GE(table.find("adaptation.torque_model.gain"), 0);
+    ASSERT_GE(table.find("adaptation.torque_model.residual"), 0);
+    ASSERT_GE(table.find("adaptation.enabled"), 0);
+
+    EXPECT_NEAR(
+        table.getValue(table.find("adaptation.torque_model.gain")),
+        manager.getTorqueModel().getEstimate(),
+        1e-12);
+}
+
+TEST(TorqueModelTests, TheEnableConditionsAreReachableThroughTheRegistry) {
+    config::ParameterRegistry registry;
+
+    adaptation::AdaptationManager manager;
+    manager.initialize(adaptation::AdaptationManager::Parameters());
+    manager.registerParameters(&registry, "");
+
+    ASSERT_TRUE(registry.contains("adaptation.conditions.require_warm"));
+    ASSERT_TRUE(registry.contains("adaptation.conditions.require_steady_speed"));
+    ASSERT_TRUE(registry.contains("adaptation.conditions.require_no_shift"));
+    ASSERT_TRUE(registry.contains("adaptation.conditions.require_no_limiting"));
+    ASSERT_TRUE(registry.contains("adaptation.conditions.minimum_speed"));
+    ASSERT_TRUE(registry.contains("adaptation.torque_model.forgetting"));
+    ASSERT_TRUE(registry.contains("adaptation.idle.speed_margin"));
 }

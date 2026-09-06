@@ -471,7 +471,7 @@ void config::ParameterRegistry::exportScript(std::ostream &out, ExportScope scop
             if (!entry.descriptor.adaptive) continue;
         }
         else if (entry.descriptor.type == ParameterType::Map) {
-            if (!entry.descriptor.adaptive) continue;
+            /* void */
         }
         else if (readValue(entry) == entry.descriptor.defaultValue) {
             continue;

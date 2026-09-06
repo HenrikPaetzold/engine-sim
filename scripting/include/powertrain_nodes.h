@@ -6,6 +6,8 @@
 
 #include "engine_sim.h"
 
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace es_script {
@@ -42,6 +44,9 @@ namespace es_script {
             if (m_timingMap != nullptr && !m_timingMap->isEmpty()) {
                 m_timingMap->generate(&ecu->getTimingMap());
             }
+            if (m_idleTrimMap != nullptr && !m_idleTrimMap->isEmpty()) {
+                m_idleTrimMap->generate(&ecu->getIdleTrimMap());
+            }
         }
 
     protected:
@@ -71,6 +76,8 @@ namespace es_script {
             addInput("max_torque_map", &m_maxTorqueMap, InputTarget::Type::Object);
             addInput("pedal_map", &m_pedalMap, InputTarget::Type::Object);
             addInput("lambda_trim_map", &m_lambdaTrimMap, InputTarget::Type::Object);
+            addInput("idle_trim_map", &m_idleTrimMap, InputTarget::Type::Object);
+            addInput("limiter_duration", &m_parameters.limiterDuration);
             addInput("timing_map", &m_timingMap, InputTarget::Type::Object);
             addInput("timing_map_enabled", &m_parameters.timingMapEnabled);
 
@@ -90,6 +97,7 @@ namespace es_script {
         Map2dNode *m_maxTorqueMap = nullptr;
         Map2dNode *m_pedalMap = nullptr;
         Map2dNode *m_lambdaTrimMap = nullptr;
+        Map2dNode *m_idleTrimMap = nullptr;
         Map2dNode *m_timingMap = nullptr;
     };
 
@@ -124,6 +132,11 @@ namespace es_script {
             if (m_lockupController != nullptr) {
                 parameters.lockupController = m_lockupController->getParameters();
             }
+
+            parameters.engageProfile.binCount =
+                std::max(static_cast<int>(std::lround(m_engageBins)), 1);
+            parameters.engageProfile.outputMax = std::abs(m_engageLimit);
+            parameters.engageProfile.outputMin = -std::abs(m_engageLimit);
 
             tcu->initialize(parameters);
 
@@ -195,6 +208,10 @@ namespace es_script {
             addInput("stall_protect_speed", &m_parameters.stallProtectSpeed);
             addInput("brake_interlock", &m_parameters.brakeInterlock);
             addInput("default_position", &m_parameters.defaultPosition);
+            addInput("engage_bins", &m_engageBins);
+            addInput("engage_learning_rate", &m_parameters.engageProfile.learningRate);
+            addInput("engage_smoothing", &m_parameters.engageProfile.smoothing);
+            addInput("engage_limit", &m_engageLimit);
 
             addInput("slip_controller", &m_slipController, InputTarget::Type::Object);
             addInput("upshift_map", &m_upshiftMap, InputTarget::Type::Object);
@@ -226,6 +243,8 @@ namespace es_script {
         Map2dNode *m_intermediateBias = nullptr;
         Map2dNode *m_overlapShape = nullptr;
         Map2dNode *m_engageShape = nullptr;
+        double m_engageBins = 8.0;
+        double m_engageLimit = 0.4;
         PidControllerNode *m_lockupController = nullptr;
     };
 
@@ -292,6 +311,15 @@ namespace es_script {
             addInput("idle_drain_rate", &m_parameters.idleDrainRate);
             addInput("idle_limit", &m_parameters.idleTrimLimit);
             addInput("idle_speed_margin", &m_parameters.idleSpeedMargin);
+            addInput("require_warm", &m_parameters.conditions.requireWarm);
+            addInput("require_steady_speed", &m_parameters.conditions.requireSteadySpeed);
+            addInput("require_no_shift", &m_parameters.conditions.requireNoShift);
+            addInput("require_no_limiting", &m_parameters.conditions.requireNoLimiting);
+            addInput("minimum_speed", &m_parameters.conditions.minimumSpeed);
+            addInput("torque_model_forgetting",
+                &m_parameters.torqueModel.forgettingFactor);
+            addInput("torque_model_initial",
+                &m_parameters.torqueModel.initialEstimate);
             addInput("lambda_gain", &m_parameters.lambdaShortTermGain);
             addInput("lambda_limit", &m_parameters.lambdaTrimLimit);
             addInput("lambda_target", &m_parameters.lambdaTarget);
