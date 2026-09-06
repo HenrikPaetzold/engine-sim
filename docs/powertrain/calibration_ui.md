@@ -104,8 +104,9 @@ Warmlaufphase nach oben — sichtbar am Zifferblatt.
 
 ## Fünf Kalibrierungsansichten im Browser
 
-Die Kennfelddaten lagen längst auf der Leitung: `/api/schema` überträgt für alle
-sechs Maps Achsen *und* Werte. Die Oberfläche hat sie an einer Zeile weggeworfen.
+Die Kennfelddaten lagen längst auf der Leitung: `/api/state` überträgt für jedes
+registrierte Kennfeld Achsen *und* Werte. Die Oberfläche hat sie an einer Zeile
+weggeworfen.
 
 | Ansicht | Was sie beantwortet |
 |---|---|
@@ -151,7 +152,7 @@ beim Start gebaut wurde. Die Delta-Ansicht des Drosselklappen-Kennfelds
 verglich dadurch zwei Kopien desselben eingefrorenen Zustands und konnte
 nichts anzeigen — genau die Ansicht, die dem Schätzer beim Lernen zusehen soll.
 
-Alle Kennfelder zusammen sind rund 310 Werte, also etwa vier Kilobyte Text je
+Alle Kennfelder zusammen sind einige hundert Werte, also wenige Kilobyte Text je
 Abruf. Über localhost ist das belanglos.
 
 ## Zellen bearbeiten

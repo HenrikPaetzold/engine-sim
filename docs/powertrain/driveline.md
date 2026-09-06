@@ -107,7 +107,7 @@ reine Momentenquelle mit `M_P` an der Pumpe und `TR · M_P` an der Turbine, also
 genau als Wandler. Erst wenn `SR` gegen den Kupplungspunkt läuft, wird `TR = 1`
 und der Constraint geht in eine starre Kopplung über.
 
-**Standardkurven** (überschreibbar über `Function`-Kurven):
+**Standardkurven** (heute fest, die Setter sind noch nicht angeschlossen):
 
 ```
 TR(SR) = TR_stall + (1 − TR_stall) · SR / SR_c      für SR < SR_c, sonst 1

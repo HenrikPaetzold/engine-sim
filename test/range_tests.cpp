@@ -447,3 +447,64 @@ TEST(DeadKnobTests, TheBrakeInterlockStillHoldsWhenOn) {
     EXPECT_TRUE(tcu.wasPositionRefused());
     EXPECT_EQ(tcu.getPosition().name, "P");
 }
+
+TEST(GateTimingTests, TheGateTakesTheSameTimeAtAnyControlRate) {
+    const auto traverse = [](double dt, double seconds) {
+        powertrain::TransmissionControlUnit::Parameters params;
+        params.defaultPosition = "P";
+        params.brakeInterlock = false;
+
+        powertrain::TransmissionControlUnit tcu;
+        tcu.initialize(params);
+
+        powertrain::PowertrainState state;
+        state.coolantTemperature = units::celcius(90.0);
+        state.engineRunning = true;
+        state.engineSpeed = units::rpm(800.0);
+
+        powertrain::DriverInputs inputs;
+        inputs.ignitionKey = true;
+
+        powertrain::ActuatorCommands commands;
+        tcu.update(dt, state, inputs, &commands);
+
+        inputs.gatePosition = tcu.getGate().find("D");
+
+        const int steps = static_cast<int>(std::lround(seconds / dt));
+        for (int i = 0; i < steps; ++i) tcu.update(dt, state, inputs, &commands);
+
+        return tcu.getPosition().name;
+    };
+
+    EXPECT_EQ(traverse(1e-3, 0.10), traverse(2e-4, 0.10));
+    EXPECT_EQ(traverse(1e-3, 0.02), traverse(2e-4, 0.02));
+}
+
+TEST(GateTimingTests, TheGateRateIsScriptable) {
+    powertrain::TransmissionControlUnit::Parameters params;
+    params.defaultPosition = "P";
+    params.brakeInterlock = false;
+    params.gateStepTime = 0.20;
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(params);
+
+    powertrain::PowertrainState state;
+    state.coolantTemperature = units::celcius(90.0);
+    state.engineRunning = true;
+    state.engineSpeed = units::rpm(800.0);
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+
+    powertrain::ActuatorCommands commands;
+    tcu.update(1e-3, state, inputs, &commands);
+
+    inputs.gatePosition = tcu.getGate().find("D");
+
+    for (int i = 0; i < 100; ++i) tcu.update(1e-3, state, inputs, &commands);
+    EXPECT_EQ(tcu.getPosition().name, "P");
+
+    for (int i = 0; i < 600; ++i) tcu.update(1e-3, state, inputs, &commands);
+    EXPECT_EQ(tcu.getPosition().name, "D");
+}

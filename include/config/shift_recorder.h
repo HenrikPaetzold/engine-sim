@@ -32,6 +32,7 @@ namespace config {
             ~ShiftRecorder();
 
             void initialize(double duration);
+            void setWindow(double duration);
             void reset();
 
             void update(double dt, bool shifting, int gear, const Sample &sample);

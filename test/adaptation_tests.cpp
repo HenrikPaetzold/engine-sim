@@ -1057,3 +1057,52 @@ TEST(TorqueModelTests, TheEnableConditionsAreReachableThroughTheRegistry) {
     ASSERT_TRUE(registry.contains("adaptation.torque_model.forgetting"));
     ASSERT_TRUE(registry.contains("adaptation.idle.speed_margin"));
 }
+
+TEST(ShiftLearningTests, ADoubleDownshiftCountsAsTwoIterations) {
+    powertrain::TransmissionControlUnit::Parameters params;
+    params.gearCount = 6;
+    params.supportsPreselect = true;
+    params.requiresTorqueInterrupt = false;
+    params.multiShiftViaIntermediate = true;
+    params.multiShiftMaxGears = 3.0;
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(params);
+
+    adaptation::AdaptationManager manager;
+    manager.initialize(managerParameters());
+    manager.attach(nullptr, &tcu);
+
+    powertrain::PowertrainState state = adaptationState();
+    state.gear = 2;
+    state.vehicleSpeed = 14.0;
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+    inputs.gatePosition = tcu.getGate().find("D");
+    inputs.accelerator = 0.9;
+
+    powertrain::ActuatorCommands commands;
+    powertrain::PowertrainBus bus;
+
+    for (int i = 0; i < 200; ++i) {
+        tcu.update(1e-3, state, inputs, &commands);
+        bus.shiftInProgress = tcu.isShifting();
+        manager.update(1e-3, state, bus);
+    }
+
+    const int before = manager.getShiftIterationCount();
+
+    tcu.beginShiftForTest(0);
+
+    for (int i = 0; i < 4000; ++i) {
+        tcu.update(1e-3, state, inputs, &commands);
+        state.gear = tcu.getTargetGear();
+        bus.shiftInProgress = tcu.isShifting();
+        manager.update(1e-3, state, bus);
+    }
+
+    EXPECT_GE(tcu.getCompletedShiftCount(), 1);
+    EXPECT_EQ(
+        manager.getShiftIterationCount() - before, tcu.getCompletedShiftCount());
+}

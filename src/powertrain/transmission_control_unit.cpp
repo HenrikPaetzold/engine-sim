@@ -60,12 +60,12 @@ powertrain::TransmissionControlUnit::TransmissionControlUnit() {
     m_pedalFiltered = 0.0;
     m_pedalRate = 0.0;
     m_revLimit = 0.0;
-    m_kickdownArmed = false;
     m_upshiftAuthored = false;
     m_downshiftAuthored = false;
     m_lockupAuthored = false;
     m_kickdownAuthored = false;
     m_requestedGears = 0;
+    m_gateElapsed = 0.0;
     m_intermediateAuthored = false;
 }
 
@@ -269,7 +269,6 @@ void powertrain::TransmissionControlUnit::reset() {
 
     m_pedalFiltered = 0.0;
     m_pedalRate = 0.0;
-    m_kickdownArmed = false;
     m_finalGear = -1;
 }
 
@@ -398,6 +397,7 @@ bool powertrain::TransmissionControlUnit::positionAllowed(
 }
 
 void powertrain::TransmissionControlUnit::resolvePosition(
+    double dt,
     const PowertrainState &state,
     const DriverInputs &inputs)
 {
@@ -409,7 +409,15 @@ void powertrain::TransmissionControlUnit::resolvePosition(
         ? m_gateIndex
         : m_gate.clampIndex(inputs.gatePosition);
 
-    if (requested == m_gateIndex) return;
+    if (requested == m_gateIndex) {
+        m_gateElapsed = 0.0;
+        return;
+    }
+
+    m_gateElapsed += dt;
+    if (m_gateElapsed < m_params.gateStepTime) return;
+
+    m_gateElapsed = 0.0;
 
     const int step = (requested > m_gateIndex) ? 1 : -1;
     const int next = m_gateIndex + step;
@@ -823,7 +831,7 @@ void powertrain::TransmissionControlUnit::update(
         m_pedalRate = (m_pedalFiltered - previous) / dt;
     }
 
-    resolvePosition(state, inputs);
+    resolvePosition(dt, state, inputs);
 
     const GateEngagement engagement = getEngagement();
     const bool driving = (engagement == GateEngagement::Forward);
@@ -1041,6 +1049,9 @@ void powertrain::TransmissionControlUnit::registerParameters(
         describe(base + "launch.stall_protect_speed", units::rpm(200.0), units::rpm(3000.0),
             m_params.stallProtectSpeed, "rad/s"),
         &m_params.stallProtectSpeed);
+    registry->registerScalar(
+        describe(base + "gate.step_time", 0.0, 2.0, m_params.gateStepTime, "s"),
+        &m_params.gateStepTime);
     registry->registerBoolean(
         describe(base + "gate.brake_interlock", 0.0, 1.0,
             m_params.brakeInterlock ? 1.0 : 0.0, ""),

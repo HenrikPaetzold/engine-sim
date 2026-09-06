@@ -42,7 +42,6 @@ namespace adaptation {
 
                 double throttleLearningRate = 0.5;
                 double throttleDeadband = 0.01;
-                double throttleCorrectionLimit = 0.35;
                 bool throttleLearnFromIntegrator = false;
 
                 double idleDrainRate = 0.6;
@@ -108,7 +107,7 @@ namespace adaptation {
 
             bool m_enabled;
             bool m_shiftActive;
-            double m_shiftElapsed;
+            int m_shiftCount;
             int m_throttleUpdates;
     };
 

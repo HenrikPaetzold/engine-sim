@@ -128,7 +128,8 @@ stehen, sonst rollt es an. Ohne ihn wäre die Parksperre am Berg nicht prüfbar.
 
 ## Bedienung
 
-`O` eine Raste Richtung erste Position, `P` eine Richtung letzte, `K` bremsen.
+Pfeil hoch eine Raste Richtung letzte Position, Pfeil runter Richtung erste,
+`K` bremsen.
 Die Bremse ist echte Physik (`vehicle.max_brake_force`), nicht nur Verriegelung.
 
 ## Voreinstellung und Rückwärtskompatibilität

@@ -37,7 +37,6 @@ namespace powertrain {
                 double overrunResumeSpeed = units::rpm(1400.0);
 
                 double crankingSpeed = units::rpm(400.0);
-                double stallSpeed = units::rpm(200.0);
 
                 bool lambdaTrimLoadIsManifold = false;
                 bool timingMapEnabled = false;

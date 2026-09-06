@@ -73,6 +73,7 @@ namespace powertrain {
                 double stallProtectSpeed = units::rpm(650.0);
 
                 bool brakeInterlock = true;
+                double gateStepTime = 0.0;
                 bool supportsEngagement = true;
                 std::string defaultPosition;
 
@@ -172,6 +173,7 @@ namespace powertrain {
                 const DriverInputs &inputs,
                 ActuatorCommands *commands);
             void resolvePosition(
+                double dt,
                 const PowertrainState &state,
                 const DriverInputs &inputs);
             void updateClutchAssignment(
@@ -200,7 +202,6 @@ namespace powertrain {
             double m_pedalFiltered;
             double m_pedalRate;
             double m_revLimit;
-            bool m_kickdownArmed;
             bool m_upshiftAuthored;
             bool m_downshiftAuthored;
             bool m_lockupAuthored;
@@ -219,6 +220,7 @@ namespace powertrain {
             std::string m_requestedMode;
             control::StateTimer m_shiftTimer;
             control::StateTimer m_gearTimer;
+            double m_gateElapsed;
 
             int m_currentGear;
             int m_targetGear;

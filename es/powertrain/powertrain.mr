@@ -109,6 +109,7 @@ public node transmission_control_unit => __engine_sim__transmission_control_unit
     input launch_lock_slip [float]: 60 * units.rpm;
     input stall_protect_speed [float]: 650 * units.rpm;
     input brake_interlock [bool]: true;
+    input gate_step_time [float]: 0.0;
     input default_position [string]: "N";
     input engage_bins [float]: 8;
     input engage_learning_rate [float]: 0.4;

@@ -134,3 +134,12 @@ TEST(DriverModelTests, TheConstantsAreReachableThroughTheRegistry) {
     ASSERT_TRUE(registry.set("driver.pedal_time_constant", 0.2));
     EXPECT_NEAR(system.getParameters().pedalTimeConstant, 0.2, 1e-12);
 }
+
+TEST(DriverModelTests, TheDefaultReproducesTheOldFrameFilterAtSixtyHertz) {
+    DriverRig rig;
+    rig.build(PowertrainSystem::Parameters().pedalTimeConstant);
+
+    const double afterOneFrame = rig.settle(1e-4, 1.0 / 60.0);
+
+    EXPECT_NEAR(afterOneFrame, 0.5, 5e-3);
+}

@@ -168,6 +168,10 @@ void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
         config::describeScalar(
             "control.telemetry_frequency", 1.0, 200.0, m_params.telemetryFrequency, "Hz"),
         &m_params.telemetryFrequency);
+    registry->registerScalar(
+        config::describeScalar(
+            "control.shift_window", 0.2, 10.0, m_params.shiftWindow, "s"),
+        &m_params.shiftWindow);
 
     m_throttle.registerParameters(registry, "");
 
@@ -326,6 +330,7 @@ void PowertrainSystem::recordShift(double dt) {
     if (m_controller != nullptr) m_controller->fillTelemetry(&telemetry);
     sample.torqueRequest = telemetry.torqueRequest;
 
+    m_shiftRecorder.setWindow(m_params.shiftWindow);
     m_shiftRecorder.update(dt, bus.shiftInProgress, m_state.gear, sample);
 }
 

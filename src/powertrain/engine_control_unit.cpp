@@ -370,9 +370,6 @@ void powertrain::EngineControlUnit::update(
 
     m_bus.engineSpeed = state.engineSpeed;
     m_bus.indicatedTorque = state.indicatedTorque;
-    m_bus.maxTorqueAtCurrentSpeed = available;
-    m_bus.torqueReductionAvailable = (m_engineState == EngineState::Running)
-        || (m_engineState == EngineState::Idle);
     m_bus.engineState = m_engineState;
 }
 

@@ -26,9 +26,7 @@ namespace powertrain {
         bool shiftInProgress = false;
 
         double indicatedTorque = 0.0;
-        double maxTorqueAtCurrentSpeed = 0.0;
         double engineSpeed = 0.0;
-        bool torqueReductionAvailable = false;
         EngineState engineState = EngineState::Off;
 
         inline void resetTransmissionRequests() {

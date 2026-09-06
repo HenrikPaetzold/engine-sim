@@ -21,9 +21,13 @@ config::ShiftRecorder::~ShiftRecorder() {
 }
 
 void config::ShiftRecorder::initialize(double duration) {
+    setWindow(duration);
+    reset();
+}
+
+void config::ShiftRecorder::setWindow(double duration) {
     m_duration = (duration > 0.0) ? duration : 1.5;
     m_interval = m_duration / MaxSamples;
-    reset();
 }
 
 void config::ShiftRecorder::reset() {

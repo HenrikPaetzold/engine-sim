@@ -25,9 +25,10 @@ class PowertrainSystem {
             double controlFrequency = 1000.0;
             double telemetryFrequency = 20.0;
 
-            double pedalTimeConstant = 1.0 / 60.0;
+            double pedalTimeConstant = 1.0 / (60.0 * 0.6931471805599453);
             double clutchTimeConstant = 0.001;
             double clutchPedalRate = 0.2;
+            double shiftWindow = 1.5;
         };
 
     public:

@@ -36,7 +36,7 @@ adaptation::AdaptationManager::AdaptationManager() {
     m_speedPrimed = false;
     m_enabled = false;
     m_shiftActive = false;
-    m_shiftElapsed = 0.0;
+    m_shiftCount = 0;
     m_throttleUpdates = 0;
 }
 
@@ -61,7 +61,7 @@ void adaptation::AdaptationManager::reset() {
     m_speedPrimed = false;
     m_enabled = false;
     m_shiftActive = false;
-    m_shiftElapsed = 0.0;
+    m_shiftCount = 0;
     m_throttleUpdates = 0;
 }
 
@@ -217,15 +217,21 @@ void adaptation::AdaptationManager::updateShiftLearning(
         shiftState == powertrain::ShiftState::ClutchEngage
         || shiftState == powertrain::ShiftState::ClutchOverlap;
 
+    const int completed = m_tcu->getCompletedShiftCount();
+
+    if (m_shiftActive && completed != m_shiftCount) {
+        m_tcu->getEngageProfile().endIteration();
+        m_shiftActive = false;
+    }
+
+    m_shiftCount = completed;
+
     if (engaging && !m_shiftActive) {
         m_shiftActive = true;
-        m_shiftElapsed = 0.0;
         m_tcu->getEngageProfile().beginIteration();
     }
 
     if (engaging) {
-        m_shiftElapsed += dt;
-
         const int clutch = std::clamp(
             m_tcu->getActiveClutch(), 0, powertrain::MaxClutches - 1);
         const double slip = std::abs(state.clutchSlipSpeed[clutch]);

@@ -207,6 +207,7 @@ namespace es_script {
             addInput("launch_lock_slip", &m_parameters.launchLockSlip);
             addInput("stall_protect_speed", &m_parameters.stallProtectSpeed);
             addInput("brake_interlock", &m_parameters.brakeInterlock);
+            addInput("gate_step_time", &m_parameters.gateStepTime);
             addInput("default_position", &m_parameters.defaultPosition);
             addInput("engage_bins", &m_engageBins);
             addInput("engage_learning_rate", &m_parameters.engageProfile.learningRate);
