@@ -147,14 +147,17 @@ namespace es_script {
             if (downshift) m_downshiftMap->generate(&tcu->getDownshiftMap());
             if (lockup) m_lockupMap->generate(&tcu->getLockupMap());
 
-            if (m_kickdownMap != nullptr && !m_kickdownMap->isEmpty()) {
-                m_kickdownMap->generate(&tcu->getKickdownMap());
-            }
-            if (m_intermediateBias != nullptr && !m_intermediateBias->isEmpty()) {
-                m_intermediateBias->generate(&tcu->getIntermediateBias());
-            }
+            const bool kickdown =
+                m_kickdownMap != nullptr && !m_kickdownMap->isEmpty();
+            const bool intermediate =
+                m_intermediateBias != nullptr && !m_intermediateBias->isEmpty();
+
+            if (kickdown) m_kickdownMap->generate(&tcu->getKickdownMap());
+            if (intermediate) m_intermediateBias->generate(&tcu->getIntermediateBias());
 
             tcu->markAuthoredMaps(upshift, downshift, lockup);
+            tcu->markAuthoredKickdown(kickdown);
+            tcu->markAuthoredIntermediateBias(intermediate);
         }
 
     protected:

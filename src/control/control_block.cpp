@@ -133,6 +133,7 @@ void control::RateLimitBlock::reset() {
 }
 
 double control::RateLimitBlock::evaluate(const BlockContext &context) {
+    m_limiter.setRates(m_riseRate, m_fallRate);
     return m_limiter.update(context.dt, operandValue(context, 0));
 }
 

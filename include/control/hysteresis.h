@@ -14,6 +14,11 @@ namespace control {
                 m_state = state;
             }
 
+            inline void setThresholds(double lowThreshold, double highThreshold) {
+                m_lowThreshold = lowThreshold;
+                m_highThreshold = highThreshold;
+            }
+
             inline bool update(double value) {
                 if (m_state) {
                     if (value < m_lowThreshold) m_state = false;

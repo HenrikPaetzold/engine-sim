@@ -316,6 +316,8 @@ void powertrain::EngineControlUnit::update(
     if (state.engineSpeed > revLimit + m_params.hardLimitOffset) fuelCut = 1.0;
 
     const bool coasting = (pedal <= 0.0) && (state.gear != -1);
+    m_overrunCut.setThresholds(
+        m_params.overrunResumeSpeed, m_params.overrunCutSpeed);
     const bool overrun = m_overrunCut.update(state.engineSpeed) && coasting;
     if (overrun) fuelCut = 1.0;
     if (!coasting) m_overrunCut.setState(false);

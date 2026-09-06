@@ -156,6 +156,8 @@ double Transmission::getDrivelineInertia() const {
 }
 
 void Transmission::updateDrivelineInertia() {
+    m_turbine.I = std::max(m_turbineInertia, 1e-3);
+
     if (m_rotatingMass == nullptr) return;
 
     const double inertia = getDrivelineInertia();

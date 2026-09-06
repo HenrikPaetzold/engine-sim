@@ -141,6 +141,8 @@ namespace powertrain {
             inline const Parameters &getParameters() const { return m_params; }
 
             void markAuthoredMaps(bool upshift, bool downshift, bool lockup);
+            void markAuthoredKickdown(bool authored);
+            void markAuthoredIntermediateBias(bool authored);
 
             double engineSpeedForGear(int gear, double vehicleSpeed) const;
             double kickdownTarget(double pedal) const;
@@ -161,13 +163,7 @@ namespace powertrain {
         protected:
             void buildDefaultMaps();
             void buildDefaultShapes();
-            static void snapshotGearAxis(
-                const control::Map2d &map,
-                int gears,
-                std::vector<double> *values);
-            static void restoreGearAxis(
-                control::Map2d *map,
-                const std::vector<double> &values);
+            static void resizeGearAxis(control::Map2d *map, int gears);
             void beginShift(int gear);
             void advanceShift(
                 double dt,
@@ -206,6 +202,8 @@ namespace powertrain {
             bool m_upshiftAuthored;
             bool m_downshiftAuthored;
             bool m_lockupAuthored;
+            bool m_kickdownAuthored;
+            bool m_intermediateAuthored;
             control::PidController m_slipController;
             control::PidController m_lockupController;
             control::RateLimiter m_lockupLimiter;

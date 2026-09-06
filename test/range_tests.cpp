@@ -393,3 +393,57 @@ TEST(SelectorGateTests, AGateWithoutParkNeverCommandsTheParkLock) {
         EXPECT_FALSE(commands.parkLock) << gate.get(i).name;
     }
 }
+
+TEST(DeadKnobTests, TheBrakeInterlockCanBeTurnedOff) {
+    powertrain::TransmissionControlUnit::Parameters params;
+    params.defaultPosition = "P";
+    params.brakeInterlock = false;
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(params);
+
+    powertrain::PowertrainState state;
+    state.coolantTemperature = units::celcius(90.0);
+    state.engineRunning = true;
+    state.engineSpeed = units::rpm(800.0);
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+    inputs.brake = 0.0;
+
+    powertrain::ActuatorCommands commands;
+    tcu.update(1e-3, state, inputs, &commands);
+
+    inputs.gatePosition = tcu.getGate().find("D");
+    for (int i = 0; i < 10; ++i) tcu.update(1e-3, state, inputs, &commands);
+
+    EXPECT_FALSE(tcu.wasPositionRefused());
+    EXPECT_EQ(tcu.getPosition().name, "D");
+}
+
+TEST(DeadKnobTests, TheBrakeInterlockStillHoldsWhenOn) {
+    powertrain::TransmissionControlUnit::Parameters params;
+    params.defaultPosition = "P";
+    params.brakeInterlock = true;
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(params);
+
+    powertrain::PowertrainState state;
+    state.coolantTemperature = units::celcius(90.0);
+    state.engineRunning = true;
+    state.engineSpeed = units::rpm(800.0);
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+    inputs.brake = 0.0;
+
+    powertrain::ActuatorCommands commands;
+    tcu.update(1e-3, state, inputs, &commands);
+
+    inputs.gatePosition = tcu.getGate().find("D");
+    for (int i = 0; i < 10; ++i) tcu.update(1e-3, state, inputs, &commands);
+
+    EXPECT_TRUE(tcu.wasPositionRefused());
+    EXPECT_EQ(tcu.getPosition().name, "P");
+}

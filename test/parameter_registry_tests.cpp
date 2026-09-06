@@ -302,3 +302,42 @@ TEST(MapCellTests, ADriveModeCarriesAMapAndGivesItBack) {
     EXPECT_NEAR(map.getValue(2, 0), 7.0, 1e-12)
         << "the previous mode's cell was not restored";
 }
+
+TEST(AdaptiveGateTests, TickingTheBoxDoesNotCollapseTheParameter) {
+    config::ParameterRegistry registry;
+    double value = 5.0;
+
+    registry.registerScalar(
+        config::describeScalar("ecu.knob", 0.0, 10.0, 5.0, ""), &value);
+
+    ASSERT_TRUE(registry.setAdaptive("ecu.knob", true));
+    ASSERT_TRUE(registry.adapt("ecu.knob", 0.5));
+
+    EXPECT_NEAR(value, 5.5, 1e-12);
+}
+
+TEST(AdaptiveGateTests, TheFallbackRespectsTheDeclaredRange) {
+    config::ParameterRegistry registry;
+    double value = 5.0;
+
+    registry.registerScalar(
+        config::describeScalar("ecu.knob", 0.0, 10.0, 5.0, ""), &value);
+
+    ASSERT_TRUE(registry.setAdaptive("ecu.knob", true));
+    ASSERT_TRUE(registry.adapt("ecu.knob", 100.0));
+
+    EXPECT_NEAR(value, 10.0, 1e-12);
+}
+
+TEST(AdaptiveGateTests, ExplicitBoundsStillWin) {
+    config::ParameterRegistry registry;
+    double value = 5.0;
+
+    registry.registerScalar(
+        config::describeScalar("ecu.knob", 0.0, 10.0, 5.0, ""), &value);
+
+    ASSERT_TRUE(registry.setAdaptive("ecu.knob", true, 4.0, 6.0));
+    ASSERT_TRUE(registry.adapt("ecu.knob", 100.0));
+
+    EXPECT_NEAR(value, 6.0, 1e-12);
+}

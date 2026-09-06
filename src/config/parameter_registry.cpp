@@ -307,10 +307,14 @@ bool config::ParameterRegistry::adapt(const std::string &path, double delta) {
         if (x < 0 || x >= map->getXCount()) return false;
         if (y < 0 || y >= map->getYCount()) return false;
 
-        map->setValue(x, y, std::clamp(
-            map->getValue(x, y) + delta,
-            entry->descriptor.adaptMin,
-            entry->descriptor.adaptMax));
+        double low = entry->descriptor.adaptMin;
+        double high = entry->descriptor.adaptMax;
+        if (low >= high) {
+            low = entry->descriptor.minValue;
+            high = entry->descriptor.maxValue;
+        }
+
+        map->setValue(x, y, std::clamp(map->getValue(x, y) + delta, low, high));
 
         return true;
     }
@@ -318,12 +322,14 @@ bool config::ParameterRegistry::adapt(const std::string &path, double delta) {
     if (!entry->descriptor.adaptive) return false;
     if (entry->descriptor.type == ParameterType::Map) return false;
 
-    const double updated = std::clamp(
-        readValue(*entry) + delta,
-        entry->descriptor.adaptMin,
-        entry->descriptor.adaptMax);
+    double low = entry->descriptor.adaptMin;
+    double high = entry->descriptor.adaptMax;
+    if (low >= high) {
+        low = entry->descriptor.minValue;
+        high = entry->descriptor.maxValue;
+    }
 
-    writeValue(*entry, updated);
+    writeValue(*entry, std::clamp(readValue(*entry) + delta, low, high));
 
     return true;
 }
@@ -340,12 +346,14 @@ bool config::ParameterRegistry::accumulate(
     if (entry->descriptor.type != ParameterType::Map) return false;
     if (entry->mapTarget == nullptr || !entry->mapTarget->isInitialized()) return false;
 
-    entry->mapTarget->accumulate(
-        x,
-        y,
-        delta,
-        entry->descriptor.adaptMin,
-        entry->descriptor.adaptMax);
+    double low = entry->descriptor.adaptMin;
+    double high = entry->descriptor.adaptMax;
+    if (low >= high) {
+        low = entry->descriptor.minValue;
+        high = entry->descriptor.maxValue;
+    }
+
+    entry->mapTarget->accumulate(x, y, delta, low, high);
 
     return true;
 }

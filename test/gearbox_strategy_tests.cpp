@@ -991,3 +991,122 @@ TEST(DualClutchSlipTests, TheSlipControllerFollowsTheActiveClutch) {
     EXPECT_LT(commands.clutchPressure[1], 0.1);
     EXPECT_NEAR(commands.clutchPressure[0], 0.0, 1e-9);
 }
+
+namespace {
+    powertrain::GearboxCapabilities sixSpeedCapabilities(double *ratios) {
+        powertrain::GearboxCapabilities caps;
+        caps.gearCount = 6;
+        caps.gearRatios = ratios;
+        caps.finalDrive = 3.42;
+        caps.tireRadius = units::distance(12.0, units::inch);
+
+        return caps;
+    }
+}
+
+TEST(AuthoredMapTests, TheKickdownMapSurvivesTheGearboxHandshake) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
+
+    control::Map2d &kickdown = tcu.getKickdownMap();
+    kickdown.initialize(2, 1, 0.0);
+    kickdown.setXAxis(0, 0.0);
+    kickdown.setXAxis(1, 1.0);
+    kickdown.setYAxis(0, 0.0);
+    kickdown.setValue(0, 0, units::rpm(3000.0));
+    kickdown.setValue(1, 0, units::rpm(5000.0));
+    tcu.markAuthoredKickdown(true);
+
+    double ratios[6] = { 3.6, 2.19, 1.41, 1.0, 0.83, 0.69 };
+    tcu.configureGearbox(sixSpeedCapabilities(ratios));
+
+    EXPECT_NEAR(tcu.getKickdownMap().sample(1.0, 0.0), units::rpm(5000.0), 1e-6);
+    EXPECT_NEAR(tcu.getKickdownMap().sample(0.0, 0.0), units::rpm(3000.0), 1e-6);
+}
+
+TEST(AuthoredMapTests, TheIntermediateBiasSurvivesTheGearboxHandshake) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
+
+    control::Map2d &bias = tcu.getIntermediateBias();
+    bias.initialize(2, 2, 0.0);
+    bias.setXAxis(0, 0.0);
+    bias.setXAxis(1, 1.0);
+    bias.setYAxis(0, 0.0);
+    bias.setYAxis(1, 5.0);
+    bias.setValue(0, 0, 0.25);
+    bias.setValue(1, 1, 0.75);
+    tcu.markAuthoredIntermediateBias(true);
+
+    double ratios[6] = { 3.6, 2.19, 1.41, 1.0, 0.83, 0.69 };
+    tcu.configureGearbox(sixSpeedCapabilities(ratios));
+
+    EXPECT_NEAR(tcu.getIntermediateBias().sample(0.0, 0.0), 0.25, 1e-9);
+    EXPECT_NEAR(tcu.getIntermediateBias().sample(1.0, 5.0), 0.75, 1e-9);
+}
+
+TEST(AuthoredMapTests, AnUnauthoredKickdownMapIsStillRebuilt) {
+    powertrain::TransmissionControlUnit::Parameters params;
+    params.kickdownTargetSpeed = units::rpm(6200.0);
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(params);
+
+    double ratios[6] = { 3.6, 2.19, 1.41, 1.0, 0.83, 0.69 };
+    tcu.configureGearbox(sixSpeedCapabilities(ratios));
+
+    EXPECT_NEAR(tcu.getKickdownMap().sample(0.5, 0.0), units::rpm(6200.0), 1e-6);
+}
+
+TEST(AuthoredMapTests, AShiftMapKeepsItsOwnPedalAxis) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
+
+    control::Map2d &upshift = tcu.getUpshiftMap();
+    upshift.initialize(2, 6, 0.0);
+    upshift.setXAxis(0, 0.2);
+    upshift.setXAxis(1, 0.9);
+    for (int g = 0; g < 6; ++g) {
+        upshift.setYAxis(g, static_cast<double>(g));
+        upshift.setValue(0, g, 8.0 + g);
+        upshift.setValue(1, g, 20.0 + g);
+    }
+    tcu.markAuthoredMaps(true, false, false);
+
+    double ratios[6] = { 3.6, 2.19, 1.41, 1.0, 0.83, 0.69 };
+    tcu.configureGearbox(sixSpeedCapabilities(ratios));
+
+    const control::Map2d &result = tcu.getUpshiftMap();
+
+    ASSERT_EQ(result.getXCount(), 2);
+    EXPECT_NEAR(result.getXAxis(0), 0.2, 1e-12);
+    EXPECT_NEAR(result.getXAxis(1), 0.9, 1e-12);
+    EXPECT_NEAR(result.getValue(0, 3), 11.0, 1e-9);
+    EXPECT_NEAR(result.getValue(1, 5), 25.0, 1e-9);
+}
+
+TEST(AuthoredMapTests, AShiftMapFollowsANewGearCount) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
+
+    control::Map2d &upshift = tcu.getUpshiftMap();
+    upshift.initialize(2, 4, 0.0);
+    upshift.setXAxis(0, 0.0);
+    upshift.setXAxis(1, 1.0);
+    for (int g = 0; g < 4; ++g) {
+        upshift.setYAxis(g, static_cast<double>(g));
+        upshift.setValue(0, g, 10.0 + g);
+        upshift.setValue(1, g, 30.0 + g);
+    }
+    tcu.markAuthoredMaps(true, false, false);
+
+    double ratios[6] = { 3.6, 2.19, 1.41, 1.0, 0.83, 0.69 };
+    tcu.configureGearbox(sixSpeedCapabilities(ratios));
+
+    const control::Map2d &result = tcu.getUpshiftMap();
+
+    EXPECT_EQ(result.getYCount(), 6);
+    EXPECT_EQ(result.getXCount(), 2);
+    EXPECT_NEAR(result.getValue(0, 2), 12.0, 1e-9);
+    EXPECT_NEAR(result.getValue(0, 5), 13.0, 1e-9);
+}

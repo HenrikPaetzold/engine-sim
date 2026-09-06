@@ -585,3 +585,32 @@ TEST(WindupTests, TheOuterStopDoesNotWindTheIntegratorUp) {
 
     EXPECT_LT(ecu.getCommandedPlate(), limit);
 }
+
+TEST(DeadKnobTests, TheOverrunThresholdsAreLive) {
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(powertrain::EngineControlUnit::Parameters());
+
+    powertrain::PowertrainState state;
+    state.coolantTemperature = units::celcius(90.0);
+    state.engineSpeed = units::rpm(2500.0);
+    state.engineRunning = true;
+    state.gear = 3;
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+    inputs.accelerator = 0.0;
+
+    powertrain::ActuatorCommands commands;
+    ecu.update(1e-3, state, inputs, &commands);
+
+    ASSERT_NEAR(commands.fuelCutFraction, 1.0, 1e-9);
+
+    config::ParameterRegistry registry;
+    ecu.registerParameters(&registry, "");
+    ASSERT_TRUE(registry.set("ecu.overrun.cut_speed", units::rpm(4000.0)));
+    ASSERT_TRUE(registry.set("ecu.overrun.resume_speed", units::rpm(3500.0)));
+
+    ecu.update(1e-3, state, inputs, &commands);
+
+    EXPECT_NEAR(commands.fuelCutFraction, 0.0, 1e-9);
+}

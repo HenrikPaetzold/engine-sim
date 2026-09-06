@@ -64,6 +64,8 @@ powertrain::TransmissionControlUnit::TransmissionControlUnit() {
     m_upshiftAuthored = false;
     m_downshiftAuthored = false;
     m_lockupAuthored = false;
+    m_kickdownAuthored = false;
+    m_intermediateAuthored = false;
 }
 
 powertrain::TransmissionControlUnit::~TransmissionControlUnit() {
@@ -82,34 +84,28 @@ control::PidController::Parameters
     return params;
 }
 
-void powertrain::TransmissionControlUnit::snapshotGearAxis(
-    const control::Map2d &map,
-    int gears,
-    std::vector<double> *values)
-{
-    values->clear();
-    if (gears < 1 || !map.isInitialized()) return;
-
-    const int points = map.getXCount();
-    values->resize(static_cast<size_t>(points) * gears);
-
-    for (int g = 0; g < gears; ++g) {
-        for (int i = 0; i < points; ++i) {
-            (*values)[static_cast<size_t>(g) * points + i] =
-                map.sample(map.getXAxis(i), static_cast<double>(g));
-        }
-    }
-}
-
-void powertrain::TransmissionControlUnit::restoreGearAxis(
+void powertrain::TransmissionControlUnit::resizeGearAxis(
     control::Map2d *map,
-    const std::vector<double> &values)
+    int gears)
 {
-    if (map == nullptr || !map->isInitialized()) return;
+    if (map == nullptr || !map->isInitialized() || gears < 1) return;
 
     const int points = map->getXCount();
-    const int gears = map->getYCount();
-    if (values.size() != static_cast<size_t>(points) * gears) return;
+
+    std::vector<double> axis(points);
+    for (int i = 0; i < points; ++i) axis[i] = map->getXAxis(i);
+
+    std::vector<double> values(static_cast<size_t>(points) * gears);
+    for (int g = 0; g < gears; ++g) {
+        for (int i = 0; i < points; ++i) {
+            values[static_cast<size_t>(g) * points + i] =
+                map->sample(axis[i], static_cast<double>(g));
+        }
+    }
+
+    map->initialize(points, gears, 0.0);
+    for (int i = 0; i < points; ++i) map->setXAxis(i, axis[i]);
+    for (int g = 0; g < gears; ++g) map->setYAxis(g, static_cast<double>(g));
 
     for (int g = 0; g < gears; ++g) {
         for (int i = 0; i < points; ++i) {
@@ -121,63 +117,67 @@ void powertrain::TransmissionControlUnit::restoreGearAxis(
 void powertrain::TransmissionControlUnit::buildDefaultMaps() {
     const int gears = std::max(m_params.gearCount, 1);
 
-    m_upshiftMap.initialize(PedalPoints, gears, 0.0);
-    m_downshiftMap.initialize(PedalPoints, gears, 0.0);
-    m_lockupMap.initialize(PedalPoints, gears, 0.0);
-    m_kickdownMap.initialize(PedalPoints, 1, 0.0);
+    if (!m_upshiftAuthored) m_upshiftMap.initialize(PedalPoints, gears, 0.0);
+    if (!m_downshiftAuthored) m_downshiftMap.initialize(PedalPoints, gears, 0.0);
+    if (!m_lockupAuthored) m_lockupMap.initialize(PedalPoints, gears, 0.0);
+    if (!m_kickdownAuthored) {
+        m_kickdownMap.initialize(PedalPoints, 1, 0.0);
+
+        for (int i = 0; i < PedalPoints; ++i) {
+            const double pedal = static_cast<double>(i) / (PedalPoints - 1);
+            m_kickdownMap.setXAxis(i, pedal);
+            m_kickdownMap.setValue(i, 0, m_params.kickdownTargetSpeed);
+        }
+
+        m_kickdownMap.setYAxis(0, 0.0);
+    }
+
+    if (!m_intermediateAuthored) {
+        m_intermediateBias.initialize(PedalPoints, MaxGears, 1.0);
+        for (int i = 0; i < PedalPoints; ++i) {
+            m_intermediateBias.setXAxis(i, static_cast<double>(i) / (PedalPoints - 1));
+        }
+        for (int j = 0; j < MaxGears; ++j) {
+            m_intermediateBias.setYAxis(j, static_cast<double>(j));
+        }
+    }
 
     for (int i = 0; i < PedalPoints; ++i) {
         const double pedal = static_cast<double>(i) / (PedalPoints - 1);
-        m_kickdownMap.setXAxis(i, pedal);
-        m_kickdownMap.setValue(i, 0, m_params.kickdownTargetSpeed);
-    }
-
-    m_kickdownMap.setYAxis(0, 0.0);
-
-    m_intermediateBias.initialize(PedalPoints, MaxGears, 1.0);
-    for (int i = 0; i < PedalPoints; ++i) {
-        m_intermediateBias.setXAxis(i, static_cast<double>(i) / (PedalPoints - 1));
-    }
-    for (int j = 0; j < MaxGears; ++j) {
-        m_intermediateBias.setYAxis(j, static_cast<double>(j));
-    }
-
-    for (int i = 0; i < PedalPoints; ++i) {
-        const double pedal = static_cast<double>(i) / (PedalPoints - 1);
-        m_upshiftMap.setXAxis(i, pedal);
-        m_downshiftMap.setXAxis(i, pedal);
-        m_lockupMap.setXAxis(i, pedal);
+        if (!m_upshiftAuthored) m_upshiftMap.setXAxis(i, pedal);
+        if (!m_downshiftAuthored) m_downshiftMap.setXAxis(i, pedal);
+        if (!m_lockupAuthored) m_lockupMap.setXAxis(i, pedal);
     }
 
     for (int g = 0; g < gears; ++g) {
-        m_upshiftMap.setYAxis(g, static_cast<double>(g));
-        m_downshiftMap.setYAxis(g, static_cast<double>(g));
-        m_lockupMap.setYAxis(g, static_cast<double>(g));
+        if (!m_upshiftAuthored) m_upshiftMap.setYAxis(g, static_cast<double>(g));
+        if (!m_downshiftAuthored) m_downshiftMap.setYAxis(g, static_cast<double>(g));
+        if (!m_lockupAuthored) m_lockupMap.setYAxis(g, static_cast<double>(g));
     }
 
     for (int g = 0; g < gears; ++g) {
         for (int i = 0; i < PedalPoints; ++i) {
-            const double pedal = m_upshiftMap.getXAxis(i);
+            const double pedal = static_cast<double>(i) / (PedalPoints - 1);
 
             const double upshiftSpeed =
                 engineSpeedForGear(g, 1.0) > 0.0
                 ? (units::rpm(2200.0) + pedal * units::rpm(3800.0)) / engineSpeedForGear(g, 1.0)
                 : 0.0;
 
-            m_upshiftMap.setValue(i, g, upshiftSpeed);
+            if (!m_upshiftAuthored) m_upshiftMap.setValue(i, g, upshiftSpeed);
 
             const double downshiftSpeed =
                 (g > 0 && engineSpeedForGear(g - 1, 1.0) > 0.0)
                 ? (units::rpm(1300.0) + pedal * units::rpm(3600.0)) / engineSpeedForGear(g - 1, 1.0)
                 : 0.0;
 
-            m_downshiftMap.setValue(i, g, downshiftSpeed);
+            if (!m_downshiftAuthored) m_downshiftMap.setValue(i, g, downshiftSpeed);
 
             const double lockupSpeed = (upshiftSpeed > 0.0)
                 ? upshiftSpeed * (0.45 + 0.25 * pedal)
                 : 0.0;
 
-            m_lockupMap.setValue(i, g, lockupSpeed);
+            if (!m_lockupAuthored) m_lockupMap.setValue(i, g, lockupSpeed);
         }
     }
 
@@ -386,7 +386,12 @@ bool powertrain::TransmissionControlUnit::positionAllowed(
     if (entering.maxEntrySpeed >= 0.0 && speed > entering.maxEntrySpeed) return false;
     if (leaving.maxExitSpeed >= 0.0 && speed > leaving.maxExitSpeed) return false;
 
-    if (leaving.requiresBrake && inputs.brake < 0.1) return false;
+    if (m_params.brakeInterlock
+        && leaving.requiresBrake
+        && inputs.brake < 0.1)
+    {
+        return false;
+    }
 
     return true;
 }
@@ -432,6 +437,14 @@ void powertrain::TransmissionControlUnit::markAuthoredMaps(
     m_upshiftAuthored = upshift;
     m_downshiftAuthored = downshift;
     m_lockupAuthored = lockup;
+}
+
+void powertrain::TransmissionControlUnit::markAuthoredKickdown(bool authored) {
+    m_kickdownAuthored = authored;
+}
+
+void powertrain::TransmissionControlUnit::markAuthoredIntermediateBias(bool authored) {
+    m_intermediateAuthored = authored;
 }
 
 int powertrain::TransmissionControlUnit::clutchForGear(int gear) const {
@@ -1111,19 +1124,18 @@ void powertrain::TransmissionControlUnit::configureGearbox(
             m_params.gearRatios[i] = capabilities.gearRatios[i];
         }
 
+        buildDefaultMaps();
+
         control::Map2d *maps[3] = { &m_upshiftMap, &m_downshiftMap, &m_lockupMap };
         const bool authored[3] =
             { m_upshiftAuthored, m_downshiftAuthored, m_lockupAuthored };
 
-        std::vector<double> kept[3];
         for (int i = 0; i < 3; ++i) {
-            if (authored[i]) snapshotGearAxis(*maps[i], m_params.gearCount, &kept[i]);
+            if (authored[i]) resizeGearAxis(maps[i], m_params.gearCount);
         }
 
-        buildDefaultMaps();
-
-        for (int i = 0; i < 3; ++i) {
-            if (authored[i]) restoreGearAxis(maps[i], kept[i]);
+        if (m_intermediateAuthored) {
+            resizeGearAxis(&m_intermediateBias, MaxGears);
         }
     }
 
