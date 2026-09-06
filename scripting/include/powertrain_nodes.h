@@ -288,6 +288,7 @@ namespace es_script {
             addInput("throttle_deadband", &m_parameters.throttleDeadband);
             addInput("idle_drain_rate", &m_parameters.idleDrainRate);
             addInput("idle_limit", &m_parameters.idleTrimLimit);
+            addInput("idle_speed_margin", &m_parameters.idleSpeedMargin);
             addInput("lambda_gain", &m_parameters.lambdaShortTermGain);
             addInput("lambda_limit", &m_parameters.lambdaTrimLimit);
             addInput("lambda_target", &m_parameters.lambdaTarget);

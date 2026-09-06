@@ -288,6 +288,14 @@ void powertrain::EngineControlUnit::update(
 
     double plate = std::clamp(m_feedforwardPlate + correction, 0.0, 1.0);
 
+    const double applied = plate - m_feedforwardPlate;
+    if (applied != correction) {
+        m_torqueController.setIntegrator(
+            m_torqueController.getIntegrator()
+                + m_torqueController.getParameters().trackingGain
+                    * (applied - correction) * dt);
+    }
+
     const double revLimit = effectiveRevLimit(state.coolantTemperature);
     const double softLimitStart = revLimit - m_params.softLimitBand;
     double ignitionCut = 0.0;

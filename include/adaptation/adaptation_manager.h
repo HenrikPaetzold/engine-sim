@@ -47,6 +47,7 @@ namespace adaptation {
 
                 double idleDrainRate = 0.6;
                 double idleTrimLimit = 0.35;
+                double idleSpeedMargin = units::rpm(300.0);
 
                 double lambdaShortTermGain = 0.8;
                 double lambdaLongTermRate = 0.0;

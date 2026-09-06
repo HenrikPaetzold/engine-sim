@@ -424,8 +424,8 @@ TEST(AdaptationManagerTests, LambdaTrimMovesTowardsTheTarget) {
 
     for (int i = 0; i < 5000; ++i) manager.update(1e-3, state, bus);
 
-    EXPECT_LT(manager.getShortTermFuelTrim(), 0.0);
-    EXPECT_LT(ecu.getFuelTrim(), 1.0);
+    EXPECT_GT(manager.getShortTermFuelTrim(), 0.0);
+    EXPECT_GT(ecu.getFuelTrim(), 1.0);
 }
 
 TEST(AdaptationManagerTests, LambdaTrimIsBounded) {
@@ -445,7 +445,7 @@ TEST(AdaptationManagerTests, LambdaTrimIsBounded) {
     powertrain::PowertrainBus bus;
     for (int i = 0; i < 100000; ++i) manager.update(1e-3, state, bus);
 
-    EXPECT_NEAR(manager.getShortTermFuelTrim(), -0.1, 1e-9);
+    EXPECT_NEAR(manager.getShortTermFuelTrim(), 0.1, 1e-9);
 }
 
 TEST(AdaptationManagerTests, ShiftQualityImprovesOverRepeatedShifts) {
@@ -511,7 +511,7 @@ TEST(LongTermTrimTests, TheDefaultLeavesEnrichmentUntouched) {
     manager.attach(&ecu, nullptr);
 
     powertrain::PowertrainState state = adaptationState();
-    state.exhaustO2 = 0.0;
+    state.exhaustO2 = 0.30;
 
     powertrain::DriverInputs inputs;
     inputs.ignitionKey = true;
@@ -541,7 +541,7 @@ TEST(LongTermTrimTests, TheShortTermTrimMigratesIntoTheZone) {
     manager.attach(&ecu, nullptr);
 
     powertrain::PowertrainState state = adaptationState();
-    state.exhaustO2 = 0.0;
+    state.exhaustO2 = 0.30;
 
     powertrain::DriverInputs inputs;
     inputs.ignitionKey = true;
@@ -584,7 +584,7 @@ TEST(LongTermTrimTests, TheTransferPreservesTheAppliedTrim) {
     manager.attach(&ecu, nullptr);
 
     powertrain::PowertrainState state = adaptationState();
-    state.exhaustO2 = 0.0;
+    state.exhaustO2 = 0.05;
 
     powertrain::DriverInputs inputs;
     inputs.ignitionKey = true;
@@ -592,7 +592,7 @@ TEST(LongTermTrimTests, TheTransferPreservesTheAppliedTrim) {
     powertrain::ActuatorCommands commands;
     powertrain::PowertrainBus bus;
 
-    for (int i = 0; i < 20000; ++i) {
+    for (int i = 0; i < 3000; ++i) {
         ecu.update(1e-3, state, inputs, &commands);
         manager.update(1e-3, state, bus);
     }
@@ -628,7 +628,7 @@ TEST(LongTermTrimTests, AnUnvisitedZoneStaysEmpty) {
 
     powertrain::PowertrainState state = adaptationState();
     state.engineSpeed = units::rpm(1000.0);
-    state.exhaustO2 = 0.0;
+    state.exhaustO2 = 0.30;
 
     powertrain::DriverInputs inputs;
     inputs.ignitionKey = true;
@@ -674,7 +674,8 @@ TEST(LongTermTrimTests, TheZoneIsBoundedByTheTrimLimit) {
         manager.update(1e-3, state, bus);
     }
 
-    EXPECT_GE(ecu.getLongTermFuelTrim(), -0.05 - 1e-9);
+    EXPECT_GT(ecu.getLongTermFuelTrim(), 0.0);
+    EXPECT_LE(ecu.getLongTermFuelTrim(), 0.05 + 1e-9);
 }
 
 TEST(LongTermTrimTests, TheLearnedZoneReachesTheFuelCommand) {
@@ -726,6 +727,7 @@ namespace {
         pid.kp = 0.002;
         pid.outputMin = -1e6;
         pid.outputMax = 1e6;
+        pid.trackingGain = 0.0;
 
         ecu->getTorqueController().setParameters(pid);
     }
@@ -863,4 +865,147 @@ TEST(LongTermTrimTests, BothTrimsAppearAsChannels) {
         channels.getValue(channels.find("ecu.lambda.short_term")),
         ecu.getFuelTrim() - 1.0,
         1e-12);
+}
+
+namespace {
+    struct LambdaLoop {
+        powertrain::EngineControlUnit ecu;
+        adaptation::AdaptationManager manager;
+        double richness = 0.15;
+
+        void build(double target) {
+            ecu.initialize(powertrain::EngineControlUnit::Parameters());
+
+            adaptation::AdaptationManager::Parameters params = managerParameters();
+            params.lambdaTarget = target;
+            manager.initialize(params);
+            manager.attach(&ecu, nullptr);
+        }
+
+        double run(int steps) {
+            powertrain::PowertrainState state = adaptationState();
+            powertrain::PowertrainBus bus;
+
+            for (int i = 0; i < steps; ++i) {
+                state.exhaustO2 = richness / std::max(ecu.getFuelTrim(), 1e-3);
+                manager.update(1e-3, state, bus);
+            }
+
+            return richness / std::max(ecu.getFuelTrim(), 1e-3);
+        }
+    };
+}
+
+TEST(LambdaLoopTests, MoreFuelLeavesLessOxygenInTheExhaust) {
+    powertrain::EngineControlUnit::Parameters params;
+
+    powertrain::EngineControlUnit lean;
+    lean.initialize(params);
+    powertrain::EngineControlUnit rich;
+    rich.initialize(params);
+
+    powertrain::PowertrainState state = adaptationState();
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+    inputs.accelerator = 0.4;
+
+    powertrain::ActuatorCommands leanCommands;
+    powertrain::ActuatorCommands richCommands;
+
+    lean.setFuelTrim(0.9);
+    rich.setFuelTrim(1.1);
+    lean.update(1e-3, state, inputs, &leanCommands);
+    rich.update(1e-3, state, inputs, &richCommands);
+
+    EXPECT_LT(leanCommands.fuelEnrichment, richCommands.fuelEnrichment);
+}
+
+TEST(LambdaLoopTests, TheLoopConvergesOnTheTargetFromLean) {
+    LambdaLoop loop;
+    loop.build(0.05);
+    loop.richness = 0.06;
+
+    const double start = loop.run(0);
+    const double settled = loop.run(60000);
+
+    EXPECT_GT(start, 0.05);
+    EXPECT_LT(std::abs(settled - 0.05), std::abs(start - 0.05));
+    EXPECT_NEAR(settled, 0.05, 0.005);
+}
+
+TEST(LambdaLoopTests, TheLoopConvergesOnTheTargetFromRich) {
+    LambdaLoop loop;
+    loop.build(0.05);
+    loop.richness = 0.045;
+
+    const double start = loop.run(0);
+    const double settled = loop.run(60000);
+
+    EXPECT_LT(start, 0.05);
+    EXPECT_LT(std::abs(settled - 0.05), std::abs(start - 0.05));
+    EXPECT_NEAR(settled, 0.05, 0.005);
+}
+
+TEST(LambdaLoopTests, TheTrimDoesNotRunToTheRail) {
+    LambdaLoop loop;
+    loop.build(0.05);
+    loop.richness = 0.06;
+
+    loop.run(60000);
+
+    EXPECT_LT(std::abs(loop.manager.getShortTermFuelTrim()), 0.29);
+}
+
+TEST(IdleTrimTests, TheOverrunDoesNotTeachTheIdleTrim) {
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(powertrain::EngineControlUnit::Parameters());
+
+    adaptation::AdaptationManager manager;
+    manager.initialize(managerParameters());
+    manager.attach(&ecu, nullptr);
+
+    powertrain::PowertrainState state = adaptationState();
+    state.engineSpeed = units::rpm(3000.0);
+    state.gear = 3;
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+    inputs.accelerator = 0.0;
+
+    powertrain::ActuatorCommands commands;
+    powertrain::PowertrainBus bus;
+
+    for (int i = 0; i < 20000; ++i) {
+        ecu.update(1e-3, state, inputs, &commands);
+        manager.update(1e-3, state, bus);
+    }
+
+    EXPECT_EQ(ecu.getEngineState(), powertrain::EngineState::Idle);
+    EXPECT_NEAR(
+        ecu.getIdleTrimMap().sample(state.coolantTemperature, 0.0), 0.0, 1e-9);
+}
+
+TEST(IdleTrimTests, TheRealIdleStillTeachesIt) {
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(powertrain::EngineControlUnit::Parameters());
+
+    adaptation::AdaptationManager manager;
+    manager.initialize(managerParameters());
+    manager.attach(&ecu, nullptr);
+
+    powertrain::PowertrainState state = adaptationState();
+    state.engineSpeed = units::rpm(700.0);
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+
+    powertrain::ActuatorCommands commands;
+    powertrain::PowertrainBus bus;
+
+    for (int i = 0; i < 20000; ++i) {
+        ecu.update(1e-3, state, inputs, &commands);
+        manager.update(1e-3, state, bus);
+    }
+
+    EXPECT_GT(ecu.getIdleTrimMap().sample(state.coolantTemperature, 0.0), 0.0);
 }

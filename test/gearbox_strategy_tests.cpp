@@ -955,3 +955,39 @@ TEST(MultiShiftTests, TheStrategyIsReachableFromTheRegistry) {
         EXPECT_TRUE(registry.contains(path)) << path;
     }
 }
+
+TEST(DualClutchSlipTests, TheSlipControllerFollowsTheActiveClutch) {
+    powertrain::TransmissionControlUnit::Parameters params;
+    params.gearCount = 6;
+    params.supportsPreselect = true;
+    params.requiresTorqueInterrupt = false;
+    params.hasLaunchDevice = false;
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(params);
+
+    powertrain::PowertrainState state;
+    state.coolantTemperature = units::celcius(90.0);
+    state.engineSpeed = units::rpm(2000.0);
+    state.engineRunning = true;
+    state.gear = 1;
+    state.vehicleSpeed = 12.0;
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+    inputs.gatePosition = tcu.getGate().find("D");
+    inputs.accelerator = 0.3;
+
+    powertrain::ActuatorCommands commands;
+
+    state.clutchSlipSpeed[0] = units::rpm(6000.0);
+    state.clutchSlipSpeed[1] = units::rpm(200.0);
+
+    for (int i = 0; i < 4000; ++i) tcu.update(1e-3, state, inputs, &commands);
+
+    ASSERT_EQ(tcu.clutchForGear(1), 1);
+    ASSERT_EQ(tcu.getActiveClutch(), 1);
+
+    EXPECT_LT(commands.clutchPressure[1], 0.1);
+    EXPECT_NEAR(commands.clutchPressure[0], 0.0, 1e-9);
+}

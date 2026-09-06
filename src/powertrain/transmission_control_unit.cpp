@@ -619,7 +619,8 @@ double powertrain::TransmissionControlUnit::launchPressure(
 {
     if (m_params.hasLaunchDevice) return 1.0;
 
-    const double slip = std::abs(state.clutchSlipSpeed[0]);
+    const double slip = std::abs(state.clutchSlipSpeed[
+        std::clamp(m_activeClutch, 0, MaxClutches - 1)]);
     if (slip < m_params.launchLockSlip
         && std::abs(state.vehicleSpeed) > m_params.launchSpeed)
     {

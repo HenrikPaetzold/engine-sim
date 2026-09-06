@@ -547,3 +547,41 @@ TEST(TimingMapTests, TheMapIsOpenToTheRegistry) {
     EXPECT_NEAR(
         ecu.getTimingMap().getValue(2, 1), units::angle(18.0, units::deg), 1e-9);
 }
+
+TEST(WindupTests, TheOuterStopDoesNotWindTheIntegratorUp) {
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(powertrain::EngineControlUnit::Parameters());
+
+    powertrain::PowertrainState state;
+    state.coolantTemperature = units::celcius(90.0);
+    state.engineSpeed = units::rpm(3000.0);
+    state.engineRunning = true;
+    state.gear = 3;
+
+    powertrain::DriverInputs inputs;
+    inputs.ignitionKey = true;
+    inputs.accelerator = 1.0;
+
+    powertrain::ActuatorCommands commands;
+
+    const double weakGain = 0.35;
+    for (int i = 0; i < 40000; ++i) {
+        ecu.update(1e-3, state, inputs, &commands);
+        state.indicatedTorque =
+            commands.throttlePlate * weakGain * ecu.maxTorqueAt(state.engineSpeed);
+    }
+
+    ASSERT_NEAR(ecu.getCommandedPlate(), 1.0, 1e-6);
+
+    const double limit = ecu.getTorqueController().getParameters().outputMax;
+    EXPECT_LT(ecu.getTorqueController().getIntegrator(), limit * 1.4);
+
+    inputs.accelerator = 0.0;
+    for (int i = 0; i < 1000; ++i) {
+        ecu.update(1e-3, state, inputs, &commands);
+        state.indicatedTorque =
+            commands.throttlePlate * weakGain * ecu.maxTorqueAt(state.engineSpeed);
+    }
+
+    EXPECT_LT(ecu.getCommandedPlate(), limit);
+}

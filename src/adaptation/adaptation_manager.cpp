@@ -148,6 +148,9 @@ void adaptation::AdaptationManager::updateIdleTrim(
     if (!m_params.idleEnabled || m_ecu == nullptr) return;
     if (m_ecu->getEngineState() != powertrain::EngineState::Idle) return;
 
+    const double idleTarget = m_ecu->idleSpeedAt(state.coolantTemperature);
+    if (state.engineSpeed > idleTarget + m_params.idleSpeedMargin) return;
+
     control::PidController &idle = m_ecu->getIdleController();
     control::Map2d &trim = m_ecu->getIdleTrimMap();
     if (!trim.isInitialized()) return;
@@ -171,7 +174,7 @@ void adaptation::AdaptationManager::updateLambdaTrim(
 {
     if (!m_params.lambdaEnabled || m_ecu == nullptr) return;
 
-    const double error = m_params.lambdaTarget - state.exhaustO2;
+    const double error = state.exhaustO2 - m_params.lambdaTarget;
 
     m_shortTermTrim = std::clamp(
         m_shortTermTrim + m_params.lambdaShortTermGain * error * dt,
@@ -223,7 +226,9 @@ void adaptation::AdaptationManager::updateShiftLearning(
     if (engaging) {
         m_shiftElapsed += dt;
 
-        const double slip = std::abs(state.clutchSlipSpeed[0]);
+        const int clutch = std::clamp(
+            m_tcu->getActiveClutch(), 0, powertrain::MaxClutches - 1);
+        const double slip = std::abs(state.clutchSlipSpeed[clutch]);
         const double phase = m_tcu->getEngagePhase();
         const double target =
             m_tcu->getParameters().launchLockSlip * (1.0 - phase);
@@ -302,6 +307,10 @@ void adaptation::AdaptationManager::registerParameters(
         describe(base + "idle.limit", 0.0, 1.0,
             m_params.idleTrimLimit, ""),
         &m_params.idleTrimLimit);
+    registry->registerScalar(
+        describe(base + "idle.speed_margin", 0.0, units::rpm(3000.0),
+            m_params.idleSpeedMargin, "rad/s"),
+        &m_params.idleSpeedMargin);
 
     registry->registerBoolean(
         describe(base + "lambda.enabled", 0.0, 1.0,
