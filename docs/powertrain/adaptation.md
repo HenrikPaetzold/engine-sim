@@ -121,6 +121,15 @@ adaptation(throttle_learn_from_integrator: true)
 Damit schöpft sie aus dem I-Anteil, wie der Leerlauftrimm daneben, und die
 Buchführung stimmt: abgezogen wird genau, was drin war.
 
+Genau genommen: abgezogen wird, was am Betriebspunkt **angekommen** ist.
+`accumulate` verteilt den Betrag mit den Interpolationsgewichten auf die
+umliegenden Zellen, und `sample` liest mit denselben Gewichten zurück — auf einer
+Stützstelle ist das derselbe Betrag, dazwischen weniger (in der Zellmitte ein
+Viertel). Deshalb meldet `accumulate` zurück, wie viel wirklich angekommen ist,
+und nur das wird dem Integrator entnommen. Der Rest bleibt drin und wird im
+nächsten Takt erneut eingezahlt. Sonst leerte sich der Integrator schneller, als
+das Kennfeld füllt, und der Regler müsste dauernd nachwickeln.
+
 Beide Verhalten sind erreichbar, weil der Unterschied selbst lehrreich ist. Auf
 `pid.ecu.torque.i` neben `ecu.throttle_map` sieht man ihn direkt.
 

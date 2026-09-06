@@ -386,3 +386,53 @@ TEST(StateTimerTests, AccumulatesAndResets) {
 
     EXPECT_NEAR(timer.getElapsed(), 0.0, 1e-12);
 }
+
+TEST(Map2dTests, WhatIsAccumulatedComesBackAtTheSamePoint) {
+    control::Map2d map;
+    map.initialize(2, 2, 0.0);
+    map.setXAxis(0, 0.0);
+    map.setXAxis(1, 1.0);
+    map.setYAxis(0, 0.0);
+    map.setYAxis(1, 1.0);
+
+    const double points[][2] = {
+        { 0.0, 0.0 }, { 1.0, 1.0 }, { 0.5, 0.5 }, { 0.25, 0.75 }, { 0.1, 0.9 } };
+
+    for (const auto &point : points) {
+        map.fill(0.0);
+
+        const double before = map.sample(point[0], point[1]);
+        const double applied = map.accumulate(point[0], point[1], 0.2, -1.0, 1.0);
+        const double after = map.sample(point[0], point[1]);
+
+        EXPECT_NEAR(applied, after - before, 1e-12)
+            << "accumulate misreported what it applied at "
+            << point[0] << ", " << point[1];
+    }
+}
+
+TEST(Map2dTests, AccumulateReportsLessThanAskedBetweenTheNodes) {
+    control::Map2d map;
+    map.initialize(2, 2, 0.0);
+    map.setXAxis(0, 0.0);
+    map.setXAxis(1, 1.0);
+    map.setYAxis(0, 0.0);
+    map.setYAxis(1, 1.0);
+
+    EXPECT_NEAR(map.accumulate(0.0, 0.0, 0.2, -1.0, 1.0), 0.2, 1e-12);
+
+    map.fill(0.0);
+
+    EXPECT_NEAR(map.accumulate(0.5, 0.5, 0.2, -1.0, 1.0), 0.25 * 0.2, 1e-12);
+}
+
+TEST(Map2dTests, ASaturatedCellIsReportedAsNotApplied) {
+    control::Map2d map;
+    map.initialize(2, 1, 0.0);
+    map.setXAxis(0, 0.0);
+    map.setXAxis(1, 1.0);
+    map.setYAxis(0, 0.0);
+
+    EXPECT_NEAR(map.accumulate(0.0, 0.0, 5.0, -1.0, 1.0), 1.0, 1e-12);
+    EXPECT_NEAR(map.accumulate(0.0, 0.0, 5.0, -1.0, 1.0), 0.0, 1e-12);
+}

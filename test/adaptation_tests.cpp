@@ -600,8 +600,13 @@ TEST(LongTermTrimTests, TheTransferPreservesTheAppliedTrim) {
 
     state.exhaustO2 = params.lambdaTarget;
 
+    const auto appliedTrim = [&]() {
+        return ecu.getLambdaTrimMap().sample(
+            state.engineSpeed, ecu.lambdaTrimLoad(state));
+    };
+
     const double shortBefore = manager.getShortTermFuelTrim();
-    const double longBefore = trimMapTotal(ecu.getLambdaTrimMap());
+    const double longBefore = appliedTrim();
 
     for (int i = 0; i < 20000; ++i) {
         ecu.update(1e-3, state, inputs, &commands);
@@ -609,11 +614,12 @@ TEST(LongTermTrimTests, TheTransferPreservesTheAppliedTrim) {
     }
 
     const double shortAfter = manager.getShortTermFuelTrim();
-    const double longAfter = trimMapTotal(ecu.getLambdaTrimMap());
+    const double longAfter = appliedTrim();
 
     EXPECT_LT(shortAfter, shortBefore);
     EXPECT_GT(longAfter, longBefore);
-    EXPECT_NEAR(shortAfter + longAfter, shortBefore + longBefore, 1e-9);
+    EXPECT_NEAR(shortAfter + longAfter, shortBefore + longBefore, 1e-9)
+        << "the operating point does not get back what the short term trim gave up";
 }
 
 TEST(LongTermTrimTests, AnUnvisitedZoneStaysEmpty) {

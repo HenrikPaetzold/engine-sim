@@ -30,7 +30,7 @@ namespace control {
                 double *tx,
                 double *ty) const;
 
-            void accumulate(double x, double y, double delta, double limitMin, double limitMax);
+            double accumulate(double x, double y, double delta, double limitMin, double limitMax);
 
             inline int getXCount() const { return m_xCount; }
             inline int getYCount() const { return m_yCount; }

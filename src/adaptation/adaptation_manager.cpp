@@ -134,7 +134,7 @@ void adaptation::AdaptationManager::updateThrottleMap(
 
     const double delta = m_params.throttleLearningRate * correction * dt;
 
-    map.accumulate(
+    const double applied = map.accumulate(
         state.engineSpeed,
         m_ecu->getTorqueRequest(),
         delta,
@@ -142,7 +142,7 @@ void adaptation::AdaptationManager::updateThrottleMap(
         1.0);
 
     torqueController.setIntegrator(
-        torqueController.getIntegrator() - delta);
+        torqueController.getIntegrator() - applied);
 
     ++m_throttleUpdates;
 
@@ -169,14 +169,14 @@ void adaptation::AdaptationManager::updateIdleTrim(
     const double transfer = m_params.idleDrainRate * idle.getIntegrator() * dt;
     if (transfer == 0.0) return;
 
-    trim.accumulate(
+    const double applied = trim.accumulate(
         state.coolantTemperature,
         0.0,
         transfer,
         -m_params.idleTrimLimit,
         m_params.idleTrimLimit);
 
-    idle.setIntegrator(idle.getIntegrator() - transfer);
+    idle.setIntegrator(idle.getIntegrator() - applied);
 }
 
 void adaptation::AdaptationManager::updateLambdaTrim(
@@ -202,14 +202,14 @@ void adaptation::AdaptationManager::updateLambdaTrim(
     const double transfer = m_params.lambdaLongTermRate * m_shortTermTrim * dt;
     if (transfer == 0.0) return;
 
-    trim.accumulate(
+    const double applied = trim.accumulate(
         state.engineSpeed,
         m_ecu->lambdaTrimLoad(state),
         transfer,
         -m_params.lambdaTrimLimit,
         m_params.lambdaTrimLimit);
 
-    m_shortTermTrim -= transfer;
+    m_shortTermTrim -= applied;
     m_ecu->setFuelTrim(1.0 + m_shortTermTrim);
 }
 

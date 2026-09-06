@@ -141,14 +141,16 @@ double control::Map2d::sample(double x, double y) const {
     return v0 + (v1 - v0) * ty;
 }
 
-void control::Map2d::accumulate(
+double control::Map2d::accumulate(
     double x,
     double y,
     double delta,
     double limitMin,
     double limitMax)
 {
-    if (m_values == nullptr) return;
+    if (m_values == nullptr) return 0.0;
+
+    const double before = sample(x, y);
 
     int i0, j0;
     double tx, ty;
@@ -174,4 +176,6 @@ void control::Map2d::accumulate(
             limitMin,
             limitMax);
     }
+
+    return sample(x, y) - before;
 }
