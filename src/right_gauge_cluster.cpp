@@ -227,8 +227,10 @@ void RightGaugeCluster::renderTachSpeedCluster(const Bounds &bounds) {
     constexpr float shortenAngle = (float)units::angle(1.0, units::deg);
     const float maxRpm =
         (float)std::ceil(units::toRpm(getRedline() * 1.25) / 1000.0) * 1000.0f;
-    const float redline = (float)units::toRpm(getHardLimit());
-    const float redlineWarning = (float)units::toRpm(getSoftLimit());
+    const float redline =
+        (float)std::ceil(units::toRpm(getHardLimit()) / 500.0) * 500.0f;
+    const float redlineWarning =
+        (float)std::floor(units::toRpm(getSoftLimit()) / 500.0) * 500.0f;
     m_tachometer->m_gauge->m_max = (int)maxRpm;
     m_tachometer->m_gauge->setBandCount(3);
     m_tachometer->m_gauge->setBand(

@@ -133,10 +133,12 @@ namespace es_script {
                 parameters.lockupController = m_lockupController->getParameters();
             }
 
-            parameters.engageProfile.binCount =
+            parameters.engageBins =
                 std::max(static_cast<int>(std::lround(m_engageBins)), 1);
-            parameters.engageProfile.outputMax = std::abs(m_engageLimit);
-            parameters.engageProfile.outputMin = -std::abs(m_engageLimit);
+            parameters.engageLimit = std::abs(m_engageLimit);
+            parameters.engageProfile.binCount = parameters.engageBins;
+            parameters.engageProfile.outputMax = parameters.engageLimit;
+            parameters.engageProfile.outputMin = -parameters.engageLimit;
 
             tcu->initialize(parameters);
 

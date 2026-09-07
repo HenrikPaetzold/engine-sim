@@ -100,6 +100,7 @@ namespace config {
             const Entry *find(const std::string &path) const;
             Entry *find(const std::string &path);
 
+            static void widenToFit(ParameterDescriptor *descriptor, double value);
             static void writeValue(const Entry &entry, double value);
             static double readValue(const Entry &entry);
 

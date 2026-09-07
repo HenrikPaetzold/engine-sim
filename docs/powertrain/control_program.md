@@ -57,7 +57,7 @@ einen Takt beträgt, unabhängig von der Sortierung.
 | `curve(curve)` | 1 | `Function`-Kennlinie |
 | `lookup(map)` | x, y | `Map2d`-Kennfeld |
 | `pid(controller)` | Sollwert, Istwert, Vorsteuerung | vollständiger PID mit Anti-Windup |
-| `rate_limit(rise, fall)` | 1 | Gradientenbegrenzung |
+| `rate_limit(rise, fall)` | 1 | Gradientenbegrenzung, **Rate 0 = unbegrenzt** |
 | `low_pass(tau)` | 1 | PT1 |
 | `select(threshold)` | Bedingung, dann, sonst | Verzweigung ohne `if` in der Sprache |
 | `greater_than(band)` | a, b | Vergleich mit Hysterese |
@@ -104,6 +104,11 @@ Browser-Oberfläche: `constant` als Wert, `gain` als `.gain`/`.offset`, `pid`
 als `.kp`/`.ki`/`.kd`, `clamp` als `.min`/`.max`, `rate_limit` als
 `.rise`/`.fall`, `low_pass` als `.tau` — jeweils unter `program.<name>`.
 Ein Block ohne `name` bleibt unsichtbar.
+
+**Eine Rate von 0 heißt unbegrenzt, nicht eingefroren.** Das ist Absicht und wird
+an zwei Stellen gebraucht: die Wandlerüberbrückung setzt ihre Löserate auf 0,
+damit sie sofort öffnen kann, und ein `rate_limit` ohne gesetzte Raten reicht
+durch. Wer wirklich einfrieren will, nimmt eine sehr kleine Rate.
 
 ## Verhältnis zu ECU und TCU
 

@@ -276,3 +276,23 @@ TEST(ControlProgramTests, ResetClearsEveryStatefulBlock) {
     EXPECT_NEAR(integrator->m_output, 0.0, 1e-12);
     EXPECT_NEAR(timer->m_output, 0.0, 1e-12);
 }
+
+TEST(IntegratorBlockTests, AnInvertedLimitPairIsNotUndefinedBehaviour) {
+    control::ControlProgram program;
+
+    control::ConstantBlock *input = add<control::ConstantBlock>(&program, "in");
+    input->m_value = 1.0;
+
+    control::IntegratorBlock *integrator =
+        add<control::IntegratorBlock>(&program, "acc");
+    integrator->addOperand(input->m_index);
+    integrator->m_min = 1.0;
+    integrator->m_max = 0.0;
+
+    ASSERT_TRUE(program.compile()) << program.getError();
+
+    for (int i = 0; i < 100; ++i) program.update(1e-3);
+
+    EXPECT_GT(integrator->m_output, 0.0);
+    EXPECT_TRUE(std::isfinite(integrator->m_output));
+}

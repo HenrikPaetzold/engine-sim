@@ -50,6 +50,7 @@ powertrain::TransmissionControlUnit::TransmissionControlUnit() {
     m_previousGear = -1;
     m_clutchPressure = 0.0;
     m_releasePressure = 0.0;
+    m_engageBins = 0;
     m_secondaryPressure = 0.0;
     m_engagePhase = 0.0;
     m_completedShifts = 0;
@@ -217,7 +218,12 @@ void powertrain::TransmissionControlUnit::initialize(const Parameters &params) {
     buildDefaultMaps();
     m_slipController.initialize(m_params.slipController);
     m_lockupController.initialize(m_params.lockupController);
+    m_params.engageProfile.binCount = m_params.engageBins;
+    m_params.engageProfile.outputMax = m_params.engageLimit;
+    m_params.engageProfile.outputMin = -m_params.engageLimit;
+
     m_engageProfile.initialize(m_params.engageProfile);
+    m_engageBins = m_params.engageBins;
 
     reset();
 }
@@ -602,6 +608,7 @@ double powertrain::TransmissionControlUnit::lockupPressure(
 
     m_lockupLimiter.setRates(m_params.lockupApplyRate, 0.0);
 
+
     if (shifting || kickdown || m_currentGear < 0) {
         m_lockupController.reset();
         m_lockupLimiter.reset(0.0);
@@ -819,6 +826,16 @@ void powertrain::TransmissionControlUnit::update(
 {
     m_bus.resetTransmissionRequests();
     m_gearTimer.advance(dt);
+
+    if (m_params.engageBins != m_engageBins) {
+        m_params.engageProfile.binCount = std::max(m_params.engageBins, 1);
+        m_engageProfile.initialize(m_params.engageProfile);
+        m_engageBins = m_params.engageBins;
+    }
+
+    m_engageProfile.getParametersMutable().outputMax = m_params.engageLimit;
+    m_engageProfile.getParametersMutable().outputMin = -m_params.engageLimit;
+
 
     if (commands != nullptr && commands->revLimit > 0.0) {
         m_revLimit = commands->revLimit;
@@ -1069,8 +1086,11 @@ void powertrain::TransmissionControlUnit::registerParameters(
         &m_engageProfile.getParametersMutable().smoothing);
     registry->registerScalar(
         describe(base + "engage.limit", 0.0, 1.0,
-            m_engageProfile.getParametersMutable().outputMax, ""),
-        &m_engageProfile.getParametersMutable().outputMax);
+            m_params.engageLimit, ""),
+        &m_params.engageLimit);
+    registry->registerInteger(
+        describe(base + "engage.bins", 1.0, 64.0, m_params.engageBins, ""),
+        &m_params.engageBins);
     registry->registerBoolean(
         describe(base + "gate.brake_interlock", 0.0, 1.0,
             m_params.brakeInterlock ? 1.0 : 0.0, ""),

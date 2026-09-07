@@ -31,13 +31,20 @@ TEST(ParameterRegistryTests, RegistrationAppliesTheDefault) {
     EXPECT_NEAR(value, 2.5, 1e-12);
 }
 
-TEST(ParameterRegistryTests, DefaultOutsideRangeIsClamped) {
+TEST(ParameterRegistryTests, AScriptValueOutsideTheRangeWidensTheRange) {
     config::ParameterRegistry registry;
     double value = 0.0;
 
     registry.registerScalar(scalar("ecu.idle.kp", 0.0, 1.0, 5.0), &value);
 
-    EXPECT_NEAR(value, 1.0, 1e-12);
+    EXPECT_NEAR(value, 5.0, 1e-12)
+        << "registering silently changed what the script asked for";
+
+    ASSERT_EQ(registry.getCount(), 1);
+    EXPECT_NEAR(registry.getDescriptor(0).maxValue, 5.0, 1e-12);
+
+    ASSERT_TRUE(registry.set("ecu.idle.kp", 4.0));
+    EXPECT_NEAR(value, 4.0, 1e-12);
 }
 
 TEST(ParameterRegistryTests, SetWritesThroughAndClamps) {

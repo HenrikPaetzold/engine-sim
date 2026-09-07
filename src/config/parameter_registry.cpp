@@ -106,12 +106,11 @@ bool config::ParameterRegistry::registerScalar(
     entry.descriptor.type = ParameterType::Scalar;
     entry.scalarTarget = target;
 
+    widenToFit(&entry.descriptor, descriptor.defaultValue);
+
     if (!add(entry)) return false;
 
-    *target = std::clamp(
-        descriptor.defaultValue,
-        descriptor.minValue,
-        descriptor.maxValue);
+    *target = descriptor.defaultValue;
 
     return true;
 }
@@ -127,12 +126,11 @@ bool config::ParameterRegistry::registerInteger(
     entry.descriptor.type = ParameterType::Integer;
     entry.integerTarget = target;
 
+    widenToFit(&entry.descriptor, descriptor.defaultValue);
+
     if (!add(entry)) return false;
 
-    *target = static_cast<int>(std::lround(std::clamp(
-        descriptor.defaultValue,
-        descriptor.minValue,
-        descriptor.maxValue)));
+    *target = static_cast<int>(std::lround(descriptor.defaultValue));
 
     return true;
 }
@@ -224,6 +222,14 @@ bool config::ParameterRegistry::findCell(
     *map = entry->mapTarget;
 
     return true;
+}
+
+void config::ParameterRegistry::widenToFit(
+    ParameterDescriptor *descriptor,
+    double value)
+{
+    if (value < descriptor->minValue) descriptor->minValue = value;
+    if (value > descriptor->maxValue) descriptor->maxValue = value;
 }
 
 void config::ParameterRegistry::writeValue(const Entry &entry, double value) {

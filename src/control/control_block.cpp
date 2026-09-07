@@ -200,7 +200,7 @@ void control::IntegratorBlock::reset() {
 
 double control::IntegratorBlock::evaluate(const BlockContext &context) {
     m_value += operandValue(context, 0) * context.dt;
-    m_value = std::clamp(m_value, m_min, m_max);
+    if (m_min <= m_max) m_value = std::clamp(m_value, m_min, m_max);
 
     return m_value;
 }

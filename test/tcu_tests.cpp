@@ -439,3 +439,47 @@ TEST(TransmissionControlUnitTests, TheClutchPedalCapsThePressureWithDriverAuthor
 
     EXPECT_GT(released, 0.9);
 }
+
+TEST(EngageProfileTests, TheLimitStaysSymmetricWhenItIsEdited) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
+
+    config::ParameterRegistry registry;
+    tcu.registerParameters(&registry, "");
+
+    ASSERT_TRUE(registry.set("tcu.engage.limit", 0.8));
+
+    powertrain::PowertrainState state;
+    state.gearCount = 6;
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    tcu.update(1e-3, state, inputs, &commands);
+
+    const control::IterativeLearningControl::Parameters &profile =
+        tcu.getEngageProfile().getParameters();
+
+    EXPECT_NEAR(profile.outputMax, 0.8, 1e-12);
+    EXPECT_NEAR(profile.outputMin, -0.8, 1e-12)
+        << "the correction profile went lopsided";
+}
+
+TEST(EngageProfileTests, TheBinCountIsAnIntegerParameterAndRebuilds) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
+
+    config::ParameterRegistry registry;
+    tcu.registerParameters(&registry, "");
+
+    ASSERT_TRUE(registry.contains("tcu.engage.bins"));
+    ASSERT_TRUE(registry.set("tcu.engage.bins", 16.0));
+
+    powertrain::PowertrainState state;
+    state.gearCount = 6;
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    tcu.update(1e-3, state, inputs, &commands);
+
+    EXPECT_EQ(tcu.getEngageProfile().getBinCount(), 16);
+}

@@ -79,6 +79,8 @@ namespace powertrain {
 
                 control::PidController::Parameters slipController = defaultSlipController();
                 control::IterativeLearningControl::Parameters engageProfile;
+                double engageLimit = 0.4;
+                int engageBins = 8;
             };
 
             static control::PidController::Parameters defaultSlipController();
@@ -212,6 +214,7 @@ namespace powertrain {
             control::RateLimiter m_lockupLimiter;
             double m_lockupPressure;
             control::IterativeLearningControl m_engageProfile;
+            int m_engageBins;
 
             ShiftState m_shiftState;
             SelectorGate m_gate;
