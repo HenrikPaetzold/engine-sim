@@ -168,6 +168,8 @@ bool config::ParameterRegistry::registerMap(
     entry.descriptor.type = ParameterType::Map;
     entry.mapTarget = target;
 
+    snapshotMap(&entry);
+
     return add(entry);
 }
 
@@ -224,6 +226,16 @@ bool config::ParameterRegistry::findCell(
     *map = entry->mapTarget;
 
     return true;
+}
+
+namespace {
+    double displayLow(const config::ParameterDescriptor &d) {
+        return (d.displayMin < d.displayMax) ? d.displayMin : d.minValue;
+    }
+
+    double displayHigh(const config::ParameterDescriptor &d) {
+        return (d.displayMin < d.displayMax) ? d.displayMax : d.maxValue;
+    }
 }
 
 void config::ParameterRegistry::widenToFit(
@@ -393,8 +405,42 @@ bool config::ParameterRegistry::setAdaptive(
 
 void config::ParameterRegistry::resetToDefaults() {
     for (Entry &entry : m_entries) {
-        if (entry.descriptor.type == ParameterType::Map) continue;
+        if (entry.descriptor.type == ParameterType::Map) {
+            restoreMap(entry);
+            continue;
+        }
+
         writeValue(entry, entry.descriptor.defaultValue);
+    }
+}
+
+void config::ParameterRegistry::snapshotMap(Entry *entry) {
+    entry->mapDefaults.clear();
+    if (entry->mapTarget == nullptr || !entry->mapTarget->isInitialized()) return;
+
+    const int xCount = entry->mapTarget->getXCount();
+    const int yCount = entry->mapTarget->getYCount();
+
+    entry->mapDefaults.reserve(static_cast<size_t>(xCount) * yCount);
+    for (int j = 0; j < yCount; ++j) {
+        for (int i = 0; i < xCount; ++i) {
+            entry->mapDefaults.push_back(entry->mapTarget->getValue(i, j));
+        }
+    }
+}
+
+void config::ParameterRegistry::restoreMap(const Entry &entry) {
+    if (entry.mapTarget == nullptr || !entry.mapTarget->isInitialized()) return;
+
+    const int xCount = entry.mapTarget->getXCount();
+    const int yCount = entry.mapTarget->getYCount();
+    if (entry.mapDefaults.size() != static_cast<size_t>(xCount) * yCount) return;
+
+    size_t k = 0;
+    for (int j = 0; j < yCount; ++j) {
+        for (int i = 0; i < xCount; ++i) {
+            entry.mapTarget->setValue(i, j, entry.mapDefaults[k++]);
+        }
     }
 }
 
@@ -434,6 +480,8 @@ void config::ParameterRegistry::serializeJson(std::ostream &out) const {
         writeJsonString(out, d.unit);
         out << ",\"min\":" << d.minValue
             << ",\"max\":" << d.maxValue
+            << ",\"display_min\":" << displayLow(d)
+            << ",\"display_max\":" << displayHigh(d)
             << ",\"default\":" << d.defaultValue
             << ",\"adaptive\":" << (d.adaptive ? "true" : "false");
 

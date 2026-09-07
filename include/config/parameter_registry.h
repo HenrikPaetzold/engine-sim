@@ -26,6 +26,8 @@ namespace config {
         ParameterType type = ParameterType::Scalar;
         double minValue = 0.0;
         double maxValue = 1.0;
+        double displayMin = 0.0;
+        double displayMax = 0.0;
         double defaultValue = 0.0;
         std::string unit;
         bool adaptive = false;
@@ -89,6 +91,7 @@ namespace config {
                 int *integerTarget = nullptr;
                 bool *booleanTarget = nullptr;
                 control::Map2d *mapTarget = nullptr;
+                std::vector<double> mapDefaults;
             };
 
             bool findCell(
@@ -101,6 +104,8 @@ namespace config {
             const Entry *find(const std::string &path) const;
             Entry *find(const std::string &path);
 
+            static void snapshotMap(Entry *entry);
+            static void restoreMap(const Entry &entry);
             static void widenToFit(ParameterDescriptor *descriptor, double value);
             static void writeValue(const Entry &entry, double value);
             static double readValue(const Entry &entry);

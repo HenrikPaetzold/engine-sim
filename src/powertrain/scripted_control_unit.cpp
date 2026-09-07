@@ -123,6 +123,11 @@ void powertrain::ScriptedControlUnit::registerParameters(
         const auto describe = [&](const std::string &path, double value) {
             config::ParameterDescriptor d =
                 config::describeScalar(path, -1e9, 1e9, value, "");
+
+            const double span = std::max(std::abs(value) * 4.0, 1.0);
+            d.displayMin = -span;
+            d.displayMax = span;
+
             d.adaptive = block->m_adaptive;
             d.adaptMin = block->m_adaptive ? block->m_adaptMin : 0.0;
             d.adaptMax = block->m_adaptive ? block->m_adaptMax : 0.0;

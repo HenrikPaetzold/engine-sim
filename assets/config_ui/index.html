@@ -281,9 +281,11 @@ function buildParameters() {
 
             const slider = document.createElement("input");
             slider.type = "range";
-            slider.min = p.min;
-            slider.max = p.max;
-            slider.step = (p.max - p.min) / 500 || 0.001;
+            const lo = (p.display_min !== undefined) ? p.display_min : p.min;
+            const hi = (p.display_max !== undefined) ? p.display_max : p.max;
+            slider.min = lo;
+            slider.max = hi;
+            slider.step = (hi - lo) / 500 || 0.001;
             slider.dataset.path = p.path;
 
             const number = document.createElement("input");

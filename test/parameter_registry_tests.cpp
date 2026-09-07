@@ -348,3 +348,55 @@ TEST(AdaptiveGateTests, ExplicitBoundsStillWin) {
 
     EXPECT_NEAR(value, 6.0, 1e-12);
 }
+
+TEST(ParameterRegistryTests, ResetRestoresTheAuthoredMapCells) {
+    config::ParameterRegistry registry;
+
+    control::Map2d map;
+    map.initialize(2, 2, 0.0);
+    map.setXAxis(0, 0.0);
+    map.setXAxis(1, 1.0);
+    map.setYAxis(0, 0.0);
+    map.setYAxis(1, 1.0);
+    map.setValue(0, 0, 0.25);
+    map.setValue(1, 1, 0.75);
+
+    config::ParameterDescriptor descriptor =
+        config::describeScalar("ecu.throttle_map", 0.0, 1.0, 0.0, "");
+    descriptor.adaptive = true;
+    descriptor.adaptMax = 1.0;
+
+    ASSERT_TRUE(registry.registerMap(descriptor, &map));
+    ASSERT_TRUE(registry.accumulate("ecu.throttle_map", 0.0, 0.0, 0.5));
+
+    ASSERT_GT(map.getValue(0, 0), 0.25);
+
+    registry.resetToDefaults();
+
+    EXPECT_NEAR(map.getValue(0, 0), 0.25, 1e-12)
+        << "reset left the learned cell in place";
+    EXPECT_NEAR(map.getValue(1, 1), 0.75, 1e-12);
+}
+
+TEST(ParameterRegistryTests, TheDisplayRangeIsSeparateFromTheValidRange) {
+    config::ParameterRegistry registry;
+    double value = 2.0;
+
+    config::ParameterDescriptor descriptor =
+        config::describeScalar("program.gain.gain", -1e9, 1e9, 2.0, "");
+    descriptor.displayMin = -8.0;
+    descriptor.displayMax = 8.0;
+
+    ASSERT_TRUE(registry.registerScalar(descriptor, &value));
+
+    std::ostringstream out;
+    registry.serializeJson(out);
+    const std::string json = out.str();
+
+    EXPECT_NE(json.find("\"display_min\":-8"), std::string::npos) << json;
+    EXPECT_NE(json.find("\"display_max\":8"), std::string::npos) << json;
+
+    ASSERT_TRUE(registry.set("program.gain.gain", 5000.0));
+    EXPECT_NEAR(value, 5000.0, 1e-12)
+        << "the display range clamped a value it has no business clamping";
+}
