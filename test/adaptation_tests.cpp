@@ -378,6 +378,96 @@ TEST(AdaptationManagerTests, ThrottleMapAbsorbsThePidCorrection) {
 
     EXPECT_GT(manager.getThrottleUpdateCount(), 0);
     EXPECT_LT(finalCorrection, firstCorrection);
+
+    EXPECT_NEAR(
+        manager.getTorqueModel().getEstimate(),
+        plantGain * ecu.maxTorqueAt(state.engineSpeed),
+        0.05 * plantGain * ecu.maxTorqueAt(state.engineSpeed))
+        << "the plant gain never came out of the estimator";
+}
+
+TEST(TorqueModelTests, TheEstimatorIsScaledToTheEngineNotToTen) {
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(powertrain::EngineControlUnit::Parameters());
+
+    adaptation::AdaptationManager manager;
+    manager.initialize(managerParameters());
+    manager.attach(&ecu, nullptr);
+
+    const adaptation::RlsEstimator::Parameters &limits =
+        manager.getTorqueModel().getParameters();
+
+    EXPECT_GT(limits.estimateMax, ecu.maxTorqueAt(units::rpm(2500.0)))
+        << "the estimator cannot even represent the engine's own torque";
+    EXPECT_GT(limits.initialEstimate, 1.0);
+}
+
+TEST(TorqueModelTests, TheModelLearnsWithTheThrottleMapSwitchedOff) {
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(powertrain::EngineControlUnit::Parameters());
+
+    adaptation::AdaptationManager::Parameters params = managerParameters();
+    params.throttleMapEnabled = false;
+
+    adaptation::AdaptationManager manager;
+    manager.initialize(params);
+    manager.attach(&ecu, nullptr);
+
+    powertrain::PowertrainState state = adaptationState();
+    powertrain::DriverInputs inputs;
+    inputs.accelerator = 0.5;
+    powertrain::ActuatorCommands commands;
+    powertrain::PowertrainBus bus;
+
+    const double plantGain = 0.6;
+
+    for (int i = 0; i < 20000; ++i) {
+        ecu.update(1e-3, state, inputs, &commands);
+        state.indicatedTorque =
+            commands.throttlePlate * plantGain * ecu.maxTorqueAt(state.engineSpeed);
+        manager.update(1e-3, state, bus);
+    }
+
+    EXPECT_EQ(manager.getThrottleUpdateCount(), 0);
+    EXPECT_NEAR(
+        manager.getTorqueModel().getEstimate(),
+        plantGain * ecu.maxTorqueAt(state.engineSpeed),
+        0.05 * plantGain * ecu.maxTorqueAt(state.engineSpeed))
+        << "switching off the throttle map also killed the identification";
+}
+
+TEST(TorqueModelTests, TheFeedforwardCorrectionIsOffByDefaultAndExcludesTheMap) {
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(powertrain::EngineControlUnit::Parameters());
+
+    adaptation::AdaptationManager::Parameters params = managerParameters();
+    ASSERT_FALSE(params.torqueModelFeedforward);
+
+    params.torqueModelFeedforward = true;
+
+    adaptation::AdaptationManager manager;
+    manager.initialize(params);
+    manager.attach(&ecu, nullptr);
+
+    powertrain::PowertrainState state = adaptationState();
+    powertrain::DriverInputs inputs;
+    inputs.accelerator = 0.5;
+    powertrain::ActuatorCommands commands;
+    powertrain::PowertrainBus bus;
+
+    const double plantGain = 0.6;
+
+    for (int i = 0; i < 20000; ++i) {
+        ecu.update(1e-3, state, inputs, &commands);
+        state.indicatedTorque =
+            commands.throttlePlate * plantGain * ecu.maxTorqueAt(state.engineSpeed);
+        manager.update(1e-3, state, bus);
+    }
+
+    EXPECT_EQ(manager.getThrottleUpdateCount(), 0)
+        << "both learners ran at once and would fight over the same error";
+    EXPECT_NEAR(ecu.getFeedforwardScale(), 1.0 / plantGain, 0.1)
+        << "the identified gain never corrected the feedforward";
 }
 
 TEST(AdaptationManagerTests, IdleTrimDrainsTheIntegrator) {

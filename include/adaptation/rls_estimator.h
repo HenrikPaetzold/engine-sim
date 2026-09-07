@@ -13,6 +13,7 @@ namespace adaptation {
                 double minimumRegressor = 1e-6;
                 double estimateMin = 0.0;
                 double estimateMax = 10.0;
+                bool autoScale = true;
             };
 
         public:
@@ -25,6 +26,7 @@ namespace adaptation {
             double update(double regressor, double observation);
 
             inline const Parameters &getParameters() const { return m_params; }
+            inline Parameters &getParametersMutable() { return m_params; }
             inline void setForgettingFactor(double factor) {
                 m_params.forgettingFactor = factor;
             }

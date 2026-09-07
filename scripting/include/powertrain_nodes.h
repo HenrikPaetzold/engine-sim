@@ -321,6 +321,19 @@ namespace es_script {
                 &m_parameters.torqueModel.forgettingFactor);
             addInput("torque_model_initial",
                 &m_parameters.torqueModel.initialEstimate);
+            addInput("torque_model", &m_parameters.torqueModelEnabled);
+            addInput("torque_model_feedforward",
+                &m_parameters.torqueModelFeedforward);
+            addInput("torque_model_auto_scale",
+                &m_parameters.torqueModel.autoScale);
+            addInput("torque_model_min", &m_parameters.torqueModel.estimateMin);
+            addInput("torque_model_max", &m_parameters.torqueModel.estimateMax);
+            addInput("torque_model_covariance",
+                &m_parameters.torqueModel.initialCovariance);
+            addInput("torque_model_covariance_limit",
+                &m_parameters.torqueModel.covarianceLimit);
+            addInput("torque_model_minimum_regressor",
+                &m_parameters.torqueModel.minimumRegressor);
             addInput("lambda_gain", &m_parameters.lambdaShortTermGain);
             addInput("lambda_limit", &m_parameters.lambdaTrimLimit);
             addInput("lambda_target", &m_parameters.lambdaTarget);

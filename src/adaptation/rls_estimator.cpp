@@ -4,9 +4,7 @@
 #include <cmath>
 
 adaptation::RlsEstimator::RlsEstimator() {
-    m_estimate = m_params.initialEstimate;
-    m_covariance = m_params.initialCovariance;
-    m_residual = 0.0;
+    reset();
 }
 
 adaptation::RlsEstimator::~RlsEstimator() {

@@ -146,6 +146,14 @@ public node adaptation => __engine_sim__adaptation {
     input minimum_speed [float]: 500 * units.rpm;
     input torque_model_forgetting [float]: 0.999;
     input torque_model_initial [float]: 1.0;
+    input torque_model [bool]: true;
+    input torque_model_feedforward [bool]: false;
+    input torque_model_auto_scale [bool]: true;
+    input torque_model_min [float]: 0.0;
+    input torque_model_max [float]: 10.0;
+    input torque_model_covariance [float]: 100.0;
+    input torque_model_covariance_limit [float]: 1000000.0;
+    input torque_model_minimum_regressor [float]: 0.000001;
     input lambda_gain [float]: 0.8;
     input lambda_limit [float]: 0.30;
     input lambda_target [float]: 0.02;

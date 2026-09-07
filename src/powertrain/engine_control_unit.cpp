@@ -64,6 +64,7 @@ powertrain::EngineControlUnit::EngineControlUnit() {
     m_driverTorqueRequest = 0.0;
     m_idleTorqueRequest = 0.0;
     m_feedforwardPlate = 0.0;
+    m_feedforwardScale = 1.0;
     m_commandedPlate = 0.0;
     m_fuelTrim = 1.0;
     m_longTermTrim = 0.0;
@@ -178,6 +179,7 @@ void powertrain::EngineControlUnit::reset() {
     m_driverTorqueRequest = 0.0;
     m_idleTorqueRequest = 0.0;
     m_feedforwardPlate = 0.0;
+    m_feedforwardScale = 1.0;
     m_commandedPlate = 0.0;
     m_fuelTrim = 1.0;
     m_longTermTrim = 0.0;
@@ -280,7 +282,11 @@ void powertrain::EngineControlUnit::update(
     m_torqueRequest = m_torqueLimiter.update(dt, coordinated);
 
     m_feedforwardPlate = m_throttleMap.isInitialized()
-        ? std::clamp(m_throttleMap.sample(state.engineSpeed, m_torqueRequest), 0.0, 1.0)
+        ? std::clamp(
+            m_throttleMap.sample(state.engineSpeed, m_torqueRequest)
+                * m_feedforwardScale,
+            0.0,
+            1.0)
         : 0.0;
 
     const double correction =

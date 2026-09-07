@@ -79,6 +79,9 @@ namespace powertrain {
             inline double getLongTermFuelTrim() const { return m_longTermTrim; }
             double lambdaTrimLoad(const PowertrainState &state) const;
             inline double getFeedforwardPlate() const { return m_feedforwardPlate; }
+            inline double getIdleSpeedWarm() const { return m_params.idleSpeedWarm; }
+            inline void setFeedforwardScale(double scale) { m_feedforwardScale = scale; }
+            inline double getFeedforwardScale() const { return m_feedforwardScale; }
             inline double getCommandedPlate() const { return m_commandedPlate; }
             inline control::Map2d &getMaxTorqueMap() { return m_maxTorqueMap; }
             inline control::Map2d &getPedalMap() { return m_pedalMap; }
@@ -119,6 +122,7 @@ namespace powertrain {
             double m_driverTorqueRequest;
             double m_idleTorqueRequest;
             double m_feedforwardPlate;
+            double m_feedforwardScale;
             double m_commandedPlate;
             double m_fuelTrim;
             double m_longTermTrim;

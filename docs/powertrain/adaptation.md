@@ -171,6 +171,46 @@ Anti-Windup-Rückführung kennt sie also nicht. Am Anschlag läuft der Integrato
 hoch, und die Adaption schriebe diesen Windup ins Kennfeld. Die Bedingung sperrt
 das. Ab Werk aus.
 
+## Das Streckenmodell
+
+Neben den vier Lernpfaden läuft eine **Streckenidentifikation**: ein rekursiver
+Kleinste-Quadrate-Schätzer mit Vergessensfaktor, der aus Klappenstellung und
+tatsächlichem Moment den Streckengewinn schätzt.
+
+```
+Moment = theta * Klappenstellung
+```
+
+`theta` hat damit die Einheit **Nm pro Klappenhub** und liegt in der
+Größenordnung der Momentenkurve selbst — nicht bei eins. Deshalb holt sich der
+Schätzer seinen Maßstab beim Anhängen aus `maxTorqueAt` des Steuergeräts:
+Anfangswert das Moment bei warmer Leerlaufdrehzahl, obere Schranke das Vierfache.
+`torque_model_auto_scale: false` schaltet das ab, dann gelten `torque_model_min`
+und `torque_model_max` aus dem Skript.
+
+Der Schätzer hängt an einem **eigenen** Schalter (`torque_model`), nicht mehr am
+Drosselklappenkennfeld. Er sieht jeden Takt, in dem die Freigabebedingungen
+erfüllt sind und die Klappe über 5 % steht.
+
+`adaptation.torque_model.gain`, `.residual` und `.covariance` zeigen ihn im
+Browser. Der Rest ist Diagnose — bis man ihn anschließt:
+
+```
+adaptation(torque_model_feedforward: true)
+```
+
+Dann korrigiert der geschätzte Gewinn die **Momentenvorsteuerung**. Das
+Drosselklappenkennfeld ist ein invertiertes Streckenmodell
+(`Klappe = Moment / maxTorqueAt`) — also genau die Annahme, die der Schätzer
+misst. Die Korrektur ist `maxTorqueAt / theta` und greift nur, solange die
+Schätzung nicht an einer ihrer Schranken klemmt.
+
+**Beides zusammen geht nicht**, und das ist erzwungen, nicht nur empfohlen: mit
+eingeschalteter Vorsteuerungskorrektur ruht die Kennfeldadaption. Sonst jagen
+zwei Lerner denselben Fehler über zwei Wege — das Kennfeld lernte den
+Gewinnfehler weg, den die Korrektur gerade entfernt hat, und beide arbeiteten
+gegeneinander. Ab Werk ist die Korrektur aus und das Kennfeld lernt.
+
 ## Selbst lernen lassen
 
 Die vier Lernpfade oben sind in C++ verdrahtet. Daneben kann **das Skript

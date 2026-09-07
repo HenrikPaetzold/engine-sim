@@ -39,6 +39,8 @@ namespace adaptation {
                 bool idleEnabled = true;
                 bool lambdaEnabled = true;
                 bool shiftEnabled = true;
+                bool torqueModelEnabled = true;
+                bool torqueModelFeedforward = false;
 
                 double throttleLearningRate = 0.5;
                 double throttleDeadband = 0.01;
@@ -82,6 +84,8 @@ namespace adaptation {
             bool shiftConditionsMet(
                 const powertrain::PowertrainState &state) const;
 
+            void scaleTorqueModel();
+
             int getShiftIterationCount() const;
             double getShiftErrorNorm() const;
             inline const RlsEstimator &getTorqueModel() const { return m_torqueModel; }
@@ -95,6 +99,7 @@ namespace adaptation {
             void updateIdleTrim(double dt, const powertrain::PowertrainState &state);
             void updateLambdaTrim(double dt, const powertrain::PowertrainState &state);
             void updateShiftLearning(double dt, const powertrain::PowertrainState &state);
+            void updateTorqueModel(const powertrain::PowertrainState &state);
 
             Parameters m_params;
 

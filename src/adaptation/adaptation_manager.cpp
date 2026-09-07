@@ -83,6 +83,8 @@ void adaptation::AdaptationManager::attach(
 {
     m_ecu = ecu;
     m_tcu = tcu;
+
+    scaleTorqueModel();
 }
 
 bool adaptation::AdaptationManager::conditionsMet(
@@ -145,11 +147,39 @@ void adaptation::AdaptationManager::updateThrottleMap(
         torqueController.getIntegrator() - applied);
 
     ++m_throttleUpdates;
+}
+
+void adaptation::AdaptationManager::updateTorqueModel(
+    const powertrain::PowertrainState &state)
+{
+    if (!m_params.torqueModelEnabled || m_ecu == nullptr) return;
 
     const double regressor = std::max(m_ecu->getCommandedPlate(), 0.0);
-    if (regressor > 0.05) {
-        m_torqueModel.update(regressor, state.indicatedTorque);
-    }
+    if (regressor <= 0.05) return;
+
+    m_torqueModel.update(regressor, state.indicatedTorque);
+
+    if (!m_params.torqueModelFeedforward) return;
+
+    const double estimate = m_torqueModel.getEstimate();
+    const RlsEstimator::Parameters &limits = m_torqueModel.getParameters();
+    const bool usable =
+        estimate > limits.estimateMin && estimate < limits.estimateMax;
+
+    m_ecu->setFeedforwardScale(
+        usable ? m_ecu->maxTorqueAt(state.engineSpeed) / estimate : 1.0);
+}
+
+void adaptation::AdaptationManager::scaleTorqueModel() {
+    if (m_ecu == nullptr || !m_params.torqueModel.autoScale) return;
+
+    const double reference = m_ecu->maxTorqueAt(m_ecu->getIdleSpeedWarm());
+    if (reference <= 0.0) return;
+
+    m_params.torqueModel.initialEstimate = reference;
+    m_params.torqueModel.estimateMax = 4.0 * reference;
+
+    m_torqueModel.initialize(m_params.torqueModel);
 }
 
 void adaptation::AdaptationManager::updateIdleTrim(
@@ -284,7 +314,8 @@ void adaptation::AdaptationManager::update(
     m_enabled = conditionsMet(state, bus);
     if (!m_enabled) return;
 
-    updateThrottleMap(dt, state);
+    if (!m_params.torqueModelFeedforward) updateThrottleMap(dt, state);
+    updateTorqueModel(state);
     updateIdleTrim(dt, state);
     updateLambdaTrim(dt, state);
 }
@@ -390,6 +421,36 @@ void adaptation::AdaptationManager::registerParameters(
         describe(base + "conditions.minimum_speed", 0.0, units::rpm(4000.0),
             m_params.conditions.minimumSpeed, "rad/s"),
         &m_params.conditions.minimumSpeed);
+    registry->registerBoolean(
+        describe(base + "torque_model.enabled", 0.0, 1.0,
+            m_params.torqueModelEnabled ? 1.0 : 0.0, ""),
+        &m_params.torqueModelEnabled);
+    registry->registerBoolean(
+        describe(base + "torque_model.feedforward", 0.0, 1.0,
+            m_params.torqueModelFeedforward ? 1.0 : 0.0, ""),
+        &m_params.torqueModelFeedforward);
+    registry->registerBoolean(
+        describe(base + "torque_model.auto_scale", 0.0, 1.0,
+            m_params.torqueModel.autoScale ? 1.0 : 0.0, ""),
+        &m_torqueModel.getParametersMutable().autoScale);
+    registry->registerScalar(
+        describe(base + "torque_model.estimate_min",
+            0.0, units::torque(5000.0, units::Nm),
+            m_torqueModel.getParametersMutable().estimateMin, "Nm"),
+        &m_torqueModel.getParametersMutable().estimateMin);
+    registry->registerScalar(
+        describe(base + "torque_model.estimate_max",
+            0.0, units::torque(5000.0, units::Nm),
+            m_torqueModel.getParametersMutable().estimateMax, "Nm"),
+        &m_torqueModel.getParametersMutable().estimateMax);
+    registry->registerScalar(
+        describe(base + "torque_model.covariance_limit", 0.0, 1e9,
+            m_torqueModel.getParametersMutable().covarianceLimit, ""),
+        &m_torqueModel.getParametersMutable().covarianceLimit);
+    registry->registerScalar(
+        describe(base + "torque_model.minimum_regressor", 0.0, 1.0,
+            m_torqueModel.getParametersMutable().minimumRegressor, ""),
+        &m_torqueModel.getParametersMutable().minimumRegressor);
     registry->registerScalar(
         describe(base + "torque_model.forgetting", 0.5, 1.0,
             m_params.torqueModel.forgettingFactor, ""),
