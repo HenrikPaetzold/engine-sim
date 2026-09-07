@@ -40,7 +40,11 @@ Die Deklarationsreihenfolge im Skript spielt keine Rolle; die
 Datenabhängigkeiten bestimmen die Reihenfolge.
 
 **Rückkopplungen** brauchen einen `delay`-Block. Jeder andere Zyklus ist ein
-Ladefehler mit Nennung der beiden beteiligten Blöcke. `delay` liefert im Takt
+Ladefehler mit Nennung der beiden beteiligten Blöcke. Ladefehler landen in
+`error_log.log` und in `Compiler::output()->errors`; das Programm wird dann
+**nicht** gebaut, statt still zu fehlen. Aus einem Skript heraus lässt sich ein
+Zyklus allerdings gar nicht bauen — die Sprache kennt keine Rückverweise —
+erreichbar ist heute der Kanalfehler unten. `delay` liefert im Takt
 *n* den Wert seines Eingangs aus Takt *n−1*; die Übernahme passiert in einem
 zweiten Durchlauf (`latch`) nach der Auswertung, damit die Verzögerung genau
 einen Takt beträgt, unabhängig von der Sortierung.
@@ -101,9 +105,20 @@ set_control_program(
 
 Benannte Blöcke landen automatisch in der Parameter-Registry und damit in der
 Browser-Oberfläche: `constant` als Wert, `gain` als `.gain`/`.offset`, `pid`
-als `.kp`/`.ki`/`.kd`, `clamp` als `.min`/`.max`, `rate_limit` als
-`.rise`/`.fall`, `low_pass` als `.tau` — jeweils unter `program.<name>`.
+als die acht PID-Felder, `clamp` als `.min`/`.max`, `rate_limit` als
+`.rise`/`.fall`, `low_pass` als `.tau`, `lookup` als **Kennfeld** unter
+`program.<name>` — jeweils unter `program.<name>`.
 Ein Block ohne `name` bleibt unsichtbar.
+
+**Jede Blockart, die etwas zu bedaten hat, ist registriert und kann `adaptive`
+tragen** — auch `lookup`, `integrator`, `select`, `latch`, `timer`, `delay` und
+die Skalierung von `signal`. Ein `zone_learner` kann damit auf ein Kennfeld
+zielen, das das Skript selbst angelegt hat.
+
+**Ein vertippter Kanalname ist ein Ladefehler**, keine stille Null.
+`signal(channel: "engine_sped")` lieferte früher dauerhaft 0.0 und
+`actuator(channel: "throttle_plat")` warf seinen Wert weg; beides bricht jetzt
+das Laden ab und nennt den getippten Namen.
 
 **Eine Rate von 0 heißt unbegrenzt, nicht eingefroren.** Das ist Absicht und wird
 an zwei Stellen gebraucht: die Wandlerüberbrückung setzt ihre Löserate auf 0,

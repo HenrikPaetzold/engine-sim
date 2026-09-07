@@ -53,8 +53,11 @@ public node signal {
     input scale [float]: 1.0;
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "signal", channel: channel, scale: scale, name: name);
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "signal", channel: channel, scale: scale, name: name);
 }
 
 public node constant {
@@ -73,8 +76,11 @@ public node sum {
     input b [control_block_channel];
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "sum", name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "sum", name: name)
             .add_input(a)
             .add_input(b);
 }
@@ -84,8 +90,11 @@ public node product {
     input b [control_block_channel];
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "product", name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "product", name: name)
             .add_input(a)
             .add_input(b);
 }
@@ -95,8 +104,11 @@ public node minimum {
     input b [control_block_channel];
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "min", name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "min", name: name)
             .add_input(a)
             .add_input(b);
 }
@@ -106,8 +118,11 @@ public node maximum {
     input b [control_block_channel];
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "max", name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "max", name: name)
             .add_input(a)
             .add_input(b);
 }
@@ -145,8 +160,11 @@ public node curve {
     input curve [function_channel];
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "curve", curve: curve, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "curve", curve: curve, name: name)
             .add_input(a);
 }
 
@@ -156,8 +174,11 @@ public node lookup {
     input map [map_2d_channel];
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "map", map: map, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "map", map: map, name: name)
             .add_input(x)
             .add_input(y);
 }
@@ -213,8 +234,11 @@ public node select {
     input threshold [float]: 0.5;
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "select", threshold: threshold, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "select", threshold: threshold, name: name)
             .add_input(condition)
             .add_input(if_true)
             .add_input(if_false);
@@ -226,8 +250,11 @@ public node greater_than {
     input band [float]: 0.0;
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "compare", band: band, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "compare", band: band, name: name)
             .add_input(a)
             .add_input(b);
 }
@@ -238,8 +265,11 @@ public node latch {
     input threshold [float]: 0.5;
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "latch", threshold: threshold, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "latch", threshold: threshold, name: name)
             .add_input(set)
             .add_input(reset);
 }
@@ -251,8 +281,11 @@ public node integrator {
     input initial [float]: 0.0;
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "integrator", min: min, max: max, initial: initial, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "integrator", min: min, max: max, initial: initial, name: name)
             .add_input(a);
 }
 
@@ -261,8 +294,11 @@ public node timer {
     input threshold [float]: 0.5;
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "timer", threshold: threshold, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "timer", threshold: threshold, name: name)
             .add_input(condition);
 }
 
@@ -271,8 +307,11 @@ public node delay {
     input initial [float]: 0.0;
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "delay", initial: initial, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "delay", initial: initial, name: name)
             .add_input(a);
 }
 
@@ -284,8 +323,11 @@ public node learner {
     input threshold [float]: 0.5;
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "learner", target: target, rate: rate,
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "learner", target: target, rate: rate,
                       threshold: threshold, name: name)
             .add_input(error)
             .add_input(enable);
@@ -301,8 +343,11 @@ public node zone_learner {
     input threshold [float]: 0.5;
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "learner", target: target, rate: rate,
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "learner", target: target, rate: rate,
                       threshold: threshold, name: name)
             .add_input(error)
             .add_input(enable)
@@ -315,8 +360,11 @@ public node actuator {
     input a [control_block_channel];
     input name [string]: "";
 
+    input adaptive [bool]: false;
+    input adapt_min [float]: 0.0;
+    input adapt_max [float]: 0.0;
     alias output __out [control_block_channel]:
-        control_block(kind: "actuator", channel: channel, name: name)
+        control_block(adaptive: adaptive, adapt_min: adapt_min, adapt_max: adapt_max, kind: "actuator", channel: channel, name: name)
             .add_input(a);
 }
 

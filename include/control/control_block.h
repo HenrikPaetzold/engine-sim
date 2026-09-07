@@ -71,6 +71,7 @@ namespace control {
         public:
             virtual double evaluate(const BlockContext &context) override;
             int m_signal = -1;
+            std::string m_channelName;
             double m_scale = 1.0;
     };
 
@@ -235,6 +236,7 @@ namespace control {
         public:
             virtual double evaluate(const BlockContext &context) override;
             int m_actuator = -1;
+            std::string m_channelName;
     };
 
 } /* namespace control */

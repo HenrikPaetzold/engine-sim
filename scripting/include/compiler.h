@@ -27,6 +27,7 @@ namespace es_script {
             Simulator::Parameters simulatorParameters;
             ApplicationSettings applicationSettings;
 
+            std::vector<std::string> errors;
             std::vector<Function *> functions;
             std::vector<std::pair<std::string, double>> parameterOverrides;
 

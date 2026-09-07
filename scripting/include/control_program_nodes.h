@@ -61,6 +61,7 @@ namespace es_script {
             else if (m_kind == "signal") {
                 control::SignalBlock *block = new control::SignalBlock;
                 block->m_signal = unit->getProgram().getInputs().find(m_channel);
+                block->m_channelName = m_channel;
                 block->m_scale = m_scale;
                 return block;
             }
@@ -158,6 +159,7 @@ namespace es_script {
             else if (m_kind == "actuator") {
                 control::ActuatorBlock *block = new control::ActuatorBlock;
                 block->m_actuator = unit->getProgram().getOutputs().find(m_channel);
+                block->m_channelName = m_channel;
                 return block;
             }
 
@@ -243,7 +245,41 @@ namespace es_script {
                 node->emit(unit, &cache);
             }
 
-            return unit->getProgram().compile();
+            std::vector<std::string> &errors = Compiler::output()->errors;
+            const size_t before = errors.size();
+
+            for (int i = 0; i < unit->getProgram().getBlockCount(); ++i) {
+                control::ControlBlock *block = unit->getProgram().getBlock(i);
+
+                if (control::SignalBlock *signal =
+                    dynamic_cast<control::SignalBlock *>(block))
+                {
+                    if (signal->m_signal < 0) {
+                        errors.push_back(
+                            "control program: unknown input channel '"
+                            + signal->m_channelName + "'");
+                    }
+                }
+                else if (control::ActuatorBlock *actuator =
+                    dynamic_cast<control::ActuatorBlock *>(block))
+                {
+                    if (actuator->m_actuator < 0) {
+                        errors.push_back(
+                            "control program: unknown output channel '"
+                            + actuator->m_channelName + "'");
+                    }
+                }
+            }
+
+            if (errors.size() != before) return false;
+
+            if (!unit->getProgram().compile()) {
+                errors.push_back(
+                    "control program: " + unit->getProgram().getError());
+                return false;
+            }
+
+            return true;
         }
 
     protected:

@@ -62,7 +62,15 @@ es_script::Compiler::Output es_script::Compiler::execute() {
     const bool result = m_program.execute();
 
     if (!result) {
-        // Todo: Runtime error
+        output()->errors.push_back("script execution failed");
+    }
+
+    if (!output()->errors.empty()) {
+        std::ofstream file("error_log.log", std::ios::out | std::ios::app);
+        for (const std::string &error : output()->errors) {
+            file << error << "\n";
+        }
+        file.close();
     }
 
     return *output();

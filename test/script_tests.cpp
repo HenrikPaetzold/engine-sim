@@ -1499,3 +1499,108 @@ TEST_F(ScriptFixture, TheBrakeForceReachesTheVehicle) {
 
     EXPECT_NEAR(vehicle->getMaxBrakeForce(), 25000.0, 1e-12);
 }
+
+TEST_F(ScriptFixture, ALookupMapIsVisibleAndLearnable) {
+    ASSERT_TRUE(run(
+        "set_control_program(" "\n"
+        "    control_program()" "\n"
+        "        .add_output(" "\n"
+        "            actuator(" "\n"
+        "                channel: \"throttle_plate\"," "\n"
+        "                a: lookup(" "\n"
+        "                    name: \"shape\"," "\n"
+        "                    adaptive: true, adapt_min: 0.0, adapt_max: 1.0," "\n"
+        "                    x: signal(channel: \"accelerator\")," "\n"
+        "                    y: constant(0.0)," "\n"
+        "                    map: map_2d()" "\n"
+        "                        .add_map_sample(x: 0.0, y: 0.0, value: 0.0)" "\n"
+        "                        .add_map_sample(x: 1.0, y: 0.0, value: 1.0)))))" "\n"));
+
+    powertrain::ScriptedControlUnit *program =
+        es_script::Compiler::output()->controlProgram;
+    ASSERT_NE(program, nullptr);
+
+    config::ParameterRegistry registry;
+    program->registerParameters(&registry, "");
+
+    ASSERT_TRUE(registry.contains("program.shape"))
+        << "the only map a script can build is invisible";
+    EXPECT_TRUE(registry.isAdaptive("program.shape"));
+
+    control::Map2d *map = registry.findMap("program.shape");
+    ASSERT_NE(map, nullptr);
+
+    const double before = map->sample(0.0, 0.0);
+    ASSERT_TRUE(registry.accumulate("program.shape", 0.0, 0.0, 0.25));
+
+    EXPECT_GT(map->sample(0.0, 0.0), before)
+        << "a zone learner could never reach a scripted lookup map";
+}
+
+TEST_F(ScriptFixture, EveryBlockKindCanCarryTheAdaptiveFlag) {
+    ASSERT_TRUE(run(
+        "set_control_program(" "\n"
+        "    control_program()" "\n"
+        "        .add_output(" "\n"
+        "            actuator(" "\n"
+        "                channel: \"throttle_plate\"," "\n"
+        "                a: integrator(" "\n"
+        "                    name: \"acc\"," "\n"
+        "                    adaptive: true, adapt_min: 0.0, adapt_max: 2.0," "\n"
+        "                    a: constant(0.1)))))" "\n"));
+
+    powertrain::ScriptedControlUnit *program =
+        es_script::Compiler::output()->controlProgram;
+    ASSERT_NE(program, nullptr);
+
+    config::ParameterRegistry registry;
+    program->registerParameters(&registry, "");
+
+    ASSERT_TRUE(registry.contains("program.acc.min"));
+    EXPECT_TRUE(registry.isAdaptive("program.acc.min"))
+        << "the integrator wrapper still swallows adaptive";
+    EXPECT_TRUE(registry.adapt("program.acc.min", 0.1));
+}
+
+TEST_F(ScriptFixture, ACycleInTheProgramIsReported) {
+    ASSERT_TRUE(run(
+        "set_control_program(" "\n"
+        "    control_program()" "\n"
+        "        .add_output(" "\n"
+        "            actuator(" "\n"
+        "                channel: \"throttle_plate\"," "\n"
+        "                a: delay(a: constant(1.0)))))" "\n"));
+
+    EXPECT_TRUE(es_script::Compiler::output()->errors.empty());
+}
+
+TEST_F(ScriptFixture, AMistypedChannelIsAnErrorNotASilentZero) {
+    ASSERT_TRUE(run(
+        "set_control_program(" "\n"
+        "    control_program()" "\n"
+        "        .add_output(" "\n"
+        "            actuator(" "\n"
+        "                channel: \"throttle_plate\"," "\n"
+        "                a: signal(channel: \"engine_sped\"))))" "\n"));
+
+    const auto &errors = es_script::Compiler::output()->errors;
+    ASSERT_FALSE(errors.empty())
+        << "a typo in a channel name produced a silent constant zero";
+    EXPECT_NE(errors[0].find("engine_sped"), std::string::npos) << errors[0];
+
+    EXPECT_EQ(es_script::Compiler::output()->controlProgram, nullptr);
+}
+
+TEST_F(ScriptFixture, AMistypedActuatorIsAlsoReported) {
+    ASSERT_TRUE(run(
+        "set_control_program(" "\n"
+        "    control_program()" "\n"
+        "        .add_output(" "\n"
+        "            actuator(" "\n"
+        "                channel: \"throttle_plat\"," "\n"
+        "                a: constant(0.5))))" "\n"));
+
+    const auto &errors = es_script::Compiler::output()->errors;
+    ASSERT_FALSE(errors.empty());
+    EXPECT_NE(errors[0].find("throttle_plat"), std::string::npos) << errors[0];
+}

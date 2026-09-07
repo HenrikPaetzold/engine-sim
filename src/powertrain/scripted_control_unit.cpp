@@ -204,6 +204,60 @@ void powertrain::ScriptedControlUnit::registerParameters(
             registry->registerScalar(
                 describe(base + block->m_name + ".max", integrator->m_max),
                 &integrator->m_max);
+            registry->registerScalar(
+                describe(base + block->m_name + ".initial", integrator->m_initial),
+                &integrator->m_initial);
+        }
+        else if (control::MapBlock *map =
+            dynamic_cast<control::MapBlock *>(block))
+        {
+            config::ParameterDescriptor descriptor =
+                describe(base + block->m_name, 0.0);
+            descriptor.type = config::ParameterType::Map;
+
+            registry->registerMap(descriptor, &map->m_map);
+        }
+        else if (control::SignalBlock *signal =
+            dynamic_cast<control::SignalBlock *>(block))
+        {
+            registry->registerScalar(
+                describe(base + block->m_name + ".scale", signal->m_scale),
+                &signal->m_scale);
+        }
+        else if (control::SelectBlock *select =
+            dynamic_cast<control::SelectBlock *>(block))
+        {
+            registry->registerScalar(
+                describe(base + block->m_name + ".threshold", select->m_threshold),
+                &select->m_threshold);
+        }
+        else if (control::CompareBlock *compare =
+            dynamic_cast<control::CompareBlock *>(block))
+        {
+            registry->registerScalar(
+                describe(base + block->m_name + ".band", compare->m_band),
+                &compare->m_band);
+        }
+        else if (control::LatchBlock *latch =
+            dynamic_cast<control::LatchBlock *>(block))
+        {
+            registry->registerScalar(
+                describe(base + block->m_name + ".threshold", latch->m_threshold),
+                &latch->m_threshold);
+        }
+        else if (control::TimerBlock *timer =
+            dynamic_cast<control::TimerBlock *>(block))
+        {
+            registry->registerScalar(
+                describe(base + block->m_name + ".threshold", timer->m_threshold),
+                &timer->m_threshold);
+        }
+        else if (control::DelayBlock *delay =
+            dynamic_cast<control::DelayBlock *>(block))
+        {
+            registry->registerScalar(
+                describe(base + block->m_name + ".initial", delay->m_initial),
+                &delay->m_initial);
         }
     }
 }
