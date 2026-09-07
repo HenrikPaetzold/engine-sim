@@ -69,7 +69,10 @@ class Transmission {
         void setEngagement(powertrain::GateEngagement range);
         inline powertrain::GateEngagement getEngagement() const { return m_engagement; }
         inline bool supportsEngagement() const { return m_type != Type::Legacy; }
-        inline bool isParkLockEngaged() const { return m_engagement == powertrain::GateEngagement::Park; }
+        void setParkLock(bool engaged);
+        inline bool isParkLockEngaged() const {
+            return m_engagement == powertrain::GateEngagement::Park || m_parkLockRequest;
+        }
         double getParkLockTorque() const;
         void addParkLockForTest(atg_scs::RigidBodySystem *system);
 
@@ -115,6 +118,7 @@ class Transmission {
 
         Type m_type;
         powertrain::GateEngagement m_engagement;
+        bool m_parkLockRequest;
         int m_gear;
         int m_preselectedGear;
         int m_gearCount;

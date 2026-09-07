@@ -150,18 +150,8 @@ void powertrain::ScriptedControlUnit::registerParameters(
         else if (control::PidBlock *pid =
             dynamic_cast<control::PidBlock *>(block))
         {
-            control::PidController::Parameters &params =
-                pid->m_controller.getParametersMutable();
-
-            registry->registerScalar(
-                describe(base + block->m_name + ".kp", params.kp),
-                &params.kp);
-            registry->registerScalar(
-                describe(base + block->m_name + ".ki", params.ki),
-                &params.ki);
-            registry->registerScalar(
-                describe(base + block->m_name + ".kd", params.kd),
-                &params.kd);
+            config::registerPid(
+                registry, base + block->m_name + ".", &pid->m_controller);
         }
         else if (control::ClampBlock *clamp =
             dynamic_cast<control::ClampBlock *>(block))

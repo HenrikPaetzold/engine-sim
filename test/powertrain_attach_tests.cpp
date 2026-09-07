@@ -245,3 +245,31 @@ TEST(PowertrainAttachTests, TheStateMirrorsTheSimulationBack) {
     EXPECT_EQ(rig.system.getState().gear, 3);
     EXPECT_EQ(rig.system.getState().gearCount, rig.gearbox.getGearCount());
 }
+
+TEST(PowertrainAttachTests, TheParkLockActuatorReachesTheGearbox) {
+    Rig rig(Transmission::Type::DualClutch);
+
+    ASSERT_FALSE(rig.gearbox.isParkLockEngaged());
+
+    rig.system.m_commands.engagement = powertrain::GateEngagement::Forward;
+    rig.system.m_commands.parkLock = true;
+    rig.system.applyCommands();
+
+    EXPECT_TRUE(rig.gearbox.isParkLockEngaged())
+        << "the park lock actuator channel goes nowhere";
+
+    rig.system.m_commands.parkLock = false;
+    rig.system.applyCommands();
+
+    EXPECT_FALSE(rig.gearbox.isParkLockEngaged());
+}
+
+TEST(PowertrainAttachTests, TheGateStillEngagesTheParkLockOnItsOwn) {
+    Rig rig(Transmission::Type::DualClutch);
+
+    rig.system.m_commands.engagement = powertrain::GateEngagement::Park;
+    rig.system.m_commands.parkLock = false;
+    rig.system.applyCommands();
+
+    EXPECT_TRUE(rig.gearbox.isParkLockEngaged());
+}

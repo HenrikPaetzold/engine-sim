@@ -430,6 +430,7 @@ void PowertrainSystem::applyCommands() {
     Transmission *transmission = m_simulator->getTransmission();
     if (transmission != nullptr) {
         transmission->setEngagement(m_commands.engagement);
+        transmission->setParkLock(m_commands.parkLock);
 
         for (int i = 0; i < powertrain::MaxClutches; ++i) {
             transmission->setClutchPressure(

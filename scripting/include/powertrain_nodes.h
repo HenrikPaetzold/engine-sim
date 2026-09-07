@@ -119,6 +119,9 @@ namespace es_script {
         void generate(powertrain::TransmissionControlUnit *tcu) const {
             powertrain::TransmissionControlUnit::Parameters parameters = m_parameters;
 
+            if (m_finalDrive > 0.0) parameters.finalDrive = m_finalDrive;
+            if (m_tireRadius > 0.0) parameters.tireRadius = m_tireRadius;
+
             if (!m_gears.empty()) {
                 parameters.gearCount = static_cast<int>(m_gears.size());
                 for (size_t i = 0; i < m_gears.size(); ++i) {
@@ -173,12 +176,13 @@ namespace es_script {
             tcu->markAuthoredMaps(upshift, downshift, lockup);
             tcu->markAuthoredKickdown(kickdown);
             tcu->markAuthoredIntermediateBias(intermediate);
+            tcu->markAuthoredDriveline(m_finalDrive > 0.0, m_tireRadius > 0.0);
         }
 
     protected:
         virtual void registerInputs() override {
-            addInput("final_drive", &m_parameters.finalDrive);
-            addInput("tire_radius", &m_parameters.tireRadius);
+            addInput("final_drive", &m_finalDrive);
+            addInput("tire_radius", &m_tireRadius);
             addInput("torque_interrupt", &m_parameters.requiresTorqueInterrupt);
             addInput("preselect", &m_parameters.supportsPreselect);
             addInput("launch_device", &m_parameters.hasLaunchDevice);
@@ -205,6 +209,7 @@ namespace es_script {
             addInput("kickdown_filter", &m_parameters.kickdownFilter);
             addInput("kickdown_rev_margin", &m_parameters.kickdownRevMargin);
             addInput("kickdown_target_speed", &m_parameters.kickdownTargetSpeed);
+            addInput("launch_speed", &m_parameters.launchSpeed);
             addInput("launch_slip_target", &m_parameters.launchSlipTarget);
             addInput("launch_lock_slip", &m_parameters.launchLockSlip);
             addInput("stall_protect_speed", &m_parameters.stallProtectSpeed);
@@ -246,6 +251,8 @@ namespace es_script {
         Map2dNode *m_intermediateBias = nullptr;
         Map2dNode *m_overlapShape = nullptr;
         Map2dNode *m_engageShape = nullptr;
+        double m_finalDrive = 0.0;
+        double m_tireRadius = 0.0;
         double m_engageBins = 8.0;
         double m_engageLimit = 0.4;
         PidControllerNode *m_lockupController = nullptr;

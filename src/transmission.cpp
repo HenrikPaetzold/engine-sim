@@ -9,6 +9,7 @@
 Transmission::Transmission() {
     m_type = Type::Legacy;
     m_engagement = powertrain::GateEngagement::Forward;
+    m_parkLockRequest = false;
     m_gear = -1;
     m_preselectedGear = -1;
     m_gearCount = 0;
@@ -228,7 +229,7 @@ void Transmission::update(double dt) {
         m_lockupClutch.m_pressure = m_lockupPressure;
     }
 
-    if (m_engagement == powertrain::GateEngagement::Park) {
+    if (isParkLockEngaged()) {
         m_parkLock.m_minTorque = -m_parkLockTorque;
         m_parkLock.m_maxTorque = m_parkLockTorque;
     }
@@ -236,6 +237,10 @@ void Transmission::update(double dt) {
         m_parkLock.m_minTorque = 0.0;
         m_parkLock.m_maxTorque = 0.0;
     }
+}
+
+void Transmission::setParkLock(bool engaged) {
+    m_parkLockRequest = engaged;
 }
 
 void Transmission::bind(

@@ -69,6 +69,8 @@ powertrain::TransmissionControlUnit::TransmissionControlUnit() {
     m_requestedGears = 0;
     m_gateElapsed = 0.0;
     m_intermediateAuthored = false;
+    m_finalDriveAuthored = false;
+    m_tireRadiusAuthored = false;
 }
 
 powertrain::TransmissionControlUnit::~TransmissionControlUnit() {
@@ -458,6 +460,14 @@ void powertrain::TransmissionControlUnit::markAuthoredMaps(
 
 void powertrain::TransmissionControlUnit::markAuthoredKickdown(bool authored) {
     m_kickdownAuthored = authored;
+}
+
+void powertrain::TransmissionControlUnit::markAuthoredDriveline(
+    bool finalDrive,
+    bool tireRadius)
+{
+    m_finalDriveAuthored = finalDrive;
+    m_tireRadiusAuthored = tireRadius;
 }
 
 void powertrain::TransmissionControlUnit::markAuthoredIntermediateBias(bool authored) {
@@ -1046,6 +1056,11 @@ void powertrain::TransmissionControlUnit::registerParameters(
         &m_params.speedMatchTolerance);
 
     registry->registerScalar(
+        describe(base + "launch.speed", 0.0,
+            units::velocity(100.0, units::km / units::hour),
+            m_params.launchSpeed, "m/s"),
+        &m_params.launchSpeed);
+    registry->registerScalar(
         describe(base + "launch.slip_target", 0.0, units::rpm(4000.0),
             m_params.launchSlipTarget, "rad/s"),
         &m_params.launchSlipTarget);
@@ -1053,18 +1068,7 @@ void powertrain::TransmissionControlUnit::registerParameters(
         describe(base + "launch.lock_slip", 0.0, units::rpm(1000.0),
             m_params.launchLockSlip, "rad/s"),
         &m_params.launchLockSlip);
-    registry->registerScalar(
-        describe(base + "launch.pid.kp", 0.0, 1.0,
-            m_params.slipController.kp, ""),
-        &m_slipController.getParametersMutable().kp);
-    registry->registerScalar(
-        describe(base + "launch.pid.ki", 0.0, 20.0,
-            m_params.slipController.ki, ""),
-        &m_slipController.getParametersMutable().ki);
-    registry->registerScalar(
-        describe(base + "launch.pid.kd", 0.0, 1.0,
-            m_params.slipController.kd, ""),
-        &m_slipController.getParametersMutable().kd);
+    config::registerPid(registry, base + "launch.pid.", &m_slipController);
     registry->registerScalar(
         describe(base + "launch.stall_protect_speed", units::rpm(200.0), units::rpm(3000.0),
             m_params.stallProtectSpeed, "rad/s"),
@@ -1119,12 +1123,7 @@ void powertrain::TransmissionControlUnit::registerParameters(
     registry->registerScalar(
         describe(base + "lockup.apply_rate", 0.05, 20.0, m_params.lockupApplyRate, "1/s"),
         &m_params.lockupApplyRate);
-    registry->registerScalar(
-        describe(base + "lockup.pid.kp", 0.0, 1.0, m_params.lockupController.kp, ""),
-        &m_lockupController.getParametersMutable().kp);
-    registry->registerScalar(
-        describe(base + "lockup.pid.ki", 0.0, 20.0, m_params.lockupController.ki, ""),
-        &m_lockupController.getParametersMutable().ki);
+    config::registerPid(registry, base + "lockup.pid.", &m_lockupController);
     config::ParameterDescriptor lockup =
         describe(base + "lockup_map", 0.0, 200.0, 0.0, "m/s");
     lockup.adaptive = true;
@@ -1191,6 +1190,10 @@ void powertrain::TransmissionControlUnit::configureGearbox(
         }
     }
 
-    if (capabilities.finalDrive > 0.0) m_params.finalDrive = capabilities.finalDrive;
-    if (capabilities.tireRadius > 0.0) m_params.tireRadius = capabilities.tireRadius;
+    if (!m_finalDriveAuthored && capabilities.finalDrive > 0.0) {
+        m_params.finalDrive = capabilities.finalDrive;
+    }
+    if (!m_tireRadiusAuthored && capabilities.tireRadius > 0.0) {
+        m_params.tireRadius = capabilities.tireRadius;
+    }
 }

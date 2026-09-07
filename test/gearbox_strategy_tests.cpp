@@ -1173,3 +1173,43 @@ TEST(ShiftShapeTests, TheReleaseDoesNotDependOnTheControlRate) {
     EXPECT_NEAR(coarse, fine, 0.02)
         << "the shift shape changed with control.frequency";
 }
+
+TEST(AuthoredMapTests, AScriptedFinalDriveSurvivesTheGearboxHandshake) {
+    powertrain::TransmissionControlUnit::Parameters params = dctParameters();
+    params.finalDrive = 4.10;
+    params.tireRadius = units::distance(12.0, units::inch);
+
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(params);
+    tcu.markAuthoredDriveline(true, true);
+
+    powertrain::GearboxCapabilities capabilities;
+    capabilities.gearCount = 6;
+    capabilities.finalDrive = 3.42;
+    capabilities.tireRadius = units::distance(10.0, units::inch);
+
+    tcu.configureGearbox(capabilities);
+
+    EXPECT_NEAR(tcu.getParameters().finalDrive, 4.10, 1e-12)
+        << "the vehicle overwrote the scripted final drive";
+    EXPECT_NEAR(
+        tcu.getParameters().tireRadius, units::distance(12.0, units::inch), 1e-12)
+        << "the vehicle overwrote the scripted tire radius";
+}
+
+TEST(AuthoredMapTests, AnUnsetDrivelineStillComesFromTheVehicle) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(dctParameters());
+    tcu.markAuthoredDriveline(false, false);
+
+    powertrain::GearboxCapabilities capabilities;
+    capabilities.gearCount = 6;
+    capabilities.finalDrive = 3.90;
+    capabilities.tireRadius = units::distance(10.0, units::inch);
+
+    tcu.configureGearbox(capabilities);
+
+    EXPECT_NEAR(tcu.getParameters().finalDrive, 3.90, 1e-12);
+    EXPECT_NEAR(
+        tcu.getParameters().tireRadius, units::distance(10.0, units::inch), 1e-12);
+}

@@ -64,7 +64,7 @@ namespace powertrain {
 
                 double launchSlipTarget = units::rpm(1000.0);
                 double launchLockSlip = units::rpm(60.0);
-                double launchSpeed = units::distance(2.0, units::m);
+                double launchSpeed = units::velocity(7.2, units::km / units::hour);
                 double lockupSlipTarget = units::rpm(120.0);
                 double lockupLockSlip = units::rpm(25.0);
                 double lockupApplyRate = 1.5;
@@ -146,6 +146,7 @@ namespace powertrain {
             void markAuthoredMaps(bool upshift, bool downshift, bool lockup);
             void markAuthoredKickdown(bool authored);
             void markAuthoredIntermediateBias(bool authored);
+            void markAuthoredDriveline(bool finalDrive, bool tireRadius);
 
             double engineSpeedForGear(int gear, double vehicleSpeed) const;
             double kickdownTarget(double pedal) const;
@@ -209,6 +210,8 @@ namespace powertrain {
             bool m_lockupAuthored;
             bool m_kickdownAuthored;
             bool m_intermediateAuthored;
+            bool m_finalDriveAuthored;
+            bool m_tireRadiusAuthored;
             control::PidController m_slipController;
             control::PidController m_lockupController;
             control::RateLimiter m_lockupLimiter;

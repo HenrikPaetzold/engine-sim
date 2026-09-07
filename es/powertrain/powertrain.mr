@@ -77,8 +77,8 @@ public node engine_control_unit => __engine_sim__engine_control_unit {
 }
 
 public node transmission_control_unit => __engine_sim__transmission_control_unit {
-    input final_drive [float]: 3.42;
-    input tire_radius [float]: 12 * units.inch;
+    input final_drive [float]: 0;
+    input tire_radius [float]: 0;
     input torque_interrupt [bool]: true;
     input preselect [bool]: false;
     input launch_device [bool]: false;
@@ -105,6 +105,7 @@ public node transmission_control_unit => __engine_sim__transmission_control_unit
     input kickdown_filter [float]: 0.08 * units.sec;
     input kickdown_rev_margin [float]: 500 * units.rpm;
     input kickdown_target_speed [float]: 6200 * units.rpm;
+    input launch_speed [float]: 7.2 * units.km / units.hour;
     input launch_slip_target [float]: 1000 * units.rpm;
     input launch_lock_slip [float]: 60 * units.rpm;
     input stall_protect_speed [float]: 650 * units.rpm;

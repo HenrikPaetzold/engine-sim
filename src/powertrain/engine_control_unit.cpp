@@ -408,27 +408,9 @@ void powertrain::EngineControlUnit::registerParameters(
         describe(base + "idle.speed_warm", units::rpm(400.0), units::rpm(3000.0),
             m_params.idleSpeedWarm, "rad/s"),
         &m_params.idleSpeedWarm);
-    registry->registerScalar(
-        describe(base + "idle.pid.kp", 0.0, 1.0,
-            m_params.idleController.kp, ""),
-        &m_idleController.getParametersMutable().kp);
-    registry->registerScalar(
-        describe(base + "idle.pid.ki", 0.0, 1.0,
-            m_params.idleController.ki, ""),
-        &m_idleController.getParametersMutable().ki);
-    registry->registerScalar(
-        describe(base + "idle.pid.kd", 0.0, 1.0,
-            m_params.idleController.kd, ""),
-        &m_idleController.getParametersMutable().kd);
+    config::registerPid(registry, base + "idle.pid.", &m_idleController);
 
-    registry->registerScalar(
-        describe(base + "torque.pid.kp", 0.0, 1.0,
-            m_params.torqueController.kp, ""),
-        &m_torqueController.getParametersMutable().kp);
-    registry->registerScalar(
-        describe(base + "torque.pid.ki", 0.0, 1.0,
-            m_params.torqueController.ki, ""),
-        &m_torqueController.getParametersMutable().ki);
+    config::registerPid(registry, base + "torque.pid.", &m_torqueController);
 
     registry->registerScalar(
         describe(base + "limiter.rev_limit", units::rpm(1000.0), units::rpm(20000.0),
@@ -454,10 +436,7 @@ void powertrain::EngineControlUnit::registerParameters(
         describe(base + "cranking_speed", units::rpm(50.0), units::rpm(2000.0),
             m_params.crankingSpeed, "rad/s"),
         &m_params.crankingSpeed);
-    registry->registerScalar(
-        describe(base + "torque.pid.kd", 0.0, 1.0,
-            m_params.torqueController.kd, ""),
-        &m_torqueController.getParametersMutable().kd);
+
 
     registry->registerScalar(
         describe(base + "coldstart.enrichment", 1.0, 3.0,

@@ -483,3 +483,21 @@ TEST(EngageProfileTests, TheBinCountIsAnIntegerParameterAndRebuilds) {
 
     EXPECT_EQ(tcu.getEngageProfile().getBinCount(), 16);
 }
+
+TEST(LaunchTests, TheLaunchSpeedIsScriptableAndRegistered) {
+    powertrain::TransmissionControlUnit tcu;
+    tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
+
+    EXPECT_NEAR(
+        tcu.getParameters().launchSpeed,
+        units::velocity(7.2, units::km / units::hour),
+        1e-12);
+
+    config::ParameterRegistry registry;
+    tcu.registerParameters(&registry, "");
+
+    ASSERT_TRUE(registry.contains("tcu.launch.speed"));
+    ASSERT_TRUE(registry.set("tcu.launch.speed", 5.0));
+
+    EXPECT_NEAR(tcu.getParameters().launchSpeed, 5.0, 1e-12);
+}

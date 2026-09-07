@@ -4,6 +4,7 @@
 
 #include "../include/powertrain/scripted_control_unit.h"
 #include "../include/transmission.h"
+#include "../include/vehicle.h"
 #include "../include/engine.h"
 #include "../include/config/parameter_registry.h"
 #include "../include/units.h"
@@ -1473,4 +1474,28 @@ TEST_F(ScriptFixture, TheRateLimitTakesALiveEditWhileItRuns) {
 
     EXPECT_GT(commands.throttlePlate - slow, 0.4)
         << "the live edit to program.ramp.rise never reached the limiter";
+}
+
+TEST_F(ScriptFixture, TheLaunchSpeedAndBrakeForceReachTheSimulation) {
+    ASSERT_TRUE(run(
+        "set_powertrain(\n"
+        "    tcu: transmission_control_unit(launch_speed: 3.0))\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    EXPECT_NEAR(
+        unit->getTransmissionControlUnit().getParameters().launchSpeed,
+        3.0,
+        1e-12);
+}
+
+TEST_F(ScriptFixture, TheBrakeForceReachesTheVehicle) {
+    ASSERT_TRUE(run(
+        "set_vehicle(vehicle(max_brake_force: 25000))" "\n"));
+
+    Vehicle *vehicle = es_script::Compiler::output()->vehicle;
+    ASSERT_NE(vehicle, nullptr);
+
+    EXPECT_NEAR(vehicle->getMaxBrakeForce(), 25000.0, 1e-12);
 }

@@ -82,8 +82,8 @@ public node converter_gearbox {
 }
 
 public node manual_control {
-    input final_drive [float]: 3.42;
-    input tire_radius [float]: 12 * units.inch;
+    input final_drive [float]: 0;
+    input tire_radius [float]: 0;
     input default_position [string]: "N";
 
     alias output __out [tcu_channel]:
@@ -96,8 +96,8 @@ public node manual_control {
 }
 
 public node robotised_manual_control {
-    input final_drive [float]: 3.42;
-    input tire_radius [float]: 12 * units.inch;
+    input final_drive [float]: 0;
+    input tire_radius [float]: 0;
     input torque_cut [float]: 1.00;
     input torque_reduction [float]: 0.70;
     input speed_match_time [float]: 0.30 * units.sec;
@@ -119,8 +119,8 @@ public node robotised_manual_control {
 }
 
 public node dual_clutch_control {
-    input final_drive [float]: 3.42;
-    input tire_radius [float]: 12 * units.inch;
+    input final_drive [float]: 0;
+    input tire_radius [float]: 0;
     input clutch_overlap_time [float]: 0.16 * units.sec;
     input overlap_hold [float]: 0.20;
     input multi_via_intermediate [bool]: false;
@@ -147,14 +147,15 @@ public node dual_clutch_control {
 }
 
 public node converter_control {
-    input final_drive [float]: 3.42;
-    input tire_radius [float]: 12 * units.inch;
+    input final_drive [float]: 0;
+    input tire_radius [float]: 0;
     input clutch_overlap_time [float]: 0.25 * units.sec;
     input overlap_hold [float]: 0.25;
     input torque_reduction [float]: 0.85;
     input lockup_slip_target [float]: 120 * units.rpm;
     input lockup_lock_slip [float]: 25 * units.rpm;
     input lockup_apply_rate [float]: 1.5;
+    input launch_speed [float]: 7.2 * units.km / units.hour;
     input launch_slip_target [float]: 1000 * units.rpm;
     input kickdown_threshold [float]: 0.85;
     input min_gear_time [float]: 0.60 * units.sec;
@@ -172,6 +173,7 @@ public node converter_control {
             lockup_slip_target: lockup_slip_target,
             lockup_lock_slip: lockup_lock_slip,
             lockup_apply_rate: lockup_apply_rate,
+            launch_speed: launch_speed,
             launch_slip_target: launch_slip_target,
             kickdown_threshold: kickdown_threshold,
             min_gear_time: min_gear_time,

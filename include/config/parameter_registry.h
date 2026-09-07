@@ -9,6 +9,7 @@
 
 namespace control {
     class Map2d;
+    class PidController;
 }
 
 namespace config {
@@ -107,6 +108,11 @@ namespace config {
             std::vector<Entry> m_entries;
             std::unordered_map<std::string, int> m_index;
     };
+
+    void registerPid(
+        ParameterRegistry *registry,
+        const std::string &base,
+        control::PidController *controller);
 
 } /* namespace config */
 

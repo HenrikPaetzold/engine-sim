@@ -102,6 +102,10 @@ namespace units {
         return v * unit;
     }
 
+    inline constexpr double velocity(double v, double unit) {
+        return v * unit;
+    }
+
     inline constexpr double torque(double v, double unit) {
         return v * unit;
     }

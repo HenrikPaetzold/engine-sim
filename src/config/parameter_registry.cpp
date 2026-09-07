@@ -1,5 +1,7 @@
 #include "../../include/config/parameter_registry.h"
 
+#include "../../include/control/pid_controller.h"
+
 #include "../../include/control/map_2d.h"
 
 #include <algorithm>
@@ -499,5 +501,32 @@ void config::ParameterRegistry::exportScript(std::ostream &out, ExportScope scop
             out << "set_parameter(\"" << entry.descriptor.path << "\", "
                 << readValue(entry) << ")\n";
         }
+    }
+}
+
+void config::registerPid(
+    ParameterRegistry *registry,
+    const std::string &base,
+    control::PidController *controller)
+{
+    if (registry == nullptr || controller == nullptr) return;
+
+    control::PidController::Parameters &params = controller->getParametersMutable();
+
+    const struct { const char *name; double *target; double min; double max; }
+        gains[] = {
+            { "kp", &params.kp, 0.0, 1.0 },
+            { "ki", &params.ki, 0.0, 1.0 },
+            { "kd", &params.kd, 0.0, 1.0 },
+            { "min", &params.outputMin, -1e6, 1e6 },
+            { "max", &params.outputMax, -1e6, 1e6 },
+            { "d_filter_hz", &params.derivativeCutoff, 0.0, 1000.0 },
+            { "anti_windup", &params.trackingGain, 0.0, 100.0 },
+            { "integrator_limit", &params.integratorLimit, 0.0, 1e6 } };
+
+    for (const auto &gain : gains) {
+        registry->registerScalar(
+            describeScalar(base + gain.name, gain.min, gain.max, *gain.target, ""),
+            gain.target);
     }
 }
