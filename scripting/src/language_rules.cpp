@@ -91,6 +91,10 @@ void es_script::LanguageRules::registerBuiltinNodeTypes() {
     registerBuiltinType<piranha::ChannelNode>(
         "__engine_sim__adaptation_channel", &es_script::ObjectChannel::AdaptationChannel);
     registerBuiltinType<piranha::ChannelNode>(
+        "__engine_sim__thermal_channel", &es_script::ObjectChannel::ThermalChannel);
+    registerBuiltinType<piranha::ChannelNode>(
+        "__engine_sim__driver_channel", &es_script::ObjectChannel::DriverChannel);
+    registerBuiltinType<piranha::ChannelNode>(
         "__engine_sim__control_block_channel", &es_script::ObjectChannel::ControlBlockChannel);
     registerBuiltinType<piranha::ChannelNode>(
         "__engine_sim__control_program_channel", &es_script::ObjectChannel::ControlProgramChannel);
@@ -209,6 +213,8 @@ void es_script::LanguageRules::registerBuiltinNodeTypes() {
     registerBuiltinType<EngineControlUnitNode>("__engine_sim__engine_control_unit");
     registerBuiltinType<TransmissionControlUnitNode>("__engine_sim__transmission_control_unit");
     registerBuiltinType<AdaptationNode>("__engine_sim__adaptation");
+    registerBuiltinType<ThermalNode>("__engine_sim__thermal");
+    registerBuiltinType<DriverNode>("__engine_sim__driver");
     registerBuiltinType<ControlBlockNode>("__engine_sim__control_block");
     registerBuiltinType<ControlProgramNode>("__engine_sim__control_program");
     registerBuiltinType<AddControlOperandNode>("__engine_sim__add_control_operand");

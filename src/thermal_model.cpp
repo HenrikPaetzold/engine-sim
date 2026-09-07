@@ -6,9 +6,7 @@
 #include <cmath>
 
 ThermalModel::ThermalModel() {
-    m_blockTemperature = m_params.ambientTemperature;
-    m_oilTemperature = m_params.ambientTemperature;
-    m_pendingHeat = 0.0;
+    reset();
 }
 
 ThermalModel::~ThermalModel() {
@@ -62,11 +60,21 @@ void ThermalModel::registerParameters(config::ParameterRegistry *registry, const
             units::celcius(-40.0), units::celcius(60.0),
             m_params.ambientTemperature, "K"),
         &m_params.ambientTemperature);
+    registry->registerScalar(
+        config::describeScalar(base + "initial_block_temperature",
+            units::celcius(-40.0), units::celcius(150.0),
+            m_params.initialBlockTemperature, "K"),
+        &m_params.initialBlockTemperature);
+    registry->registerScalar(
+        config::describeScalar(base + "initial_oil_temperature",
+            units::celcius(-40.0), units::celcius(150.0),
+            m_params.initialOilTemperature, "K"),
+        &m_params.initialOilTemperature);
 }
 
 void ThermalModel::reset() {
-    m_blockTemperature = m_params.ambientTemperature;
-    m_oilTemperature = m_params.ambientTemperature;
+    m_blockTemperature = m_params.initialBlockTemperature;
+    m_oilTemperature = m_params.initialOilTemperature;
     m_pendingHeat = 0.0;
 }
 

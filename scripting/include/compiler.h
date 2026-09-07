@@ -21,6 +21,10 @@ namespace es_script {
             powertrain::PowertrainUnit *powertrain = nullptr;
             powertrain::ScriptedControlUnit *controlProgram = nullptr;
             adaptation::AdaptationManager::Parameters adaptation;
+            ThermalModel::Parameters thermal;
+            double driverPedalTimeConstant = 1.0 / (60.0 * 0.6931471805599453);
+            double driverClutchTimeConstant = 0.001;
+            double driverClutchPedalRate = 0.2;
             config::DriveModeSet driveModes;
             std::string defaultMode;
 

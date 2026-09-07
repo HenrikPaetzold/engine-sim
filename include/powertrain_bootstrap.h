@@ -4,6 +4,7 @@
 #include "powertrain/powertrain_unit.h"
 #include "powertrain/scripted_control_unit.h"
 #include "adaptation/adaptation_manager.h"
+#include "thermal_model.h"
 #include "config/drive_mode.h"
 #include "config/parameter_registry.h"
 
@@ -31,6 +32,11 @@ namespace powertrain {
         PowertrainUnit *unit = nullptr;
         ScriptedControlUnit *program = nullptr;
         adaptation::AdaptationManager::Parameters adaptation;
+        ThermalModel::Parameters thermal;
+        bool thermalAuthored = false;
+        double driverPedalTimeConstant = -1.0;
+        double driverClutchTimeConstant = -1.0;
+        double driverClutchPedalRate = -1.0;
         std::string defaultMode;
         std::vector<std::pair<std::string, double>> parameterOverrides;
         std::vector<AdaptiveOverride> adaptiveOverrides;

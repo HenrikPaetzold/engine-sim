@@ -301,6 +301,72 @@ namespace es_script {
         bool m_requiresBrake = false;
     };
 
+    class ThermalNode : public ObjectReferenceNode<ThermalNode> {
+    public:
+        ThermalNode() { /* void */ }
+        virtual ~ThermalNode() { /* void */ }
+
+        const ThermalModel::Parameters &getParameters() const {
+            return m_parameters;
+        }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("block_mass", &m_parameters.blockThermalMass);
+            addInput("oil_mass", &m_parameters.oilThermalMass);
+            addInput("block_to_oil", &m_parameters.blockToOilConductance);
+            addInput("radiator", &m_parameters.radiatorConductance);
+            addInput("oil_to_ambient", &m_parameters.oilToAmbientConductance);
+            addInput("speed_cooling", &m_parameters.speedCoolingCoefficient);
+            addInput("thermostat_open", &m_parameters.thermostatOpenTemperature);
+            addInput("thermostat_full", &m_parameters.thermostatFullTemperature);
+            addInput("ambient", &m_parameters.ambientTemperature);
+            addInput("combustion_heat_fraction",
+                &m_parameters.combustionHeatFraction);
+            addInput("initial_block_temperature",
+                &m_parameters.initialBlockTemperature);
+            addInput("initial_oil_temperature",
+                &m_parameters.initialOilTemperature);
+
+            ObjectReferenceNode<ThermalNode>::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            setOutput(this);
+            readAllInputs();
+        }
+
+        ThermalModel::Parameters m_parameters;
+    };
+
+    class DriverNode : public ObjectReferenceNode<DriverNode> {
+    public:
+        DriverNode() { /* void */ }
+        virtual ~DriverNode() { /* void */ }
+
+        double getPedalTimeConstant() const { return m_pedalTimeConstant; }
+        double getClutchTimeConstant() const { return m_clutchTimeConstant; }
+        double getClutchPedalRate() const { return m_clutchPedalRate; }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("pedal_time_constant", &m_pedalTimeConstant);
+            addInput("clutch_time_constant", &m_clutchTimeConstant);
+            addInput("clutch_pedal_rate", &m_clutchPedalRate);
+
+            ObjectReferenceNode<DriverNode>::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            setOutput(this);
+            readAllInputs();
+        }
+
+        double m_pedalTimeConstant = 1.0 / (60.0 * 0.6931471805599453);
+        double m_clutchTimeConstant = 0.001;
+        double m_clutchPedalRate = 0.2;
+    };
+
     class AdaptationNode : public ObjectReferenceNode<AdaptationNode> {
     public:
         AdaptationNode() { /* void */ }

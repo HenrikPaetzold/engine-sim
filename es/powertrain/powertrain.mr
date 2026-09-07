@@ -17,6 +17,8 @@ public node drive_mode_channel => __engine_sim__drive_mode_channel { /* void */ 
 public node ecu_channel => __engine_sim__ecu_channel { /* void */ }
 public node tcu_channel => __engine_sim__tcu_channel { /* void */ }
 public node adaptation_channel => __engine_sim__adaptation_channel { /* void */ }
+public node thermal_channel => __engine_sim__thermal_channel { /* void */ }
+public node driver_channel => __engine_sim__driver_channel { /* void */ }
 public node gate_position_channel => __engine_sim__gate_position_channel { /* void */ }
 
 // Objects
@@ -128,6 +130,31 @@ public node transmission_control_unit => __engine_sim__transmission_control_unit
     input lockup_controller [pid_controller_channel]: pid_controller(kp: 0.004, ki: 0.9, min: 0.0, max: 1.0);
 
     alias output __out [tcu_channel];
+}
+
+public node thermal => __engine_sim__thermal {
+    input block_mass [float]: 120000.0;
+    input oil_mass [float]: 40000.0;
+    input block_to_oil [float]: 60.0;
+    input radiator [float]: 900.0;
+    input oil_to_ambient [float]: 30.0;
+    input speed_cooling [float]: 25.0;
+    input thermostat_open [float]: (85.0 + units.K0);
+    input thermostat_full [float]: (100.0 + units.K0);
+    input ambient [float]: (20.0 + units.K0);
+    input combustion_heat_fraction [float]: 1.0;
+    input initial_block_temperature [float]: (20.0 + units.K0);
+    input initial_oil_temperature [float]: (20.0 + units.K0);
+
+    alias output __out [thermal_channel];
+}
+
+public node driver => __engine_sim__driver {
+    input pedal_time_constant [float]: 0.024;
+    input clutch_time_constant [float]: 0.001;
+    input clutch_pedal_rate [float]: 0.2;
+
+    alias output __out [driver_channel];
 }
 
 public node adaptation => __engine_sim__adaptation {
@@ -300,5 +327,7 @@ public node set_powertrain => __engine_sim__set_powertrain {
     input ecu [ecu_channel]: engine_control_unit();
     input tcu [tcu_channel]: transmission_control_unit();
     input adaptation [adaptation_channel]: adaptation();
+    input thermal [thermal_channel]: thermal();
+    input driver [driver_channel]: driver();
     input default_mode [string]: "";
 }

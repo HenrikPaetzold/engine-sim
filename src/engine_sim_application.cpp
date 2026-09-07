@@ -636,6 +636,11 @@ void EngineSimApplication::loadScript() {
     powertrain::PowertrainUnit *scriptedPowertrain = nullptr;
     powertrain::ScriptedControlUnit *scriptedProgram = nullptr;
     adaptation::AdaptationManager::Parameters adaptationParams;
+    ThermalModel::Parameters thermalParams;
+    bool thermalAuthored = false;
+    double driverPedalTimeConstant = -1.0;
+    double driverClutchTimeConstant = -1.0;
+    double driverClutchPedalRate = -1.0;
     config::DriveModeSet driveModes;
     std::string defaultMode;
     std::vector<std::pair<std::string, double>> parameterOverrides;
@@ -656,6 +661,11 @@ void EngineSimApplication::loadScript() {
         scriptedPowertrain = output.powertrain;
         scriptedProgram = output.controlProgram;
         adaptationParams = output.adaptation;
+        thermalParams = output.thermal;
+        thermalAuthored = true;
+        driverPedalTimeConstant = output.driverPedalTimeConstant;
+        driverClutchTimeConstant = output.driverClutchTimeConstant;
+        driverClutchPedalRate = output.driverClutchPedalRate;
         driveModes = output.driveModes;
         defaultMode = output.defaultMode;
         parameterOverrides = output.parameterOverrides;
@@ -711,6 +721,11 @@ void EngineSimApplication::loadScript() {
         bootstrapInputs.unit = m_powertrainUnit;
         bootstrapInputs.program = m_controlProgram;
         bootstrapInputs.adaptation = adaptationParams;
+        bootstrapInputs.thermal = thermalParams;
+        bootstrapInputs.thermalAuthored = thermalAuthored;
+        bootstrapInputs.driverPedalTimeConstant = driverPedalTimeConstant;
+        bootstrapInputs.driverClutchTimeConstant = driverClutchTimeConstant;
+        bootstrapInputs.driverClutchPedalRate = driverClutchPedalRate;
         bootstrapInputs.defaultMode = defaultMode;
         bootstrapInputs.parameterOverrides = parameterOverrides;
         bootstrapInputs.adaptiveOverrides = adaptiveOverrides;

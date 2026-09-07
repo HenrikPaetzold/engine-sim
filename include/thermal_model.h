@@ -20,6 +20,8 @@ class ThermalModel {
             double thermostatFullTemperature = units::celcius(100.0);
             double ambientTemperature = units::celcius(20.0);
             double combustionHeatFraction = 1.0;
+            double initialBlockTemperature = units::celcius(20.0);
+            double initialOilTemperature = units::celcius(20.0);
         };
 
     public:

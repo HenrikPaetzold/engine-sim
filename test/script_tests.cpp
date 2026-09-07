@@ -5,6 +5,7 @@
 #include "../include/powertrain/scripted_control_unit.h"
 #include "../include/transmission.h"
 #include "../include/vehicle.h"
+#include "../include/thermal_model.h"
 #include "../include/engine.h"
 #include "../include/config/parameter_registry.h"
 #include "../include/units.h"
@@ -1603,4 +1604,31 @@ TEST_F(ScriptFixture, AMistypedActuatorIsAlsoReported) {
     const auto &errors = es_script::Compiler::output()->errors;
     ASSERT_FALSE(errors.empty());
     EXPECT_NE(errors[0].find("throttle_plat"), std::string::npos) << errors[0];
+}
+
+TEST_F(ScriptFixture, TheThermalModelIsScriptable) {
+    ASSERT_TRUE(run(
+        "set_powertrain(" "\n"
+        "    thermal: thermal(" "\n"
+        "        radiator: 1200.0," "\n"
+        "        initial_block_temperature: (90.0 + units.K0)))" "\n"));
+
+    const ThermalModel::Parameters &thermal =
+        es_script::Compiler::output()->thermal;
+
+    EXPECT_NEAR(thermal.radiatorConductance, 1200.0, 1e-9);
+    EXPECT_NEAR(
+        thermal.initialBlockTemperature, units::celcius(90.0), 1e-9)
+        << "a script cannot start a warm engine";
+    EXPECT_NEAR(thermal.blockThermalMass, 120000.0, 1e-9);
+}
+
+TEST_F(ScriptFixture, TheDriverModelIsScriptable) {
+    ASSERT_TRUE(run(
+        "set_powertrain(driver: driver(pedal_time_constant: 0.05))" "\n"));
+
+    EXPECT_NEAR(
+        es_script::Compiler::output()->driverPedalTimeConstant, 0.05, 1e-12);
+    EXPECT_NEAR(
+        es_script::Compiler::output()->driverClutchTimeConstant, 0.001, 1e-12);
 }

@@ -167,12 +167,14 @@ TEST(RegistryCoverageTests, EveryThermalParameterIsReachable) {
         "thermal.thermostat_open",
         "thermal.thermostat_full",
         "thermal.combustion_heat_fraction",
-        "thermal.ambient_temperature" })
+        "thermal.ambient_temperature",
+        "thermal.initial_block_temperature",
+        "thermal.initial_oil_temperature" })
     {
         EXPECT_TRUE(has(registry, path)) << path;
     }
 
-    EXPECT_EQ(registry.getCount(), 10);
+    EXPECT_EQ(registry.getCount(), 12);
 }
 
 TEST(RegistryCoverageTests, VehicleParametersWriteThrough) {

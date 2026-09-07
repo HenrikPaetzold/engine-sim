@@ -2,6 +2,8 @@
 
 #include "../include/powertrain_system.h"
 #include "../include/config/config_server.h"
+#include "../include/simulator.h"
+#include "../include/engine.h"
 
 powertrain::BootstrapResult powertrain::installPowertrain(
     const BootstrapInputs &inputs,
@@ -25,7 +27,19 @@ powertrain::BootstrapResult powertrain::installPowertrain(
         : nullptr;
 
     PowertrainSystem &system = *context.system;
-    system.initialize(PowertrainSystem::Parameters());
+
+    PowertrainSystem::Parameters systemParams;
+    if (inputs.driverPedalTimeConstant >= 0.0) {
+        systemParams.pedalTimeConstant = inputs.driverPedalTimeConstant;
+    }
+    if (inputs.driverClutchTimeConstant >= 0.0) {
+        systemParams.clutchTimeConstant = inputs.driverClutchTimeConstant;
+    }
+    if (inputs.driverClutchPedalRate >= 0.0) {
+        systemParams.clutchPedalRate = inputs.driverClutchPedalRate;
+    }
+
+    system.initialize(systemParams);
     system.setController(result.controller);
     system.setOverlayController(result.overlay);
 
@@ -46,7 +60,14 @@ powertrain::BootstrapResult powertrain::installPowertrain(
         result.adaptationAttached = true;
     }
 
-    if (context.simulator != nullptr) system.attach(context.simulator);
+    if (context.simulator != nullptr) {
+        system.attach(context.simulator);
+
+        Engine *engine = context.simulator->getEngine();
+        if (inputs.thermalAuthored && engine != nullptr) {
+            engine->getThermalModel().initialize(inputs.thermal);
+        }
+    }
 
     system.registerParameters(context.registry);
 

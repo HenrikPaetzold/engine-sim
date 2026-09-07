@@ -114,6 +114,8 @@ namespace es_script {
             addInput("ecu", &m_ecu, InputTarget::Type::Object);
             addInput("tcu", &m_tcu, InputTarget::Type::Object);
             addInput("adaptation", &m_adaptation, InputTarget::Type::Object);
+            addInput("thermal", &m_thermal, InputTarget::Type::Object);
+            addInput("driver", &m_driver, InputTarget::Type::Object);
             addInput("default_mode", &m_defaultMode);
 
             Node::registerInputs();
@@ -144,6 +146,19 @@ namespace es_script {
                 Compiler::output()->adaptation = m_adaptation->getParameters();
             }
 
+            if (m_thermal != nullptr) {
+                Compiler::output()->thermal = m_thermal->getParameters();
+            }
+
+            if (m_driver != nullptr) {
+                Compiler::output()->driverPedalTimeConstant =
+                    m_driver->getPedalTimeConstant();
+                Compiler::output()->driverClutchTimeConstant =
+                    m_driver->getClutchTimeConstant();
+                Compiler::output()->driverClutchPedalRate =
+                    m_driver->getClutchPedalRate();
+            }
+
             delete Compiler::output()->powertrain;
             Compiler::output()->powertrain = unit;
             Compiler::output()->defaultMode = m_defaultMode;
@@ -152,6 +167,8 @@ namespace es_script {
         EngineControlUnitNode *m_ecu = nullptr;
         TransmissionControlUnitNode *m_tcu = nullptr;
         AdaptationNode *m_adaptation = nullptr;
+        ThermalNode *m_thermal = nullptr;
+        DriverNode *m_driver = nullptr;
         std::string m_defaultMode;
     };
 
