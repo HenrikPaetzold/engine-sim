@@ -125,6 +125,23 @@ TEST_F(ServerFixture, TelemetryReachesTheClient) {
     EXPECT_NE(response->body.find("\"engineState\":\"Running\""), std::string::npos);
 }
 
+TEST_F(ServerFixture, TheFrictionTelemetryReachesTheClient) {
+    config::TelemetrySample sample;
+    sample.oilViscosity = 152.5;
+    sample.frictionPower = 3400.0;
+    sample.engineState = "Running";
+    sample.shiftState = "Idle";
+    m_server.publish(sample);
+
+    auto response = client().Get("/api/state");
+
+    ASSERT_TRUE(response);
+    EXPECT_NE(response->body.find("\"oilViscosity\":152.5"), std::string::npos)
+        << response->body;
+    EXPECT_NE(response->body.find("\"frictionPower\":3400"), std::string::npos)
+        << response->body;
+}
+
 TEST_F(ServerFixture, SetIsQueuedAndNotAppliedUntilTheSimulationAsks) {
     auto response = client().Post(
         "/api/set",

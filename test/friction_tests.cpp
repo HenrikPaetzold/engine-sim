@@ -5,6 +5,7 @@
 #include "../include/combustion_chamber.h"
 #include "../include/config/parameter_registry.h"
 #include "../include/units.h"
+#include "../include/engine.h"
 
 #include <cmath>
 
@@ -383,6 +384,36 @@ TEST(CylinderFrictionTests, WithoutTheBoundaryExponentTheViscosityLeavesItAlone)
 
     rig.setViscosityRatio(0.25);
     EXPECT_NEAR(rig.frictionForce(10.0, 400.0), warm, 1e-12);
+}
+
+TEST(FrictionRegistryTests, EveryCylinderFrictionParameterIsReachable) {
+    Engine engine;
+    config::ParameterRegistry registry;
+    engine.registerFrictionParameters(&registry);
+
+    for (const char *path : {
+        "friction.cylinder_friction",
+        "friction.breakaway_friction",
+        "friction.breakaway_velocity",
+        "friction.viscous_friction",
+        "friction.boundary_exponent" })
+    {
+        EXPECT_TRUE(registry.contains(path)) << path;
+    }
+
+    EXPECT_EQ(registry.getCount(), 5);
+}
+
+TEST(FrictionRegistryTests, TheCylinderSlidersPointAtTheLiveFields) {
+    Engine engine;
+    config::ParameterRegistry registry;
+    engine.registerFrictionParameters(&registry);
+
+    registry.set("friction.viscous_friction", 77.0);
+    EXPECT_NEAR(engine.getCylinderFriction().viscousFrictionCoefficient, 77.0, 1e-9);
+
+    registry.set("friction.boundary_exponent", 0.4);
+    EXPECT_NEAR(engine.getCylinderFriction().boundaryExponent, 0.4, 1e-9);
 }
 
 TEST(FrictionRegistryTests, EveryFrictionParameterIsReachable) {

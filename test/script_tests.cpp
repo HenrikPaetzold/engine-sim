@@ -7,6 +7,8 @@
 #include "../include/vehicle.h"
 #include "../include/thermal_model.h"
 #include "../include/engine.h"
+#include "../include/piston_engine_simulator.h"
+#include "../include/combustion_chamber.h"
 #include "../include/config/parameter_registry.h"
 #include "../include/units.h"
 
@@ -1848,4 +1850,354 @@ TEST_F(ScriptFixture, TheScriptedViscosityChangesTheChamberFriction) {
     EXPECT_NEAR(warm, 1.0, 1e-6);
     EXPECT_GT(cold, 10.0);
     EXPECT_NEAR(engine->getChamber(0)->frictionForce(5.0, 0.0), 33.0 * cold * 5.0, 1e-6);
+}
+
+namespace {
+    const char *const PlainEngineScript = R"MR(
+
+constants constants()
+impulse_response_library ir_lib()
+
+private node wires {
+    output wire1: ignition_wire();
+    output wire2: ignition_wire();
+}
+
+public node plain_probe {
+    alias output __out: engine;
+
+    engine engine(
+        name: "Kohler CH750",
+        starter_torque: 50 * units.lb_ft,
+        starter_speed: 500 * units.rpm,
+        redline: 3600 * units.rpm
+    )
+
+    wires wires()
+
+    crankshaft c0(
+        throw: 69 * units.mm / 2,
+        flywheel_mass: 5 * units.lb,
+        mass: 5 * units.lb,
+        friction_torque: 10.0 * units.lb_ft,
+        moment_of_inertia: 0.22986844776863666 * 0.5,
+        position_x: 0.0,
+        position_y: 0.0,
+        tdc: constants.pi / 4
+    )
+
+    rod_journal rj0(angle: 0.0)
+    c0
+        .add_rod_journal(rj0)
+
+    piston_parameters piston_params(
+        mass: 400 * units.g,
+        //blowby: k_28inH2O(0.1),
+        compression_height: 1.0 * units.inch,
+        wrist_pin_position: 0.0,
+        displacement: 0.0
+    )
+
+    connecting_rod_parameters cr_params(
+        mass: 300.0 * units.g,
+        moment_of_inertia: 0.0015884918028487504,
+        center_of_mass: 0.0,
+        length: 4.0 * units.inch
+    )
+
+    cylinder_bank_parameters bank_params(
+        bore: 83 * units.mm,
+        deck_height: (4.0 + 1) * units.inch + 69 * units.mm / 2
+    )
+
+    intake intake(
+        plenum_volume: 1.0 * units.L,
+        plenum_cross_section_area: 10.0 * units.cm2,
+        intake_flow_rate: k_carb(50.0),
+        idle_flow_rate: k_carb(0.0),
+        idle_throttle_plate_position: 0.96,
+        throttle_gamma: 1.0
+    )
+
+    exhaust_system_parameters es_params(
+        outlet_flow_rate: k_carb(300.0),
+        primary_tube_length: 10.0 * units.inch,
+        primary_flow_rate: k_carb(200.0),
+        velocity_decay: 1.0,
+        volume: 20.0 * units.L
+    )
+
+    exhaust_system exhaust0(
+        es_params,
+        audio_volume: 1.0,
+        impulse_response: ir_lib.default_0
+    )
+
+    cylinder_bank b0(bank_params, angle: -45 * units.deg)
+    b0
+        .add_cylinder(
+            piston: piston(piston_params, blowby: k_28inH2O(0.1)),
+            connecting_rod: connecting_rod(cr_params),
+            rod_journal: rj0,
+            intake: intake,
+            exhaust_system: exhaust0,
+            ignition_wire: wires.wire1
+        )
+
+    cylinder_bank b1(bank_params, angle: 45.0 * units.deg)
+    b1
+        .add_cylinder(
+            piston: piston(piston_params, blowby: k_28inH2O(0.1)),
+            connecting_rod: connecting_rod(cr_params),
+            rod_journal: rj0,
+            intake: intake,
+            exhaust_system: exhaust0,
+            ignition_wire: wires.wire2
+        )
+
+    engine
+        .add_cylinder_bank(b0)
+        .add_cylinder_bank(b1)
+
+    engine.add_crankshaft(c0)
+
+    harmonic_cam_lobe lobe(
+        duration_at_50_thou: 160 * units.deg,
+        gamma: 1.1,
+        lift: 200 * units.thou,
+        steps: 100
+    )
+
+    vtwin90_camshaft_builder camshaft(
+        lobe_profile: lobe,
+        lobe_separation: 114 * units.deg,
+        base_radius: 500 * units.thou
+    )
+
+    b0.set_cylinder_head (
+        generic_small_engine_head(
+            chamber_volume: 50 * units.cc,
+            intake_camshaft: camshaft.intake_cam_0,
+            exhaust_camshaft: camshaft.exhaust_cam_0
+        )
+    )
+    b1.set_cylinder_head (
+        generic_small_engine_head(
+            chamber_volume: 50 * units.cc,
+            intake_camshaft: camshaft.intake_cam_1,
+            exhaust_camshaft: camshaft.exhaust_cam_1,
+            flip_display: true
+        )
+    )
+
+    function timing_curve(1000 * units.rpm)
+    timing_curve
+        .add_sample(0000 * units.rpm, 50 * units.deg)
+        .add_sample(1000 * units.rpm, 50 * units.deg)
+        .add_sample(2000 * units.rpm, 50 * units.deg)
+        .add_sample(3000 * units.rpm, 50 * units.deg)
+        .add_sample(4000 * units.rpm, 50 * units.deg)
+
+    engine.add_ignition_module(
+        vtwin90_distributor(
+            wires: wires,
+            timing_curve: timing_curve,
+            rev_limit: 5000 * units.rpm
+        ))
+}
+
+set_engine(plain_probe())
+)MR";
+
+    class ConstraintRig : public PistonEngineSimulator {
+        public:
+            void prepare(Engine *target) {
+                m_engine = target;
+                m_crankshaftFrictionConstraints =
+                    new atg_scs::RotationFrictionConstraint[target->getCrankshaftCount()];
+            }
+
+            void release() {
+                delete[] m_crankshaftFrictionConstraints;
+                m_crankshaftFrictionConstraints = nullptr;
+                m_engine = nullptr;
+            }
+
+            using PistonEngineSimulator::updateFrictionConstraints;
+
+            double maxTorque(int i) const {
+                return m_crankshaftFrictionConstraints[i].m_maxTorque;
+            }
+
+            double minTorque(int i) const {
+                return m_crankshaftFrictionConstraints[i].m_minTorque;
+            }
+
+            virtual void writeToSynthesizer() override { /* void */ }
+    };
+}
+
+TEST_F(ScriptFixture, TheCrankFrictionTorqueReachesTheConstraint) {
+    ASSERT_TRUE(run(FrictionEngineScript));
+
+    Engine *engine = es_script::Compiler::output()->engine;
+    ASSERT_NE(engine, nullptr);
+    ASSERT_GT(engine->getCrankshaftCount(), 0);
+
+    ConstraintRig rig;
+    rig.prepare(engine);
+
+    engine->getThermalModel().setOilTemperature(units::celcius(100.0));
+    engine->getCrankshaft(0)->m_body.v_theta = units::rpm(3000.0);
+    engine->updateFriction(1e-3);
+    rig.updateFrictionConstraints();
+
+    const double scripted = engine->getCrankshaft(0)->getFrictionTorque();
+    const double chenFlynn = engine->getCrankFrictionTorque();
+
+    EXPECT_GT(chenFlynn, 0.0);
+    EXPECT_NEAR(rig.maxTorque(0), scripted + chenFlynn, 1e-9);
+    EXPECT_NEAR(rig.minTorque(0), -(scripted + chenFlynn), 1e-9);
+
+    rig.release();
+}
+
+TEST_F(ScriptFixture, TheConstraintRisesWithEngineSpeed) {
+    ASSERT_TRUE(run(FrictionEngineScript));
+
+    Engine *engine = es_script::Compiler::output()->engine;
+    ASSERT_NE(engine, nullptr);
+
+    ConstraintRig rig;
+    rig.prepare(engine);
+    engine->getThermalModel().setOilTemperature(units::celcius(100.0));
+
+    engine->getCrankshaft(0)->m_body.v_theta = units::rpm(1000.0);
+    engine->updateFriction(1e-3);
+    rig.updateFrictionConstraints();
+    const double slow = rig.maxTorque(0);
+
+    engine->getCrankshaft(0)->m_body.v_theta = units::rpm(6000.0);
+    engine->updateFriction(1e-3);
+    rig.updateFrictionConstraints();
+    const double fast = rig.maxTorque(0);
+
+    EXPECT_GT(fast, slow);
+
+    rig.release();
+}
+
+TEST_F(ScriptFixture, WithoutAFrictionNodeTheConstraintKeepsTheScriptedTorqueExactly) {
+    ASSERT_TRUE(run(PlainEngineScript));
+
+    Engine *engine = es_script::Compiler::output()->engine;
+    ASSERT_NE(engine, nullptr);
+
+    ConstraintRig rig;
+    rig.prepare(engine);
+
+    for (double rpm : { 0.0, 800.0, 3000.0, 6000.0 }) {
+        for (double oil : { -20.0, 20.0, 90.0, 150.0 }) {
+            engine->getThermalModel().setOilTemperature(units::celcius(oil));
+            engine->getCrankshaft(0)->m_body.v_theta = units::rpm(rpm);
+            engine->updateFriction(1e-3);
+            rig.updateFrictionConstraints();
+
+            EXPECT_EQ(engine->getCrankFrictionTorque(), 0.0) << rpm << " " << oil;
+            EXPECT_EQ(engine->getViscosityRatio(), 1.0) << rpm << " " << oil;
+            EXPECT_EQ(
+                rig.maxTorque(0),
+                engine->getCrankshaft(0)->getFrictionTorque()) << rpm << " " << oil;
+        }
+    }
+
+    rig.release();
+}
+
+TEST_F(ScriptFixture, WithoutAFrictionNodeTheCylinderFrictionKeepsItsOldValues) {
+    ASSERT_TRUE(run(PlainEngineScript));
+
+    Engine *engine = es_script::Compiler::output()->engine;
+    ASSERT_NE(engine, nullptr);
+
+    const CombustionChamber::FrictionModelParams &params = engine->getCylinderFriction();
+
+    EXPECT_EQ(params.frictionCoeff, 0.06);
+    EXPECT_EQ(params.breakawayFriction, units::force(50.0, units::N));
+    EXPECT_EQ(params.breakawayFrictionVelocity, 0.1);
+    EXPECT_EQ(params.viscousFrictionCoefficient, 20.0);
+    EXPECT_EQ(params.boundaryExponent, 0.0);
+
+    engine->getThermalModel().setOilTemperature(units::celcius(20.0));
+    engine->updateFriction(1e-3);
+
+    const double reference =
+        engine->getChamber(0)->frictionForce(5.0, 400.0);
+
+    engine->getThermalModel().setOilTemperature(units::celcius(140.0));
+    engine->updateFriction(1e-3);
+
+    EXPECT_EQ(engine->getChamber(0)->frictionForce(5.0, 400.0), reference);
+}
+
+TEST_F(ScriptFixture, TheCrankFrictionWorkWarmsTheOil) {
+    ASSERT_TRUE(run(FrictionEngineScript));
+
+    Engine *engine = es_script::Compiler::output()->engine;
+    ASSERT_NE(engine, nullptr);
+
+    ThermalModel::Parameters thermal;
+    thermal.blockThermalMass = 1000.0;
+    thermal.oilThermalMass = 500.0;
+    thermal.blockToOilConductance = 0.0;
+    thermal.radiatorConductance = 0.0;
+    thermal.oilToAmbientConductance = 0.0;
+    thermal.oilCoolerConductance = 0.0;
+    thermal.speedCoolingCoefficient = 0.0;
+    thermal.combustionHeatFraction = 0.0;
+    thermal.initialBlockTemperature = units::celcius(100.0);
+    thermal.initialOilTemperature = units::celcius(100.0);
+    engine->getThermalModel().initialize(thermal);
+
+    engine->getCrankshaft(0)->m_body.v_theta = units::rpm(6000.0);
+    engine->updateFriction(0.01);
+
+    const double oilBefore = engine->getOilTemperature();
+    const double blockBefore = engine->getCoolantTemperature();
+
+    engine->updateThermal(0.01, 0.0);
+
+    EXPECT_GT(engine->getFrictionPower(), 0.0);
+    EXPECT_GT(engine->getOilTemperature(), oilBefore);
+    EXPECT_GT(engine->getCoolantTemperature(), blockBefore);
+}
+
+TEST_F(ScriptFixture, AllFrictionHeatCanBeSentToTheOil) {
+    ASSERT_TRUE(run(FrictionEngineScript));
+
+    Engine *engine = es_script::Compiler::output()->engine;
+    ASSERT_NE(engine, nullptr);
+    engine->getFrictionModel().getParameters().frictionHeatToOil = 1.0;
+
+    ThermalModel::Parameters thermal;
+    thermal.blockThermalMass = 1000.0;
+    thermal.oilThermalMass = 500.0;
+    thermal.blockToOilConductance = 0.0;
+    thermal.radiatorConductance = 0.0;
+    thermal.oilToAmbientConductance = 0.0;
+    thermal.oilCoolerConductance = 0.0;
+    thermal.speedCoolingCoefficient = 0.0;
+    thermal.combustionHeatFraction = 0.0;
+    thermal.initialBlockTemperature = units::celcius(100.0);
+    thermal.initialOilTemperature = units::celcius(100.0);
+    engine->getThermalModel().initialize(thermal);
+
+    engine->getCrankshaft(0)->m_body.v_theta = units::rpm(6000.0);
+    engine->updateFriction(0.01);
+
+    const double blockBefore = engine->getCoolantTemperature();
+    engine->updateThermal(0.01, 0.0);
+
+    EXPECT_GT(engine->getOilTemperature(), units::celcius(100.0));
+    EXPECT_EQ(engine->getCoolantTemperature(), blockBefore);
 }
