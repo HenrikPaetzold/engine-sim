@@ -33,7 +33,6 @@ PistonEngineSimulator::~PistonEngineSimulator() {
     assert(m_crankshaftFrictionConstraints == nullptr);
     assert(m_exhaustFlowStagingBuffer == nullptr);
     assert(m_delayFilters == nullptr);
-    assert(m_antialiasingFilters == nullptr);
 }
 
 void PistonEngineSimulator::loadSimulation(Engine *engine, Vehicle *vehicle, Transmission *transmission) {
@@ -282,9 +281,8 @@ void PistonEngineSimulator::placeCylinder(int i) {
     piston->m_body.theta = bank->getAngle() + constants::pi;
 }
 
-void PistonEngineSimulator::simulateStep_() {
-    const double timestep = getTimestep();
-    m_starterMotor.m_temperature = m_engine->getOilTemperature();
+void PistonEngineSimulator::updateFrictionConstraints() {
+    if (m_crankshaftFrictionConstraints == nullptr) return;
 
     const double crankFriction = m_engine->getCrankFrictionTorque();
     for (int i = 0; i < m_engine->getCrankshaftCount(); ++i) {
@@ -293,6 +291,13 @@ void PistonEngineSimulator::simulateStep_() {
         m_crankshaftFrictionConstraints[i].m_minTorque = -total;
         m_crankshaftFrictionConstraints[i].m_maxTorque = total;
     }
+}
+
+void PistonEngineSimulator::simulateStep_() {
+    const double timestep = getTimestep();
+    m_starterMotor.m_temperature = m_engine->getOilTemperature();
+
+    updateFrictionConstraints();
 
     IgnitionModule *im = m_engine->getIgnitionModule();
     im->update(timestep);

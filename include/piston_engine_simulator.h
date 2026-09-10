@@ -39,6 +39,7 @@ class PistonEngineSimulator : public Simulator {
 
     protected:
         virtual void simulateStep_() override;
+        void updateFrictionConstraints();
 
     protected:
         void placeAndInitialize();
