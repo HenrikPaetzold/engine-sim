@@ -43,12 +43,14 @@ dessen Registry-Deklarationen | `src/powertrain/transmission_control_unit_parame
 **Blockprogramm** — der Interpreter für Skriptregler | `src/control/control_program.cpp`, `src/control/control_block.cpp` | [control_program.md](control_program.md)
 **Skript-Regeleinheit** — hängt ein Blockprogramm als Regler ein | `src/powertrain/scripted_control_unit.cpp` | [control_program.md](control_program.md)
 **Parameter-Registry** — jede Stellgröße als typisierter Zeiger, mit Grenzen und Adaptiv-Freigabe | `src/config/parameter_registry.cpp` | [calibration_ui.md](calibration_ui.md)
+deren Schema für den Browser | `src/config/parameter_registry_json.cpp` | [calibration_ui.md](calibration_ui.md)
+deren Rückschrieb als `.mr` | `src/config/parameter_registry_export.cpp` | [calibration_ui.md](calibration_ui.md)
 **Webserver** — Schema, Live-Zustand, Schreibbefehle | `src/config/config_server.cpp` | [calibration_ui.md](calibration_ui.md)
 **Oberfläche** | `assets/config_ui/index.html` | [calibration_ui.md](calibration_ui.md)
 **Oszilloskop und Schaltrekorder** | `src/config/channel_recorder.cpp`, `src/config/shift_recorder.cpp` | [calibration_ui.md](calibration_ui.md)
 **Fahrmodi** — benannte Parametersätze | `src/config/drive_mode.cpp` | [calibration_ui.md](calibration_ui.md)
 **Verdrahtung zur Simulation** — Zustand lesen, Befehle anwenden | `src/powertrain_system.cpp` | —
-**Aufbau beim Laden** | `src/powertrain_bootstrap.cpp` | diese Datei, unten
+**Aufbau beim Laden** | `src/powertrain/bootstrap.cpp` | diese Datei, unten
 **Thermomodell und Fahrermodell** | `src/thermal_model.cpp`, `src/powertrain_system.cpp` | [thermal.md](thermal.md)
 **Antriebsstrang** — Kupplung, Wandler, Getriebe, Fahrzeug | `src/transmission.cpp`, `src/ratio_clutch_constraint.cpp`, `src/torque_converter_constraint.cpp`, `src/vehicle.cpp` | [driveline.md](driveline.md)
 **Skriptknoten** — die `.mr`-Seite | `scripting/include/powertrain_nodes.h`, `powertrain_actions.h`, `control_program_nodes.h` | unten
@@ -80,7 +82,7 @@ scripting/include/powertrain_actions.h:163
 src/engine_sim_application.cpp:648
   │  scriptedPowertrain = output.powertrain
   ▼
-src/powertrain_bootstrap.cpp
+src/powertrain/bootstrap.cpp
   │  selectControllers(unit, program)   ← die drei Betriebsarten, siehe unten
   │  system.setController(...) ; system.attach(simulator)
   │  system.registerParameters(registry)   ← ab hier ist alles im Browser sichtbar
@@ -112,7 +114,7 @@ Durchreicher implementieren alle dieselbe.
 ## Die drei Betriebsarten
 
 Was ein Skript einhängt, entscheidet, wer regelt. Die Weiche ist
-`powertrain::selectControllers` (`src/powertrain_bootstrap.cpp`):
+`powertrain::selectControllers` (`src/powertrain/bootstrap.cpp`):
 
 Skript enthält | Betriebsart | Wer regelt | Wer überlagert
 ---|---|---|---
@@ -130,7 +132,7 @@ ein Fahrmodus-Parametersatz, der Werte in die Registry schiebt. Zwei
 verschiedene Dinge.
 
 **Und eine Falle:** die Adaption hängt sich nur an, wenn ECU und TCU regeln
-(`src/powertrain_bootstrap.cpp`, `adaptationAttached`). In `ScriptOnly` gibt es
+(`src/powertrain/bootstrap.cpp`, `adaptationAttached`). In `ScriptOnly` gibt es
 keinen `AdaptationManager` — ein `learner`-Block lernt trotzdem, weil er direkt
 in die Registry schreibt, aber die vier eingebauten Lernpfade laufen nicht.
 
@@ -169,6 +171,7 @@ Kommen Skriptwerte wirklich an? | `test/script_tests.cpp`
 Kommen Reglerbefehle wirklich in der Simulation an? | `test/powertrain_attach_tests.cpp`
 Was kann ein Blockprogramm? | `test/control_program_tests.cpp`, `test/learner_tests.cpp`
 Wählhebel und Sperren | `test/selector_gate_tests.cpp`
+Zündaussetzer und Gemischbildung | `test/charge_tests.cpp`
 Registry, Grenzen, Adaptiv-Freigabe | `test/parameter_registry_tests.cpp`, `test/single_source_tests.cpp`
 Browser-Schnittstelle | `test/config_server_tests.cpp`
 

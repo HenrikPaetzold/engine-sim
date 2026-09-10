@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../include/powertrain_bootstrap.h"
+#include "../include/powertrain/bootstrap.h"
 #include "../include/powertrain_system.h"
 #include "../include/control/control_program.h"
 #include "../include/units.h"

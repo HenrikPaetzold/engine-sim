@@ -732,6 +732,28 @@ void powertrain::TransmissionControlUnit::applyClutchPressures(
     }
 }
 
+void powertrain::TransmissionControlUnit::fillCommands(
+    double dt,
+    const PowertrainState &state,
+    const DriverInputs &inputs,
+    GateEngagement engagement,
+    double driverLimit,
+    ActuatorCommands *commands)
+{
+    commands->engagement = engagement;
+    commands->gatePosition = m_gateIndex;
+    commands->clutchGear[0] = m_clutchGear[0];
+    commands->clutchGear[1] = m_clutchGear[1];
+    commands->parkLock = (engagement == GateEngagement::Park);
+    commands->targetGear = m_currentGear;
+    commands->preselectGear = m_params.supportsPreselect ? m_targetGear : -1;
+    commands->clutchPressure[0] =
+        std::min(std::clamp(m_clutchPressure, 0.0, 1.0), driverLimit);
+    commands->clutchPressure[1] =
+        std::min(std::clamp(m_secondaryPressure, 0.0, 1.0), driverLimit);
+    commands->lockupPressure = lockupPressure(dt, state, inputs);
+}
+
 void powertrain::TransmissionControlUnit::update(
     double dt,
     const PowertrainState &state,
@@ -785,17 +807,5 @@ void powertrain::TransmissionControlUnit::update(
         : 1.0;
 
     updateClutchAssignment(state, inputs);
-
-    commands->engagement = engagement;
-    commands->gatePosition = m_gateIndex;
-    commands->clutchGear[0] = m_clutchGear[0];
-    commands->clutchGear[1] = m_clutchGear[1];
-    commands->parkLock = (engagement == GateEngagement::Park);
-    commands->targetGear = m_currentGear;
-    commands->preselectGear = m_params.supportsPreselect ? m_targetGear : -1;
-    commands->clutchPressure[0] =
-        std::min(std::clamp(m_clutchPressure, 0.0, 1.0), driverLimit);
-    commands->clutchPressure[1] =
-        std::min(std::clamp(m_secondaryPressure, 0.0, 1.0), driverLimit);
-    commands->lockupPressure = lockupPressure(dt, state, inputs);
+    fillCommands(dt, state, inputs, engagement, driverLimit, commands);
 }

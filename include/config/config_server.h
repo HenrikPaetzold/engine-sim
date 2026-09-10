@@ -103,6 +103,13 @@ namespace config {
 
         protected:
             void buildSchema();
+            void registerReadRoutes(void *handle);
+            void registerWriteRoutes(void *handle);
+            void writeValues(std::ostream &out) const;
+            void writeAdaptiveFlags(std::ostream &out) const;
+            void writeMaps(std::ostream &out) const;
+            void writeTelemetry(std::ostream &out, const TelemetrySample &sample) const;
+            void refreshExport();
             void refreshState(const TelemetrySample &sample);
 
             Parameters m_params;

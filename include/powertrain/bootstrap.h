@@ -1,12 +1,12 @@
 #ifndef ATG_ENGINE_SIM_POWERTRAIN_BOOTSTRAP_H
 #define ATG_ENGINE_SIM_POWERTRAIN_BOOTSTRAP_H
 
-#include "powertrain/powertrain_unit.h"
-#include "powertrain/scripted_control_unit.h"
-#include "adaptation/adaptation_manager.h"
-#include "thermal_model.h"
-#include "config/drive_mode.h"
-#include "config/parameter_registry.h"
+#include "powertrain_unit.h"
+#include "scripted_control_unit.h"
+#include "../adaptation/adaptation_manager.h"
+#include "../thermal_model.h"
+#include "../config/drive_mode.h"
+#include "../config/parameter_registry.h"
 
 #include <string>
 #include <utility>

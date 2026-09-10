@@ -111,24 +111,24 @@ void config::ConfigServer::buildSchema() {
     m_schema = out.str();
 }
 
-void config::ConfigServer::refreshState(const TelemetrySample &sample) {
-    std::ostringstream out;
-    out << "{\"values\":{";
+void config::ConfigServer::writeValues(std::ostream &out) const {
+    if (m_registry == nullptr) return;
 
-    if (m_registry != nullptr) {
-        bool first = true;
-        for (int i = 0; i < m_registry->getCount(); ++i) {
-            const ParameterDescriptor &d = m_registry->getDescriptor(i);
-            if (d.type == ParameterType::Map) continue;
+    bool first = true;
+    for (int i = 0; i < m_registry->getCount(); ++i) {
+        const ParameterDescriptor &d = m_registry->getDescriptor(i);
+        if (d.type == ParameterType::Map) continue;
 
-            if (!first) out << ',';
-            first = false;
+        if (!first) out << ',';
+        first = false;
 
-            out << config::jsonString(d.path) << ':' << m_registry->getValue(i);
-        }
+        out << config::jsonString(d.path) << ':' << m_registry->getValue(i);
     }
+}
 
-    out << "},\"adaptive\":{";
+void config::ConfigServer::writeAdaptiveFlags(std::ostream &out) const {
+    if (m_registry == nullptr) return;
+
 
     if (m_registry != nullptr) {
         bool first = true;
@@ -141,8 +141,11 @@ void config::ConfigServer::refreshState(const TelemetrySample &sample) {
             out << config::jsonString(d.path) << ':' << (d.adaptive ? "true" : "false");
         }
     }
+}
 
-    out << "},\"maps\":{";
+void config::ConfigServer::writeMaps(std::ostream &out) const {
+    if (m_registry == nullptr) return;
+
 
     if (m_registry != nullptr) {
         bool first = true;
@@ -166,8 +169,13 @@ void config::ConfigServer::refreshState(const TelemetrySample &sample) {
             out << ']';
         }
     }
+}
 
-    out << "},\"telemetry\":{"
+void config::ConfigServer::writeTelemetry(
+    std::ostream &out,
+    const TelemetrySample &sample) const
+{
+    out
         << "\"time\":" << sample.time
         << ",\"engineRpm\":" << sample.engineRpm
         << ",\"throttlePlate\":" << sample.throttlePlate
@@ -195,8 +203,10 @@ void config::ConfigServer::refreshState(const TelemetrySample &sample) {
         << ",\"selectedMode\":" << sample.selectedMode
         << ",\"engineState\":" << config::jsonString(sample.engineState)
         << ",\"shiftState\":" << config::jsonString(sample.shiftState)
-        << "}}";
+        ;
+}
 
+void config::ConfigServer::refreshExport() {
     std::ostringstream exported;
     std::ostringstream overridden;
     if (m_registry != nullptr) {
@@ -205,9 +215,29 @@ void config::ConfigServer::refreshState(const TelemetrySample &sample) {
     }
 
     std::lock_guard<std::mutex> lock(m_mutex);
-    m_state = out.str();
     m_export = exported.str();
     m_overrides = overridden.str();
+}
+
+void config::ConfigServer::refreshState(const TelemetrySample &sample) {
+    std::ostringstream out;
+
+    out << "{\"values\":{";
+    writeValues(out);
+    out << "},\"adaptive\":{";
+    writeAdaptiveFlags(out);
+    out << "},\"maps\":{";
+    writeMaps(out);
+    out << "},\"telemetry\":{";
+    writeTelemetry(out, sample);
+    out << "}}";
+
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_state = out.str();
+    }
+
+    refreshExport();
 }
 
 void config::ConfigServer::publish(const TelemetrySample &sample) {
@@ -330,38 +360,49 @@ int config::ConfigServer::applyPendingCommands() {
     return applied;
 }
 
-bool config::ConfigServer::start() {
-    if (m_running) return true;
-
-    httplib::Server *server = new httplib::Server;
-    m_server = server;
+void config::ConfigServer::registerReadRoutes(void *handle) {
+    httplib::Server *server = serverOf(handle);
 
     server->Get("/api/schema", [this](const httplib::Request &, httplib::Response &res) {
         res.set_content(schemaJson(), "application/json");
     });
-
     server->Get("/api/state", [this](const httplib::Request &, httplib::Response &res) {
         res.set_content(stateJson(), "application/json");
     });
-
     server->Get("/api/export", [this](const httplib::Request &, httplib::Response &res) {
         res.set_content(exportScript(), "text/plain");
     });
-
     server->Get("/api/shifts", [this](const httplib::Request &, httplib::Response &res) {
         std::lock_guard<std::mutex> lock(m_mutex);
         res.set_content(m_shifts.empty() ? "[]" : m_shifts, "application/json");
     });
-
     server->Get("/api/scope", [this](const httplib::Request &, httplib::Response &res) {
         std::lock_guard<std::mutex> lock(m_mutex);
         res.set_content(m_scope.empty() ? "{}" : m_scope, "application/json");
     });
-
     server->Get("/api/channels", [this](const httplib::Request &, httplib::Response &res) {
         std::lock_guard<std::mutex> lock(m_mutex);
         res.set_content(m_channelNames.empty() ? "[]" : m_channelNames, "application/json");
     });
+    server->Get("/api/overrides", [this](const httplib::Request &, httplib::Response &res) {
+        res.set_content(exportOverrides(), "text/plain");
+    });
+    server->Get("/", [this](const httplib::Request &, httplib::Response &res) {
+        std::ifstream file(m_params.uiPath, std::ios::in | std::ios::binary);
+        if (!file.is_open()) {
+            res.status = 404;
+            res.set_content("configuration ui not found", "text/plain");
+            return;
+        }
+
+        std::ostringstream contents;
+        contents << file.rdbuf();
+        res.set_content(contents.str(), "text/html");
+    });
+}
+
+void config::ConfigServer::registerWriteRoutes(void *handle) {
+    httplib::Server *server = serverOf(handle);
 
     server->Post("/api/scope", [this](const httplib::Request &req, httplib::Response &res) {
         ParameterCommand command;
@@ -414,11 +455,6 @@ bool config::ConfigServer::start() {
 
         res.set_content("{\"ok\":true}", "application/json");
     });
-
-    server->Get("/api/overrides", [this](const httplib::Request &, httplib::Response &res) {
-        res.set_content(exportOverrides(), "text/plain");
-    });
-
     server->Post("/api/set", [this](const httplib::Request &req, httplib::Response &res) {
         ParameterCommand command;
         command.kind = ParameterCommand::Kind::SetParameter;
@@ -434,7 +470,6 @@ bool config::ConfigServer::start() {
         queueCommand(command);
         res.set_content("{\"ok\":true}", "application/json");
     });
-
     server->Post("/api/adaptive", [this](const httplib::Request &req, httplib::Response &res) {
         ParameterCommand command;
         command.kind = ParameterCommand::Kind::SetAdaptive;
@@ -450,7 +485,6 @@ bool config::ConfigServer::start() {
         queueCommand(command);
         res.set_content("{\"ok\":true}", "application/json");
     });
-
     server->Post("/api/mode", [this](const httplib::Request &req, httplib::Response &res) {
         ParameterCommand command;
         command.kind = ParameterCommand::Kind::SelectMode;
@@ -464,7 +498,6 @@ bool config::ConfigServer::start() {
         queueCommand(command);
         res.set_content("{\"ok\":true}", "application/json");
     });
-
     server->Post("/api/reset", [this](const httplib::Request &, httplib::Response &res) {
         ParameterCommand command;
         command.kind = ParameterCommand::Kind::ResetDefaults;
@@ -472,19 +505,16 @@ bool config::ConfigServer::start() {
         queueCommand(command);
         res.set_content("{\"ok\":true}", "application/json");
     });
+}
 
-    server->Get("/", [this](const httplib::Request &, httplib::Response &res) {
-        std::ifstream file(m_params.uiPath, std::ios::in | std::ios::binary);
-        if (!file.is_open()) {
-            res.status = 404;
-            res.set_content("configuration ui not found", "text/plain");
-            return;
-        }
+bool config::ConfigServer::start() {
+    if (m_running) return true;
 
-        std::ostringstream contents;
-        contents << file.rdbuf();
-        res.set_content(contents.str(), "text/html");
-    });
+    httplib::Server *server = new httplib::Server;
+    m_server = server;
+
+    registerReadRoutes(m_server);
+    registerWriteRoutes(m_server);
 
     int port = 0;
     if (m_params.port > 0 && server->bind_to_port(m_params.host.c_str(), m_params.port)) {

@@ -1,9 +1,9 @@
-#include "../include/powertrain_bootstrap.h"
+#include "../../include/powertrain/bootstrap.h"
 
-#include "../include/powertrain_system.h"
-#include "../include/config/config_server.h"
-#include "../include/simulator.h"
-#include "../include/engine.h"
+#include "../../include/powertrain_system.h"
+#include "../../include/config/config_server.h"
+#include "../../include/simulator.h"
+#include "../../include/engine.h"
 
 powertrain::ControllerSelection powertrain::selectControllers(
     PowertrainUnit *unit,

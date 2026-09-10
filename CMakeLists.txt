@@ -64,12 +64,15 @@ add_library(engine-sim STATIC
     src/config/channel_recorder.cpp
     src/config/drive_mode.cpp
     src/config/parameter_registry.cpp
+    src/config/parameter_registry_export.cpp
+    src/config/parameter_registry_json.cpp
     src/control/iterative_learning.cpp
     src/control/map_2d.cpp
     src/control/signal_table.cpp
     src/control/control_block.cpp
     src/control/control_program.cpp
     src/control/pid_controller.cpp
+    src/powertrain/bootstrap.cpp
     src/powertrain/engine_control_unit.cpp
     src/powertrain/engine_control_unit_parameters.cpp
     src/powertrain/passthrough_controller.cpp
@@ -82,7 +85,6 @@ add_library(engine-sim STATIC
     src/powertrain/powertrain_controller.cpp
     src/external_throttle.cpp
     src/powertrain_system.cpp
-    src/powertrain_bootstrap.cpp
     src/thermal_model.cpp
 
     src/audio_buffer.cpp
@@ -148,6 +150,7 @@ add_library(engine-sim STATIC
     include/control/rate_limiter.h
     include/powertrain/actuator_commands.h
     include/powertrain/driver_inputs.h
+    include/powertrain/bootstrap.h
     include/powertrain/engine_control_unit.h
     include/powertrain/passthrough_controller.h
     include/powertrain/powertrain_bus.h
@@ -161,7 +164,6 @@ add_library(engine-sim STATIC
     include/powertrain/transmission_control_unit.h
     include/external_throttle.h
     include/powertrain_system.h
-    include/powertrain_bootstrap.h
     include/thermal_model.h
 
     include/audio_buffer.h

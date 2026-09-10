@@ -635,7 +635,7 @@ namespace {
     };
 }
 
-TEST(TorqueConverterTests, TheConverterCreepsForwardWithoutThrottle) {
+TEST(ConverterCreepTests, TheConverterCreepsForwardWithoutThrottle) {
     CreepRig rolling(0.0);
     rolling.run(3000);
 

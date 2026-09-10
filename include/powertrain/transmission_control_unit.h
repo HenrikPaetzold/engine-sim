@@ -170,6 +170,13 @@ namespace powertrain {
             void buildDefaultShapes();
             static void resizeGearAxis(control::Map2d *map, int gears);
             void beginShift(int gear);
+            void fillCommands(
+                double dt,
+                const PowertrainState &state,
+                const DriverInputs &inputs,
+                GateEngagement engagement,
+                double driverLimit,
+                ActuatorCommands *commands);
             void syncEngageProfile();
             void updatePedalFilter(double dt, double pedal);
             int requestedGear(

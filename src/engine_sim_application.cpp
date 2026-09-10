@@ -1,6 +1,6 @@
 #include "../include/engine_sim_application.h"
 
-#include "../include/powertrain_bootstrap.h"
+#include "../include/powertrain/bootstrap.h"
 #include "../include/piston_object.h"
 #include "../include/connecting_rod_object.h"
 #include "../include/constants.h"

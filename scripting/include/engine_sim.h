@@ -21,7 +21,7 @@
 #include "../../include/powertrain/powertrain_unit.h"
 #include "../../include/powertrain/scripted_control_unit.h"
 #include "../../include/adaptation/adaptation_manager.h"
-#include "../../include/powertrain_bootstrap.h"
+#include "../../include/powertrain/bootstrap.h"
 #include "../../include/config/drive_mode.h"
 #include "../../include/config/parameter_registry.h"
 
