@@ -6,6 +6,20 @@
 To get the newest releases of the game, [click here](https://github.com/Engine-Simulator/engine-sim-community-edition).
 ---
 
+## This fork: a scriptable control-systems layer
+
+This branch adds an engine control unit, a transmission control unit, an
+adaptation layer that learns while driving, a block-diagram interpreter for
+writing your own controllers in `.mr`, and a browser UI that shows and edits
+every tunable live.
+
+**Start here: [docs/powertrain/README.md](docs/powertrain/README.md)** — it maps
+every concept to the file that owns it and traces the path from a script line to
+the simulation.
+
+None of it is on by default; an unmodified engine script behaves exactly as it
+did before.
+
 ## What is this?
 
 This is a real-time internal combustion engine simulation **designed specifically to produce engine audio and simulate engine response characteristics.** It is NOT a scientific tool and cannot be expected to provide accurate figures for the purposes of engineering or engine tuning.
