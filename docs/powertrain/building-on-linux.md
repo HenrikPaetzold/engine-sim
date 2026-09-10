@@ -34,10 +34,12 @@ git -C dependencies/submodules/piranha apply ../../../cmake/piranha-gcc.patch
 Revert with `git -C dependencies/submodules/piranha checkout .` to leave the
 submodule clean again.
 
-`include/language_rules.h` declares four explicit specializations of
-`getLiteralBuiltinName` inside the class body; the patch moves them to
-namespace scope and marks them `inline`. `include/ir_value_constant.h`
-specializes the member template `validateData` inside a class template, which
+Both files the patch touches live inside the submodule, not in this
+repository's own `include/`.
+`dependencies/submodules/piranha/include/language_rules.h` declares four
+explicit specializations of `getLiteralBuiltinName` inside the class body; the
+patch moves them to namespace scope and marks them `inline`.
+`dependencies/submodules/piranha/include/ir_value_constant.h` specializes the member template `validateData` inside a class template, which
 the language does not allow; the patch replaces the specialization with a
 plain overload taking `const piranha::native_string &`, which overload
 resolution picks for the string case.
