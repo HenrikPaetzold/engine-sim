@@ -56,6 +56,20 @@ void ThermalModel::registerParameters(config::ParameterRegistry *registry) {
             m_params.combustionHeatFraction, ""),
         &m_params.combustionHeatFraction);
     registry->registerScalar(
+        config::describeScalar(base + "oil_cooler", 0.0, 1e4,
+            m_params.oilCoolerConductance, "W/K"),
+        &m_params.oilCoolerConductance);
+    registry->registerScalar(
+        config::describeScalar(base + "oil_thermostat_open",
+            units::celcius(40.0), units::celcius(160.0),
+            m_params.oilThermostatOpenTemperature, "K"),
+        &m_params.oilThermostatOpenTemperature);
+    registry->registerScalar(
+        config::describeScalar(base + "oil_thermostat_full",
+            units::celcius(40.0), units::celcius(180.0),
+            m_params.oilThermostatFullTemperature, "K"),
+        &m_params.oilThermostatFullTemperature);
+    registry->registerScalar(
         config::describeScalar(base + "ambient_temperature",
             units::celcius(-40.0), units::celcius(60.0),
             m_params.ambientTemperature, "K"),
@@ -76,10 +90,15 @@ void ThermalModel::reset() {
     m_blockTemperature = m_params.initialBlockTemperature;
     m_oilTemperature = m_params.initialOilTemperature;
     m_pendingHeat = 0.0;
+    m_pendingOilHeat = 0.0;
 }
 
 void ThermalModel::addHeat(double energy) {
     m_pendingHeat += energy;
+}
+
+void ThermalModel::addOilHeat(double energy) {
+    m_pendingOilHeat += energy;
 }
 
 double ThermalModel::thermostatOpening() const {
@@ -91,6 +110,19 @@ double ThermalModel::thermostatOpening() const {
 
     return std::clamp(
         (m_blockTemperature - m_params.thermostatOpenTemperature) / span,
+        0.0,
+        1.0);
+}
+
+double ThermalModel::oilThermostatOpening() const {
+    const double span =
+        m_params.oilThermostatFullTemperature - m_params.oilThermostatOpenTemperature;
+    if (span <= 0.0) {
+        return (m_oilTemperature >= m_params.oilThermostatOpenTemperature) ? 1.0 : 0.0;
+    }
+
+    return std::clamp(
+        (m_oilTemperature - m_params.oilThermostatOpenTemperature) / span,
         0.0,
         1.0);
 }
@@ -112,11 +144,19 @@ void ThermalModel::update(double dt, double vehicleSpeed) {
         m_params.oilToAmbientConductance
         * (m_oilTemperature - m_params.ambientTemperature);
 
+    const double oilCooler =
+        m_params.oilCoolerConductance
+        * oilThermostatOpening()
+        * airflow
+        * (m_oilTemperature - m_params.ambientTemperature);
+
     const double blockPower =
         m_pendingHeat / dt - blockToOil - radiator * airflow;
-    const double oilPower = blockToOil - oilToAmbient;
+    const double oilPower =
+        m_pendingOilHeat / dt + blockToOil - oilToAmbient - oilCooler;
 
     m_pendingHeat = 0.0;
+    m_pendingOilHeat = 0.0;
 
     if (m_params.blockThermalMass > 0.0) {
         m_blockTemperature += (blockPower / m_params.blockThermalMass) * dt;

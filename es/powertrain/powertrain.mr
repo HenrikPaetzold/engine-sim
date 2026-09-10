@@ -143,6 +143,9 @@ public node thermal => __engine_sim__thermal {
     input thermostat_full [float]: (100.0 + units.K0);
     input ambient [float]: (20.0 + units.K0);
     input combustion_heat_fraction [float]: 1.0;
+    input oil_cooler [float]: 0.0;
+    input oil_thermostat_open [float]: (90.0 + units.K0);
+    input oil_thermostat_full [float]: (105.0 + units.K0);
     input initial_block_temperature [float]: (20.0 + units.K0);
     input initial_oil_temperature [float]: (20.0 + units.K0);
 

@@ -323,6 +323,11 @@ namespace es_script {
             addInput("ambient", &m_parameters.ambientTemperature);
             addInput("combustion_heat_fraction",
                 &m_parameters.combustionHeatFraction);
+            addInput("oil_cooler", &m_parameters.oilCoolerConductance);
+            addInput("oil_thermostat_open",
+                &m_parameters.oilThermostatOpenTemperature);
+            addInput("oil_thermostat_full",
+                &m_parameters.oilThermostatFullTemperature);
             addInput("initial_block_temperature",
                 &m_parameters.initialBlockTemperature);
             addInput("initial_oil_temperature",

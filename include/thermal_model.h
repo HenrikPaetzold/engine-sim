@@ -20,6 +20,9 @@ class ThermalModel {
             double thermostatFullTemperature = units::celcius(100.0);
             double ambientTemperature = units::celcius(20.0);
             double combustionHeatFraction = 1.0;
+            double oilCoolerConductance = 0.0;
+            double oilThermostatOpenTemperature = units::celcius(90.0);
+            double oilThermostatFullTemperature = units::celcius(105.0);
             double initialBlockTemperature = units::celcius(20.0);
             double initialOilTemperature = units::celcius(20.0);
         };
@@ -33,9 +36,11 @@ class ThermalModel {
         void reset();
 
         void addHeat(double energy);
+        void addOilHeat(double energy);
         void update(double dt, double vehicleSpeed);
 
         double thermostatOpening() const;
+        double oilThermostatOpening() const;
 
         inline double getBlockTemperature() const { return m_blockTemperature; }
         inline double getOilTemperature() const { return m_oilTemperature; }
@@ -50,6 +55,7 @@ class ThermalModel {
         double m_blockTemperature;
         double m_oilTemperature;
         double m_pendingHeat;
+        double m_pendingOilHeat;
 };
 
 #endif /* ATG_ENGINE_SIM_THERMAL_MODEL_H */
