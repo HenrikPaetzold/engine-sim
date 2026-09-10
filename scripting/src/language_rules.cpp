@@ -2,6 +2,7 @@
 
 #include "../include/channel_types.h"
 #include "../include/engine_node.h"
+#include "../include/friction_node.h"
 #include "../include/actions.h"
 #include "../include/rod_journal_node.h"
 #include "../include/camshaft_node.h"
@@ -92,6 +93,8 @@ void es_script::LanguageRules::registerBuiltinNodeTypes() {
         "__engine_sim__adaptation_channel", &es_script::ObjectChannel::AdaptationChannel);
     registerBuiltinType<piranha::ChannelNode>(
         "__engine_sim__thermal_channel", &es_script::ObjectChannel::ThermalChannel);
+    registerBuiltinType<piranha::ChannelNode>(
+        "__engine_sim__friction_channel", &es_script::ObjectChannel::FrictionChannel);
     registerBuiltinType<piranha::ChannelNode>(
         "__engine_sim__driver_channel", &es_script::ObjectChannel::DriverChannel);
     registerBuiltinType<piranha::ChannelNode>(
@@ -214,6 +217,7 @@ void es_script::LanguageRules::registerBuiltinNodeTypes() {
     registerBuiltinType<TransmissionControlUnitNode>("__engine_sim__transmission_control_unit");
     registerBuiltinType<AdaptationNode>("__engine_sim__adaptation");
     registerBuiltinType<ThermalNode>("__engine_sim__thermal");
+    registerBuiltinType<FrictionNode>("__engine_sim__friction");
     registerBuiltinType<DriverNode>("__engine_sim__driver");
     registerBuiltinType<ControlBlockNode>("__engine_sim__control_block");
     registerBuiltinType<ControlProgramNode>("__engine_sim__control_program");

@@ -86,6 +86,7 @@ add_library(engine-sim STATIC
     src/external_throttle.cpp
     src/powertrain_system.cpp
     src/thermal_model.cpp
+    src/engine_friction.cpp
 
     src/audio_buffer.cpp
     src/camshaft.cpp
@@ -165,6 +166,7 @@ add_library(engine-sim STATIC
     include/external_throttle.h
     include/powertrain_system.h
     include/thermal_model.h
+    include/engine_friction.h
 
     include/audio_buffer.h
     include/application_settings.h
@@ -412,6 +414,7 @@ add_executable(engine-sim-test
     test/powertrain_attach_tests.cpp
         test/powertrain_tests.cpp
     test/charge_tests.cpp
+    test/friction_tests.cpp
     test/thermal_tests.cpp
     test/ecu_tests.cpp
     test/tcu_tests.cpp

@@ -15,6 +15,7 @@ units units()
 
 // Channels
 public node engine_channel => __engine_sim__engine_channel { /* void */ }
+public node friction_channel => __engine_sim__friction_channel { /* void */ }
 public node crankshaft_channel => __engine_sim__crankshaft_channel { /* void */ }
 public node rod_journal_channel => __engine_sim__rod_journal { /* void */ }
 public node connecting_rod_channel => __engine_sim__connecting_rod_channel { /* void */ }
@@ -116,6 +117,7 @@ private node _engine => __engine_sim__engine {
     input dyno_hold_step [float];
 
     input fuel [fuel];
+    input friction [friction_channel];
     input throttle [throttle_channel];
 
     input simulation_frequency [float];
@@ -140,6 +142,7 @@ public node engine {
     input dyno_hold_step: 100 * units.rpm;
 
     input fuel: params.fuel;
+    input friction: friction();
     input throttle_gamma: 1.0;
     input throttle:
         direct_throttle_linkage(gamma: throttle_gamma);
@@ -163,6 +166,7 @@ public node engine {
             dyno_hold_step: dyno_hold_step,
 
             fuel: fuel,
+            friction: friction,
             throttle: throttle,
 
             simulation_frequency: simulation_frequency,
@@ -358,19 +362,27 @@ public node function => __engine_sim__function {
 }
 
 // Cylinder
-public node cylinder_friction_parameter_defaults {
-    output friction_k: 0.06;
-    output breakaway_friction: 0.0;
-    output breakaway_friction_velocity: 0.0;
-    output viscous_friction_coefficient: 0.0;
-}
+public node friction => __engine_sim__friction {
+    input constant_fmep [float]: 0.0;
+    input peak_pressure_factor [float]: 0.0;
+    input speed_factor [float]: 0.0;
+    input speed_squared_factor [float]: 0.0;
 
-public node cylinder_friction_parameters {
-    input copy: cylinder_friction_parameter_defaults();
-    input friction_k: copy.friction_k;
-    input breakaway_friction: copy.breakaway_friction;
-    input breakaway_friction_velocity: copy.breakaway_friction_velocity;
-    input viscous_friction_coefficient: copy.viscous_friction_coefficient;
+    input vogel_k [float]: 0.123;
+    input vogel_b [float]: 0.0;
+    input vogel_theta [float]: 160.0;
+    input reference_temperature [float]: (100.0 + units.K0);
+
+    input peak_pressure_decay [float]: 0.5;
+    input heat_to_oil [float]: 1.0;
+
+    input cylinder_friction [float]: 0.06;
+    input breakaway_friction [float]: 50.0;
+    input breakaway_velocity [float]: 0.1;
+    input viscous_friction [float]: 20.0;
+    input boundary_exponent [float]: 0.0;
+
+    alias output __out [friction_channel];
 }
 
 // Valvetrain

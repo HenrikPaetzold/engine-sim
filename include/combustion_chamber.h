@@ -12,6 +12,14 @@
 class Engine;
 class CombustionChamber : public atg_scs::ForceGenerator {
     public:
+        struct FrictionModelParams {
+            double frictionCoeff = 0.06;
+            double breakawayFriction = units::force(50, units::N);
+            double breakawayFrictionVelocity = units::velocity(0.1, units::m / units::sec);
+            double viscousFrictionCoefficient = 20.0;
+            double boundaryExponent = 0.0;
+        };
+
         struct Parameters {
             Piston *Piston;
             CylinderHead *Head;
@@ -21,6 +29,8 @@ class CombustionChamber : public atg_scs::ForceGenerator {
             double StartingPressure;
             double StartingTemperature;
             double CrankcasePressure;
+
+            FrictionModelParams Friction;
         };
 
         struct FlameEvent {
@@ -36,13 +46,6 @@ class CombustionChamber : public atg_scs::ForceGenerator {
             GasSystem::Mix globalMix;
         };
 
-        struct FrictionModelParams {
-            double frictionCoeff = 0.06;
-            double breakawayFriction = units::force(50, units::N);
-            double breakawayFrictionVelocity = units::distance(0.1, units::m);
-            double viscousFrictionCoefficient = units::force(20, units::N);
-        };
-
     public:
         CombustionChamber();
         virtual ~CombustionChamber();
@@ -56,6 +59,10 @@ class CombustionChamber : public atg_scs::ForceGenerator {
         Piston *getPiston() const { return m_piston; }
 
         double getFrictionForce() const;
+        double popFrictionWork();
+        inline double getPressure() const { return m_system.pressure(); }
+        inline void setViscosityRatio(double ratio) { m_viscosityRatio = ratio; }
+        inline FrictionModelParams &getFrictionModel() { return m_frictionModel; }
         double getIndicatedPower() const;
         double getVolume() const;
         double pistonSpeed() const;
@@ -87,6 +94,8 @@ class CombustionChamber : public atg_scs::ForceGenerator {
         bool m_lit;
 
         FrictionModelParams m_frictionModel;
+        double m_viscosityRatio;
+        double m_frictionWork;
 
         double m_peakTemperature;
         double m_nBurntFuel;
@@ -98,6 +107,11 @@ class CombustionChamber : public atg_scs::ForceGenerator {
         double m_heatRejected;
 
         double calculateFrictionForce(double v) const;
+
+    public:
+        double frictionForce(double v_s, double wallForce) const;
+
+    protected:
         void updateCycleStates();
 
         double m_intakeFlowRate;

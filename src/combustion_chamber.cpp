@@ -26,6 +26,8 @@ CombustionChamber::CombustionChamber() {
     m_nBurntFuel = 0;
     m_wallTemperature = units::celcius(90.0);
     m_heatRejected = 0.0;
+    m_viscosityRatio = 1.0;
+    m_frictionWork = 0.0;
 
     m_manifoldToRunnerFlowRate = 0;
     m_primaryToCollectorFlowRate = 0;
@@ -52,6 +54,7 @@ void CombustionChamber::initialize(const Parameters &params) {
     m_fuel = params.Fuel;
     m_crankcasePressure = params.CrankcasePressure;
     m_meanPistonSpeedToTurbulence = params.MeanPistonSpeedToTurbulence;
+    m_frictionModel = params.Friction;
 
     m_pistonSpeed = new double[StateSamples];
     m_pressure = new double[StateSamples];
@@ -376,19 +379,33 @@ double CombustionChamber::lastEventAfr() const {
 }
 
 double CombustionChamber::calculateFrictionForce(double v_s) const {
-    const double cylinderWallForce = m_piston->calculateCylinderWallForce();
+    return frictionForce(v_s, m_piston->calculateCylinderWallForce());
+}
 
-    const double F_coul = m_frictionModel.frictionCoeff * cylinderWallForce;
+double CombustionChamber::frictionForce(double v_s, double cylinderWallForce) const {
+    const double boundaryScale = (m_frictionModel.boundaryExponent != 0.0)
+        ? std::pow(m_viscosityRatio, -m_frictionModel.boundaryExponent)
+        : 1.0;
+
+    const double F_coul =
+        m_frictionModel.frictionCoeff * cylinderWallForce * boundaryScale;
+    const double F_brk = m_frictionModel.breakawayFriction * boundaryScale;
+    const double v = std::abs(v_s);
+
+    const double F_4 =
+        m_frictionModel.viscousFrictionCoefficient * m_viscosityRatio * v;
+
+    if (m_frictionModel.breakawayFrictionVelocity <= 0.0) {
+        return F_coul + F_4;
+    }
+
     const double v_st = m_frictionModel.breakawayFrictionVelocity * constants::root_2;
     const double v_coul = m_frictionModel.breakawayFrictionVelocity / 10;
-    const double F_brk = m_frictionModel.breakawayFriction;
-    const double v = std::abs(v_s);
 
     const double F_0 = constants::root_2 * constants::e * (F_brk - F_coul);
     const double F_1 = v / v_st;
     const double F_2 = std::exp(-F_1 * F_1) * F_1;
     const double F_3 = F_coul * std::tanh(v / v_coul);
-    const double F_4 = m_frictionModel.viscousFrictionCoefficient * v;
 
     return F_0 * F_2 + F_3 + F_4;
 }
@@ -430,6 +447,8 @@ void CombustionChamber::apply(atg_scs::SystemState *system) {
         ? -F
         : F;
 
+    m_frictionWork += std::abs(F * v_s);
+
     system->applyForce(
         0.0,
         0.0,
@@ -455,6 +474,13 @@ double CombustionChamber::popHeatRejected() {
     m_heatRejected = 0.0;
 
     return heat;
+}
+
+double CombustionChamber::popFrictionWork() {
+    const double work = m_frictionWork;
+    m_frictionWork = 0.0;
+
+    return work;
 }
 
 double CombustionChamber::getFrictionForce() const {

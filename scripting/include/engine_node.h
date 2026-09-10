@@ -9,6 +9,7 @@
 #include "engine_context.h"
 #include "fuel_node.h"
 #include "throttle_nodes.h"
+#include "friction_node.h"
 #include "control_nodes.h"
 
 #include "engine_sim.h"
@@ -125,7 +126,13 @@ namespace es_script {
             Fuel *fuel = engine->getFuel();
             m_fuel->generate(fuel, &context);
 
+            if (m_friction != nullptr) {
+                engine->getFrictionModel().initialize(m_friction->getParameters());
+                engine->getCylinderFriction() = m_friction->getCylinderParameters();
+            }
+
             CombustionChamber::Parameters ccParams;
+            ccParams.Friction = engine->getCylinderFriction();
             ccParams.CrankcasePressure = units::pressure(1.0, units::atm);
             ccParams.Fuel = fuel;
             ccParams.StartingPressure = units::pressure(1.0, units::atm);
@@ -169,6 +176,7 @@ namespace es_script {
             addInput("dyno_hold_step", &m_parameters.dynoHoldStep);
             addInput("redline", &m_parameters.redline);
             addInput("fuel", &m_fuel, InputTarget::Type::Object);
+            addInput("friction", &m_friction, InputTarget::Type::Object);
             addInput("throttle", &m_throttle, InputTarget::Type::Object);
             addInput("simulation_frequency", &m_parameters.initialSimulationFrequency);
             addInput("hf_gain", &m_parameters.initialHighFrequencyGain);
@@ -186,6 +194,7 @@ namespace es_script {
         }
 
         ThrottleNode *m_throttle = nullptr;
+        FrictionNode *m_friction = nullptr;
         IgnitionModuleNode *m_ignitionModule = nullptr;
         FuelNode *m_fuel = nullptr;
 
