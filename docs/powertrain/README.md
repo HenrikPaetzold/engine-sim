@@ -53,7 +53,7 @@ deren Rückschrieb als `.mr` | `src/config/parameter_registry_export.cpp` | [cal
 **Aufbau beim Laden** | `src/powertrain/bootstrap.cpp` | diese Datei, unten
 **Thermomodell und Fahrermodell** | `src/thermal_model.cpp`, `src/powertrain_system.cpp` | [thermal.md](thermal.md)
 **Antriebsstrang** — Kupplung, Wandler, Getriebe, Fahrzeug | `src/transmission.cpp`, `src/ratio_clutch_constraint.cpp`, `src/torque_converter_constraint.cpp`, `src/vehicle.cpp` | [driveline.md](driveline.md)
-**Skriptknoten** — die `.mr`-Seite | `scripting/include/powertrain_nodes.h`, `powertrain_actions.h`, `control_program_nodes.h` | unten
+**Skriptknoten** — die `.mr`-Seite | `scripting/include/powertrain_nodes.h`, `scripting/include/powertrain_actions.h`, `scripting/include/control_program_nodes.h` | unten
 **Skriptbibliothek** | `es/powertrain/*.mr`, `es/objects/objects.mr` | —
 
 ---
@@ -153,8 +153,13 @@ was sie tun:
 
 Wer einen neuen Knoten braucht, kopiert `ThermalNode`
 (`scripting/include/powertrain_nodes.h`) — das ist der kleinste vollständige
-Fall: Kanaltyp in `channel_types.h`/`.cpp`, Knotenklasse, Eintrag in
-`language_rules.cpp`, `public node` in einer `.mr`, ein Verbraucher.
+Fall, fünf Stellen der Reihe nach:
+
+1. Kanaltyp anmelden — `scripting/include/channel_types.h` und `scripting/src/channel_types.cpp`
+2. Knotenklasse schreiben — `scripting/include/powertrain_nodes.h`
+3. Namen der Sprache beibringen — `scripting/src/language_rules.cpp`
+4. `public node` in einer `.mr` — `es/powertrain/powertrain.mr`
+5. einen Verbraucher anschliessen — der Knoten, der den Wert holt
 
 ---
 
