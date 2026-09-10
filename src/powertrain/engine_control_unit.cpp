@@ -225,16 +225,13 @@ double powertrain::EngineControlUnit::effectiveRevLimit(double coolantTemperatur
     return m_params.revLimitCold + (m_params.revLimit - m_params.revLimitCold) * warm;
 }
 
-void powertrain::EngineControlUnit::update(
+void powertrain::EngineControlUnit::updateTorqueRequest(
     double dt,
     const PowertrainState &state,
-    const DriverInputs &inputs,
-    ActuatorCommands *commands)
+    double pedal,
+    double warm,
+    double available)
 {
-    const double warm = warmupFraction(state.coolantTemperature);
-    const double available = maxTorqueAt(state.engineSpeed);
-
-    const double pedal = std::clamp(inputs.accelerator, 0.0, 1.0);
     const double pedalFraction = m_pedalMap.isInitialized()
         ? std::clamp(m_pedalMap.sample(pedal, 0.0), 0.0, 1.0)
         : pedal;
@@ -263,7 +260,11 @@ void powertrain::EngineControlUnit::update(
 
     m_torqueLimiter.setRates(m_params.torqueRiseRate, m_params.torqueFallRate);
     m_torqueRequest = m_torqueLimiter.update(dt, coordinated);
+}
 
+double powertrain::EngineControlUnit::updateThrottlePlate(
+    double dt, const PowertrainState &state)
+{
     m_feedforwardPlate = m_throttleMap.isInitialized()
         ? std::clamp(
             m_throttleMap.sample(state.engineSpeed, m_torqueRequest)
@@ -275,7 +276,7 @@ void powertrain::EngineControlUnit::update(
     const double correction =
         m_torqueController.update(dt, m_torqueRequest, state.indicatedTorque);
 
-    double plate = std::clamp(m_feedforwardPlate + correction, 0.0, 1.0);
+    const double plate = std::clamp(m_feedforwardPlate + correction, 0.0, 1.0);
 
     const double applied = plate - m_feedforwardPlate;
     if (applied != correction) {
@@ -285,12 +286,20 @@ void powertrain::EngineControlUnit::update(
                     * (applied - correction) * dt);
     }
 
-    const double revLimit = effectiveRevLimit(state.coolantTemperature);
-    const double softLimitStart = revLimit - m_params.softLimitBand;
-    double ignitionCut = 0.0;
-    if (m_params.softLimitBand > 0.0 && state.engineSpeed > softLimitStart) {
-        ignitionCut = std::clamp(
-            (state.engineSpeed - softLimitStart) / m_params.softLimitBand,
+    return plate;
+}
+
+powertrain::EngineControlUnit::LimiterState
+powertrain::EngineControlUnit::updateLimiters(
+    const PowertrainState &state, double pedal)
+{
+    LimiterState limits;
+    limits.revLimit = effectiveRevLimit(state.coolantTemperature);
+    limits.softLimitStart = limits.revLimit - m_params.softLimitBand;
+
+    if (m_params.softLimitBand > 0.0 && state.engineSpeed > limits.softLimitStart) {
+        limits.ignitionCut = std::clamp(
+            (state.engineSpeed - limits.softLimitStart) / m_params.softLimitBand,
             0.0,
             1.0);
     }
@@ -298,34 +307,83 @@ void powertrain::EngineControlUnit::update(
     if (m_bus.torqueReductionRequest > 0.0
         && m_bus.interventionType == TorqueIntervention::Spark)
     {
-        ignitionCut = std::max(ignitionCut, m_bus.torqueReductionRequest);
+        limits.ignitionCut = std::max(limits.ignitionCut, m_bus.torqueReductionRequest);
     }
 
-    double fuelCut = 0.0;
-    if (state.engineSpeed > revLimit + m_params.hardLimitOffset) fuelCut = 1.0;
+    if (state.engineSpeed > limits.revLimit + m_params.hardLimitOffset) {
+        limits.fuelCut = 1.0;
+    }
 
     const bool coasting = (pedal <= 0.0) && (state.gear != -1);
     m_overrunCut.setThresholds(
         m_params.overrunResumeSpeed, m_params.overrunCutSpeed);
-    const bool overrun = m_overrunCut.update(state.engineSpeed) && coasting;
-    if (overrun) fuelCut = 1.0;
+    limits.overrun = m_overrunCut.update(state.engineSpeed) && coasting;
+    if (limits.overrun) limits.fuelCut = 1.0;
     if (!coasting) m_overrunCut.setState(false);
 
     if (m_bus.torqueReductionRequest > 0.0
         && m_bus.interventionType == TorqueIntervention::Fuel)
     {
-        fuelCut = std::max(fuelCut, m_bus.torqueReductionRequest);
+        limits.fuelCut = std::max(limits.fuelCut, m_bus.torqueReductionRequest);
     }
 
-    const bool limiterActive = (ignitionCut > 0.0) || (fuelCut > 0.0 && !overrun);
-    m_engineState = resolveState(state, inputs, limiterActive);
+    return limits;
+}
 
+void powertrain::EngineControlUnit::fillCommands(
+    const PowertrainState &state,
+    const DriverInputs &inputs,
+    double warm,
+    double plate,
+    double fuelCut,
+    const LimiterState &limits,
+    ActuatorCommands *commands)
+{
     m_longTermTrim = m_lambdaTrim.isInitialized()
         ? m_lambdaTrim.sample(state.engineSpeed, lambdaTrimLoad(state))
         : 0.0;
 
     const double enrichment =
         m_params.coldStartEnrichment + (1.0 - m_params.coldStartEnrichment) * warm;
+
+    m_commandedPlate = plate;
+    commands->throttlePlate = plate;
+    commands->revLimit = limits.revLimit + m_params.hardLimitOffset;
+    commands->softLimitStart = limits.softLimitStart;
+    commands->limiterDuration = m_params.limiterDuration;
+    commands->ignitionCutFraction = limits.ignitionCut;
+    commands->fuelCutFraction = std::clamp(fuelCut, 0.0, 1.0);
+    commands->fuelEnrichment = enrichment * m_fuelTrim * (1.0 + m_longTermTrim);
+    commands->timingOffset = -m_params.coldStartTimingRetard * (1.0 - warm);
+    commands->timingAdvanceValid =
+        m_params.timingMapEnabled && m_timingMap.isInitialized();
+    commands->timingAdvance = commands->timingAdvanceValid
+        ? m_timingMap.sample(state.engineSpeed, m_torqueRequest)
+        : 0.0;
+    commands->ignitionEnabled = inputs.ignitionKey;
+    commands->starterEnabled =
+        inputs.starterRequest && state.engineSpeed < m_params.crankingSpeed;
+}
+
+void powertrain::EngineControlUnit::update(
+    double dt,
+    const PowertrainState &state,
+    const DriverInputs &inputs,
+    ActuatorCommands *commands)
+{
+    const double warm = warmupFraction(state.coolantTemperature);
+    const double available = maxTorqueAt(state.engineSpeed);
+    const double pedal = std::clamp(inputs.accelerator, 0.0, 1.0);
+
+    updateTorqueRequest(dt, state, pedal, warm, available);
+
+    double plate = updateThrottlePlate(dt, state);
+    const LimiterState limits = updateLimiters(state, pedal);
+    double fuelCut = limits.fuelCut;
+
+    const bool limiterActive =
+        (limits.ignitionCut > 0.0) || (fuelCut > 0.0 && !limits.overrun);
+    m_engineState = resolveState(state, inputs, limiterActive);
 
     if (m_engineState == EngineState::Off) {
         plate = 0.0;
@@ -339,23 +397,7 @@ void powertrain::EngineControlUnit::update(
         fuelCut = 0.0;
     }
 
-    m_commandedPlate = plate;
-    commands->throttlePlate = plate;
-    commands->revLimit = revLimit + m_params.hardLimitOffset;
-    commands->softLimitStart = softLimitStart;
-    commands->limiterDuration = m_params.limiterDuration;
-    commands->ignitionCutFraction = ignitionCut;
-    commands->fuelCutFraction = std::clamp(fuelCut, 0.0, 1.0);
-    commands->fuelEnrichment = enrichment * m_fuelTrim * (1.0 + m_longTermTrim);
-    commands->timingOffset = -m_params.coldStartTimingRetard * (1.0 - warm);
-    commands->timingAdvanceValid =
-        m_params.timingMapEnabled && m_timingMap.isInitialized();
-    commands->timingAdvance = commands->timingAdvanceValid
-        ? m_timingMap.sample(state.engineSpeed, m_torqueRequest)
-        : 0.0;
-    commands->ignitionEnabled = inputs.ignitionKey;
-    commands->starterEnabled =
-        inputs.starterRequest && state.engineSpeed < m_params.crankingSpeed;
+    fillCommands(state, inputs, warm, plate, fuelCut, limits, commands);
 
     m_bus.engineSpeed = state.engineSpeed;
     m_bus.indicatedTorque = state.indicatedTorque;

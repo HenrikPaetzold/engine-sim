@@ -98,11 +98,37 @@ namespace powertrain {
             inline const Parameters &getParameters() const { return m_params; }
 
         protected:
+            struct LimiterState {
+                double revLimit = 0.0;
+                double softLimitStart = 0.0;
+                double ignitionCut = 0.0;
+                double fuelCut = 0.0;
+                bool overrun = false;
+            };
+
             void buildDefaultMaps();
             EngineState resolveState(
                 const PowertrainState &state,
                 const DriverInputs &inputs,
                 bool limiterActive) const;
+            void updateTorqueRequest(
+                double dt,
+                const PowertrainState &state,
+                double pedal,
+                double warm,
+                double available);
+            double updateThrottlePlate(double dt, const PowertrainState &state);
+            LimiterState updateLimiters(
+                const PowertrainState &state,
+                double pedal);
+            void fillCommands(
+                const PowertrainState &state,
+                const DriverInputs &inputs,
+                double warm,
+                double plate,
+                double fuelCut,
+                const LimiterState &limits,
+                ActuatorCommands *commands);
 
             Parameters m_params;
 
