@@ -371,7 +371,7 @@ TEST(EngineControlUnitTests, GainsAreReachableThroughTheRegistry) {
 
     powertrain::EngineControlUnit ecu;
     ecu.initialize(ecuParameters());
-    ecu.registerParameters(&registry, "");
+    ecu.registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("ecu.idle.pid.kp"));
     ASSERT_TRUE(registry.contains("ecu.limiter.rev_limit"));
@@ -538,7 +538,7 @@ TEST(TimingMapTests, TheMapIsOpenToTheRegistry) {
 
     powertrain::EngineControlUnit ecu;
     ecu.initialize(powertrain::EngineControlUnit::Parameters());
-    ecu.registerParameters(&registry, "");
+    ecu.registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("ecu.timing_map[0][0]"));
     ASSERT_TRUE(registry.contains("ecu.timing.map_enabled"));
@@ -606,7 +606,7 @@ TEST(OverrunCutTests, TheOverrunThresholdsAreLive) {
     ASSERT_NEAR(commands.fuelCutFraction, 1.0, 1e-9);
 
     config::ParameterRegistry registry;
-    ecu.registerParameters(&registry, "");
+    ecu.registerParameters(&registry);
     ASSERT_TRUE(registry.set("ecu.overrun.cut_speed", units::rpm(4000.0)));
     ASSERT_TRUE(registry.set("ecu.overrun.resume_speed", units::rpm(3500.0)));
 

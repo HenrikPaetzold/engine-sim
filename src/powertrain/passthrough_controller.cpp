@@ -25,13 +25,11 @@ double powertrain::PassthroughController::plateFromPedal(double accelerator, dou
     return std::pow(pedal, gamma);
 }
 
-void powertrain::PassthroughController::registerParameters(
-    config::ParameterRegistry *registry,
-    const char *prefix)
+void powertrain::PassthroughController::registerParameters(config::ParameterRegistry *registry)
 {
     if (registry == nullptr) return;
 
-    const std::string base = std::string(prefix) + "passthrough.";
+    const std::string base = "passthrough.";
 
     config::ParameterDescriptor gamma;
     gamma.path = base + "throttle_gamma";

@@ -50,7 +50,7 @@ TEST(SingleRevLimitTests, ChangingTheParameterMovesTheCommandedLimit) {
 
     powertrain::EngineControlUnit ecu;
     ecu.initialize(powertrain::EngineControlUnit::Parameters());
-    ecu.registerParameters(&registry, "");
+    ecu.registerParameters(&registry);
 
     powertrain::DriverInputs inputs;
     powertrain::ActuatorCommands commands;
@@ -74,7 +74,7 @@ TEST(SingleRevLimitTests, ADriveModeMovesTheHardLimiterToo) {
 
     powertrain::EngineControlUnit ecu;
     ecu.initialize(powertrain::EngineControlUnit::Parameters());
-    ecu.registerParameters(&registry, "");
+    ecu.registerParameters(&registry);
 
     config::DriveMode track("track");
     track.set("ecu.limiter.rev_limit", units::rpm(8500.0));
@@ -132,7 +132,7 @@ TEST(RegistryCoverageTests, EveryVehicleParameterIsReachable) {
     vehicle.initialize(params);
 
     config::ParameterRegistry registry;
-    vehicle.registerParameters(&registry, "");
+    vehicle.registerParameters(&registry);
 
     for (const char *path : {
         "vehicle.mass",
@@ -155,7 +155,7 @@ TEST(RegistryCoverageTests, EveryThermalParameterIsReachable) {
     model.initialize(ThermalModel::Parameters());
 
     config::ParameterRegistry registry;
-    model.registerParameters(&registry, "");
+    model.registerParameters(&registry);
 
     for (const char *path : {
         "thermal.block_mass",
@@ -190,7 +190,7 @@ TEST(RegistryCoverageTests, VehicleParametersWriteThrough) {
     vehicle.initialize(params);
 
     config::ParameterRegistry registry;
-    vehicle.registerParameters(&registry, "");
+    vehicle.registerParameters(&registry);
 
     ASSERT_TRUE(registry.set("vehicle.mass", 1850.0));
     EXPECT_NEAR(vehicle.getMass(), 1850.0, 1e-9);
@@ -204,7 +204,7 @@ TEST(RegistryCoverageTests, ThermalParametersWriteThrough) {
     model.initialize(ThermalModel::Parameters());
 
     config::ParameterRegistry registry;
-    model.registerParameters(&registry, "");
+    model.registerParameters(&registry);
 
     ASSERT_TRUE(registry.set("thermal.ambient_temperature", units::celcius(-15.0)));
     EXPECT_NEAR(
@@ -218,7 +218,7 @@ TEST(RegistryCoverageTests, TheLimiterAndCrankingFieldsAreReachable) {
 
     powertrain::EngineControlUnit ecu;
     ecu.initialize(powertrain::EngineControlUnit::Parameters());
-    ecu.registerParameters(&registry, "");
+    ecu.registerParameters(&registry);
 
     for (const char *path : {
         "ecu.limiter.hard_offset",
@@ -235,7 +235,7 @@ TEST(RegistryCoverageTests, TheGearboxFieldsAreReachable) {
 
     powertrain::TransmissionControlUnit tcu;
     tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
-    tcu.registerParameters(&registry, "");
+    tcu.registerParameters(&registry);
 
     for (const char *path : {
         "tcu.gearbox.final_drive",
@@ -277,8 +277,8 @@ TEST(RegistryCoverageTests, EveryPidExposesAllEightFields) {
     tcu.initialize(tcuParams);
 
     config::ParameterRegistry registry;
-    ecu.registerParameters(&registry, "");
-    tcu.registerParameters(&registry, "");
+    ecu.registerParameters(&registry);
+    tcu.registerParameters(&registry);
 
     const char *bases[] = {
         "ecu.idle.pid.", "ecu.torque.pid.", "tcu.launch.pid.", "tcu.lockup.pid." };

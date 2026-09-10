@@ -37,13 +37,11 @@ void ExternalThrottle::reset() {
     m_limiter.reset(0.0);
 }
 
-void ExternalThrottle::registerParameters(
-    config::ParameterRegistry *registry,
-    const char *prefix)
+void ExternalThrottle::registerParameters(config::ParameterRegistry *registry)
 {
     if (registry == nullptr) return;
 
-    const std::string base = std::string(prefix) + "throttle.";
+    const std::string base = "throttle.";
 
     const auto describe = [](const std::string &path, double max, double value) {
         return config::describeScalar(path, 0.0, max, value, "");

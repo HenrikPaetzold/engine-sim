@@ -44,7 +44,7 @@ class Transmission {
         ~Transmission();
 
         void initialize(const Parameters &params);
-        void registerParameters(config::ParameterRegistry *registry, const char *prefix);
+        void registerParameters(config::ParameterRegistry *registry);
         void update(double dt);
         void bind(
             atg_scs::RigidBody *rotatingMass,

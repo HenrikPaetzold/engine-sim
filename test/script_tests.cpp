@@ -186,7 +186,7 @@ TEST_F(ScriptFixture, DriveModesDriveTheRegistry) {
     ASSERT_NE(unit, nullptr);
 
     config::ParameterRegistry registry;
-    unit->registerParameters(&registry, "");
+    unit->registerParameters(&registry);
 
     config::DriveModeSet modes = es_script::Compiler::output()->driveModes;
     ASSERT_TRUE(modes.select("track", &registry));
@@ -213,7 +213,7 @@ TEST_F(ScriptFixture, ScriptChoosesTheStartingDriveMode) {
     ASSERT_NE(unit, nullptr);
 
     config::ParameterRegistry registry;
-    unit->registerParameters(&registry, "");
+    unit->registerParameters(&registry);
 
     config::DriveModeSet modes = es_script::Compiler::output()->driveModes;
     ASSERT_TRUE(modes.select(es_script::Compiler::output()->defaultMode, &registry));
@@ -312,7 +312,7 @@ TEST_F(ScriptFixture, TheConverterCurveParametersReachTheTransmission) {
     EXPECT_TRUE(transmission->hasLaunchDevice());
 
     config::ParameterRegistry registry;
-    transmission->registerParameters(&registry, "");
+    transmission->registerParameters(&registry);
 
     double value = 0.0;
     ASSERT_TRUE(registry.get("driveline.converter.stall_torque_ratio", &value));
@@ -441,7 +441,7 @@ TEST_F(ScriptFixture, ScriptedParameterOverridesReachTheRegistry) {
     ASSERT_NE(unit, nullptr);
 
     config::ParameterRegistry registry;
-    unit->registerParameters(&registry, "");
+    unit->registerParameters(&registry);
 
     const auto &overrides = es_script::Compiler::output()->parameterOverrides;
     ASSERT_EQ(overrides.size(), 2u);
@@ -463,7 +463,7 @@ TEST_F(ScriptFixture, TheExportedScriptCompilesAndRestoresTheValues) {
     ASSERT_NE(unit, nullptr);
 
     config::ParameterRegistry registry;
-    unit->registerParameters(&registry, "");
+    unit->registerParameters(&registry);
 
     ASSERT_TRUE(registry.set("tcu.shift.min_gear_time", 0.42));
     ASSERT_TRUE(registry.set("tcu.upshift_map[1][2]", 33.0));
@@ -505,7 +505,7 @@ TEST_F(ScriptFixture, ADriveModeCarriesAWholeShiftMap) {
     ASSERT_NE(unit, nullptr);
 
     config::ParameterRegistry registry;
-    unit->registerParameters(&registry, "");
+    unit->registerParameters(&registry);
 
     config::DriveModeSet modes = es_script::Compiler::output()->driveModes;
     ASSERT_EQ(modes.getCount(), 1);
@@ -557,7 +557,7 @@ TEST_F(ScriptFixture, TwoModesGiveTheSameGearboxTwoShiftCharacters) {
     ASSERT_NE(unit, nullptr);
 
     config::ParameterRegistry registry;
-    unit->registerParameters(&registry, "");
+    unit->registerParameters(&registry);
 
     config::DriveModeSet modes = es_script::Compiler::output()->driveModes;
     powertrain::TransmissionControlUnit &tcu = unit->getTransmissionControlUnit();
@@ -655,7 +655,7 @@ TEST_F(ScriptFixture, TheKickdownIsScriptedAndModeDependent) {
     ASSERT_NE(unit, nullptr);
 
     config::ParameterRegistry registry;
-    unit->registerParameters(&registry, "");
+    unit->registerParameters(&registry);
 
     config::DriveModeSet modes = es_script::Compiler::output()->driveModes;
     powertrain::TransmissionControlUnit &tcu = unit->getTransmissionControlUnit();
@@ -700,7 +700,7 @@ TEST_F(ScriptFixture, ADriveModeSwitchesTheDoubleDownshiftStrategy) {
     ASSERT_NE(unit, nullptr);
 
     config::ParameterRegistry registry;
-    unit->registerParameters(&registry, "");
+    unit->registerParameters(&registry);
 
     config::DriveModeSet modes = es_script::Compiler::output()->driveModes;
     powertrain::TransmissionControlUnit &tcu = unit->getTransmissionControlUnit();
@@ -889,7 +889,7 @@ TEST_F(ScriptFixture, ScriptedBlockParametersReachTheRegistry) {
     ASSERT_NE(unit, nullptr);
 
     config::ParameterRegistry registry;
-    unit->registerParameters(&registry, "");
+    unit->registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("program.pedal.gain"));
     ASSERT_TRUE(registry.set("program.pedal.gain", 0.25));
@@ -969,7 +969,7 @@ TEST_F(ScriptFixture, TheReverseRatioAndParkLockTorqueReachTheGearbox) {
     EXPECT_NEAR(transmission->getParkLockTorque(), 9000.0, 1e-9);
 
     config::ParameterRegistry registry;
-    transmission->registerParameters(&registry, "");
+    transmission->registerParameters(&registry);
 
     double value = 0.0;
     ASSERT_TRUE(registry.get("driveline.reverse_ratio", &value));
@@ -1221,8 +1221,8 @@ TEST_F(ScriptFixture, AZoneLearnerLearnsTheCellAtTheOperatingPoint) {
     tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
 
     config::ParameterRegistry registry;
-    tcu.registerParameters(&registry, "");
-    program->registerParameters(&registry, "");
+    tcu.registerParameters(&registry);
+    program->registerParameters(&registry);
 
     const double before = mapTotal(tcu.getLockupMap());
 
@@ -1258,8 +1258,8 @@ TEST_F(ScriptFixture, ANonAdaptiveTargetSilentlySwallowsTheZoneLearner) {
     tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
 
     config::ParameterRegistry registry;
-    tcu.registerParameters(&registry, "");
-    program->registerParameters(&registry, "");
+    tcu.registerParameters(&registry);
+    program->registerParameters(&registry);
 
     ASSERT_FALSE(registry.isAdaptive("tcu.kickdown_map"));
 
@@ -1383,7 +1383,7 @@ TEST_F(ScriptFixture, TheLearnerRateIsLiveEditable) {
     ASSERT_NE(program, nullptr);
 
     config::ParameterRegistry registry;
-    program->registerParameters(&registry, "");
+    program->registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("program.trim.rate"));
     ASSERT_TRUE(registry.contains("program.trim.threshold"));
@@ -1418,7 +1418,7 @@ TEST_F(ScriptFixture, TheEngageProfileIsAlsoLive) {
     ASSERT_NE(unit, nullptr);
 
     config::ParameterRegistry registry;
-    unit->registerParameters(&registry, "");
+    unit->registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("tcu.engage.learning_rate"));
     ASSERT_TRUE(registry.contains("tcu.engage.smoothing"));
@@ -1451,7 +1451,7 @@ TEST_F(ScriptFixture, TheRateLimitTakesALiveEditWhileItRuns) {
     ASSERT_NE(program, nullptr);
 
     config::ParameterRegistry registry;
-    program->registerParameters(&registry, "");
+    program->registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("program.ramp.rise"));
 
@@ -1522,7 +1522,7 @@ TEST_F(ScriptFixture, ALookupMapIsVisibleAndLearnable) {
     ASSERT_NE(program, nullptr);
 
     config::ParameterRegistry registry;
-    program->registerParameters(&registry, "");
+    program->registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("program.shape"))
         << "the only map a script can build is invisible";
@@ -1555,7 +1555,7 @@ TEST_F(ScriptFixture, EveryBlockKindCanCarryTheAdaptiveFlag) {
     ASSERT_NE(program, nullptr);
 
     config::ParameterRegistry registry;
-    program->registerParameters(&registry, "");
+    program->registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("program.acc.min"));
     EXPECT_TRUE(registry.isAdaptive("program.acc.min"))

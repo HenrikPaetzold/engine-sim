@@ -53,10 +53,10 @@ void Transmission::initialize(const Parameters &params) {
     m_converter.m_capacityFactor = params.CapacityFactor;
 }
 
-void Transmission::registerParameters(config::ParameterRegistry *registry, const char *prefix) {
+void Transmission::registerParameters(config::ParameterRegistry *registry) {
     if (registry == nullptr) return;
 
-    const std::string base = std::string(prefix) + "driveline.";
+    const std::string base = "driveline.";
 
     registry->registerScalar(
         config::describeScalar(base + "clutch_torque", 0.0, units::torque(5000.0, units::ft_lb),

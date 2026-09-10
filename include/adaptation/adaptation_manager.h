@@ -70,7 +70,7 @@ namespace adaptation {
                 powertrain::EngineControlUnit *ecu,
                 powertrain::TransmissionControlUnit *tcu);
 
-            void registerParameters(config::ParameterRegistry *registry, const char *prefix);
+            void registerParameters(config::ParameterRegistry *registry);
 
             void update(
                 double dt,

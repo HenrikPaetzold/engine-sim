@@ -581,7 +581,7 @@ TEST(AdaptationManagerTests, ParametersAreReachableThroughTheRegistry) {
 
     adaptation::AdaptationManager manager;
     manager.initialize(managerParameters());
-    manager.registerParameters(&registry, "");
+    manager.registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("adaptation.throttle_map.rate"));
     ASSERT_TRUE(registry.contains("adaptation.idle.enabled"));
@@ -916,11 +916,11 @@ TEST(LongTermTrimTests, TheNewParametersAreReachableThroughTheRegistry) {
 
     adaptation::AdaptationManager manager;
     manager.initialize(managerParameters());
-    manager.registerParameters(&registry, "");
+    manager.registerParameters(&registry);
 
     powertrain::EngineControlUnit ecu;
     ecu.initialize(powertrain::EngineControlUnit::Parameters());
-    ecu.registerParameters(&registry, "");
+    ecu.registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("adaptation.lambda.long_term_rate"));
     ASSERT_TRUE(registry.contains("adaptation.throttle_map.learn_from_integrator"));
@@ -1143,7 +1143,7 @@ TEST(TorqueModelTests, TheEnableConditionsAreReachableThroughTheRegistry) {
 
     adaptation::AdaptationManager manager;
     manager.initialize(adaptation::AdaptationManager::Parameters());
-    manager.registerParameters(&registry, "");
+    manager.registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("adaptation.conditions.require_warm"));
     ASSERT_TRUE(registry.contains("adaptation.conditions.require_steady_speed"));
@@ -1212,7 +1212,7 @@ TEST(TorqueModelTests, TheForgettingFactorIsLive) {
     manager.attach(&ecu, nullptr);
 
     config::ParameterRegistry registry;
-    manager.registerParameters(&registry, "");
+    manager.registerParameters(&registry);
 
     ASSERT_TRUE(registry.set("adaptation.torque_model.forgetting", 0.6));
 

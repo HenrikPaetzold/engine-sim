@@ -670,14 +670,7 @@ void EngineSimApplication::loadScript() {
         defaultMode = output.defaultMode;
         parameterOverrides = output.parameterOverrides;
 
-        for (const auto &entry : output.adaptiveOverrides) {
-            powertrain::AdaptiveOverride override;
-            override.path = entry.path;
-            override.adaptive = entry.adaptive;
-            override.adaptMin = entry.adaptMin;
-            override.adaptMax = entry.adaptMax;
-            adaptiveOverrides.push_back(override);
-        }
+        adaptiveOverrides = output.adaptiveOverrides;
     }
     else {
         engine = nullptr;

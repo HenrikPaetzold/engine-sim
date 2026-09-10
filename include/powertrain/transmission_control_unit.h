@@ -92,7 +92,7 @@ namespace powertrain {
 
             void initialize(const Parameters &params);
 
-            virtual void registerParameters(config::ParameterRegistry *registry, const char *prefix);
+            virtual void registerParameters(config::ParameterRegistry *registry);
             virtual void reset();
             virtual void configureGearbox(const GearboxCapabilities &capabilities);
 

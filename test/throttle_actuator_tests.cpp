@@ -100,7 +100,7 @@ TEST(ThrottleActuatorTests, TheClosingRateCanDifferFromTheOpeningRate) {
 TEST(ThrottleActuatorTests, TheParametersAreReachableThroughTheRegistry) {
     config::ParameterRegistry registry;
     ExternalThrottle throttle;
-    throttle.registerParameters(&registry, "");
+    throttle.registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("throttle.open_rate"));
     ASSERT_TRUE(registry.contains("throttle.close_rate"));

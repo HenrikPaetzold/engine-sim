@@ -18,10 +18,10 @@ void ThermalModel::initialize(const Parameters &params) {
     reset();
 }
 
-void ThermalModel::registerParameters(config::ParameterRegistry *registry, const char *prefix) {
+void ThermalModel::registerParameters(config::ParameterRegistry *registry) {
     if (registry == nullptr) return;
 
-    const std::string base = std::string(prefix) + "thermal.";
+    const std::string base = "thermal.";
 
     registry->registerScalar(
         config::describeScalar(base + "block_mass", 1.0, 1e6, m_params.blockThermalMass, "J/K"),

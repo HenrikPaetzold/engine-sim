@@ -102,7 +102,7 @@ namespace powertrain {
             inline control::ControlProgram &getProgram() { return m_program; }
             inline const control::ControlProgram &getProgram() const { return m_program; }
 
-            virtual void registerParameters(config::ParameterRegistry *registry, const char *prefix) override;
+            virtual void registerParameters(config::ParameterRegistry *registry) override;
             virtual void fillTelemetry(config::TelemetrySample *sample) const override;
             virtual void reset() override;
 

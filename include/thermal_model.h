@@ -29,7 +29,7 @@ class ThermalModel {
         ~ThermalModel();
 
         void initialize(const Parameters &params);
-        void registerParameters(config::ParameterRegistry *registry, const char *prefix);
+        void registerParameters(config::ParameterRegistry *registry);
         void reset();
 
         void addHeat(double energy);

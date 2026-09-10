@@ -418,7 +418,7 @@ TEST(RegistryAdaptTests, TheTcuScheduleMapsAreOpenForLearning) {
     config::ParameterRegistry registry;
     powertrain::TransmissionControlUnit tcu;
     tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
-    tcu.registerParameters(&registry, "");
+    tcu.registerParameters(&registry);
 
     EXPECT_TRUE(registry.isAdaptive("tcu.upshift_map"));
     EXPECT_TRUE(registry.isAdaptive("tcu.downshift_map"));

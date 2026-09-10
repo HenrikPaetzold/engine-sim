@@ -54,7 +54,7 @@ namespace es_script {
 
             if (m_path.empty()) return;
 
-            Compiler::Output::AdaptiveOverride override;
+            powertrain::AdaptiveOverride override;
             override.path = m_path;
             override.adaptive = m_adaptive;
             override.adaptMin = m_min;

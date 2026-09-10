@@ -24,7 +24,7 @@ class ExternalThrottle : public Throttle {
         virtual void setSpeedControl(double s);
         virtual void update(double dt, Engine *engine);
 
-        void registerParameters(config::ParameterRegistry *registry, const char *prefix);
+        void registerParameters(config::ParameterRegistry *registry);
         void reset();
 
         void setPlatePosition(double position);

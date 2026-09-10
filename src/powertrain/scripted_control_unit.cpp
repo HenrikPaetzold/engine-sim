@@ -106,13 +106,11 @@ void powertrain::ScriptedControlUnit::initialize() {
     }
 }
 
-void powertrain::ScriptedControlUnit::registerParameters(
-    config::ParameterRegistry *registry,
-    const char *prefix)
+void powertrain::ScriptedControlUnit::registerParameters(config::ParameterRegistry *registry)
 {
     if (registry == nullptr) return;
 
-    const std::string base = std::string(prefix) + "program.";
+    const std::string base = "program.";
 
     m_program.setRegistry(registry);
 

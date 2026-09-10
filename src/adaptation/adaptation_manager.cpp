@@ -8,24 +8,6 @@
 #include <cmath>
 #include <string>
 
-namespace {
-    config::ParameterDescriptor describe(
-        const std::string &path,
-        double min,
-        double max,
-        double defaultValue,
-        const char *unit)
-    {
-        config::ParameterDescriptor d;
-        d.path = path;
-        d.minValue = min;
-        d.maxValue = max;
-        d.defaultValue = defaultValue;
-        d.unit = unit;
-
-        return d;
-    }
-}
 
 adaptation::AdaptationManager::AdaptationManager() {
     m_ecu = nullptr;
@@ -320,139 +302,137 @@ void adaptation::AdaptationManager::update(
     updateLambdaTrim(dt, state);
 }
 
-void adaptation::AdaptationManager::registerParameters(
-    config::ParameterRegistry *registry,
-    const char *prefix)
+void adaptation::AdaptationManager::registerParameters(config::ParameterRegistry *registry)
 {
     if (registry == nullptr) return;
 
-    const std::string base = std::string(prefix) + "adaptation.";
+    const std::string base = "adaptation.";
 
     registry->registerBoolean(
-        describe(base + "throttle_map.enabled", 0.0, 1.0,
+        config::describeScalar(base + "throttle_map.enabled", 0.0, 1.0,
             m_params.throttleMapEnabled ? 1.0 : 0.0, ""),
         &m_params.throttleMapEnabled);
     registry->registerScalar(
-        describe(base + "throttle_map.rate", 0.0, 5.0,
+        config::describeScalar(base + "throttle_map.rate", 0.0, 5.0,
             m_params.throttleLearningRate, ""),
         &m_params.throttleLearningRate);
     registry->registerScalar(
-        describe(base + "throttle_map.deadband", 0.0, 0.5,
+        config::describeScalar(base + "throttle_map.deadband", 0.0, 0.5,
             m_params.throttleDeadband, ""),
         &m_params.throttleDeadband);
     registry->registerBoolean(
-        describe(base + "throttle_map.learn_from_integrator", 0.0, 1.0,
+        config::describeScalar(base + "throttle_map.learn_from_integrator", 0.0, 1.0,
             m_params.throttleLearnFromIntegrator ? 1.0 : 0.0, ""),
         &m_params.throttleLearnFromIntegrator);
 
     registry->registerBoolean(
-        describe(base + "idle.enabled", 0.0, 1.0,
+        config::describeScalar(base + "idle.enabled", 0.0, 1.0,
             m_params.idleEnabled ? 1.0 : 0.0, ""),
         &m_params.idleEnabled);
     registry->registerScalar(
-        describe(base + "idle.drain_rate", 0.0, 5.0,
+        config::describeScalar(base + "idle.drain_rate", 0.0, 5.0,
             m_params.idleDrainRate, ""),
         &m_params.idleDrainRate);
     registry->registerScalar(
-        describe(base + "idle.limit", 0.0, 1.0,
+        config::describeScalar(base + "idle.limit", 0.0, 1.0,
             m_params.idleTrimLimit, ""),
         &m_params.idleTrimLimit);
     registry->registerScalar(
-        describe(base + "idle.speed_margin", 0.0, units::rpm(3000.0),
+        config::describeScalar(base + "idle.speed_margin", 0.0, units::rpm(3000.0),
             m_params.idleSpeedMargin, "rad/s"),
         &m_params.idleSpeedMargin);
 
     registry->registerBoolean(
-        describe(base + "lambda.enabled", 0.0, 1.0,
+        config::describeScalar(base + "lambda.enabled", 0.0, 1.0,
             m_params.lambdaEnabled ? 1.0 : 0.0, ""),
         &m_params.lambdaEnabled);
     registry->registerScalar(
-        describe(base + "lambda.short_term_gain", 0.0, 10.0,
+        config::describeScalar(base + "lambda.short_term_gain", 0.0, 10.0,
             m_params.lambdaShortTermGain, ""),
         &m_params.lambdaShortTermGain);
     registry->registerScalar(
-        describe(base + "lambda.limit", 0.0, 1.0,
+        config::describeScalar(base + "lambda.limit", 0.0, 1.0,
             m_params.lambdaTrimLimit, ""),
         &m_params.lambdaTrimLimit);
     registry->registerScalar(
-        describe(base + "lambda.target", 0.0, 1.0,
+        config::describeScalar(base + "lambda.target", 0.0, 1.0,
             m_params.lambdaTarget, ""),
         &m_params.lambdaTarget);
     registry->registerScalar(
-        describe(base + "lambda.long_term_rate", 0.0, 5.0,
+        config::describeScalar(base + "lambda.long_term_rate", 0.0, 5.0,
             m_params.lambdaLongTermRate, ""),
         &m_params.lambdaLongTermRate);
 
     registry->registerBoolean(
-        describe(base + "shift.enabled", 0.0, 1.0,
+        config::describeScalar(base + "shift.enabled", 0.0, 1.0,
             m_params.shiftEnabled ? 1.0 : 0.0, ""),
         &m_params.shiftEnabled);
 
     registry->registerScalar(
-        describe(base + "conditions.warm_temperature",
+        config::describeScalar(base + "conditions.warm_temperature",
             units::celcius(0.0), units::celcius(120.0),
             m_params.conditions.warmTemperature, "K"),
         &m_params.conditions.warmTemperature);
     registry->registerScalar(
-        describe(base + "conditions.speed_window", 0.0, units::rpm(2000.0),
+        config::describeScalar(base + "conditions.speed_window", 0.0, units::rpm(2000.0),
             m_params.conditions.speedStabilityWindow, "rad/s"),
         &m_params.conditions.speedStabilityWindow);
     registry->registerBoolean(
-        describe(base + "conditions.require_unsaturated_plate", 0.0, 1.0,
+        config::describeScalar(base + "conditions.require_unsaturated_plate", 0.0, 1.0,
             m_params.conditions.requireUnsaturatedPlate ? 1.0 : 0.0, ""),
         &m_params.conditions.requireUnsaturatedPlate);
     registry->registerBoolean(
-        describe(base + "conditions.require_warm", 0.0, 1.0,
+        config::describeScalar(base + "conditions.require_warm", 0.0, 1.0,
             m_params.conditions.requireWarm ? 1.0 : 0.0, ""),
         &m_params.conditions.requireWarm);
     registry->registerBoolean(
-        describe(base + "conditions.require_steady_speed", 0.0, 1.0,
+        config::describeScalar(base + "conditions.require_steady_speed", 0.0, 1.0,
             m_params.conditions.requireSteadySpeed ? 1.0 : 0.0, ""),
         &m_params.conditions.requireSteadySpeed);
     registry->registerBoolean(
-        describe(base + "conditions.require_no_shift", 0.0, 1.0,
+        config::describeScalar(base + "conditions.require_no_shift", 0.0, 1.0,
             m_params.conditions.requireNoShift ? 1.0 : 0.0, ""),
         &m_params.conditions.requireNoShift);
     registry->registerBoolean(
-        describe(base + "conditions.require_no_limiting", 0.0, 1.0,
+        config::describeScalar(base + "conditions.require_no_limiting", 0.0, 1.0,
             m_params.conditions.requireNoLimiting ? 1.0 : 0.0, ""),
         &m_params.conditions.requireNoLimiting);
     registry->registerScalar(
-        describe(base + "conditions.minimum_speed", 0.0, units::rpm(4000.0),
+        config::describeScalar(base + "conditions.minimum_speed", 0.0, units::rpm(4000.0),
             m_params.conditions.minimumSpeed, "rad/s"),
         &m_params.conditions.minimumSpeed);
     registry->registerBoolean(
-        describe(base + "torque_model.enabled", 0.0, 1.0,
+        config::describeScalar(base + "torque_model.enabled", 0.0, 1.0,
             m_params.torqueModelEnabled ? 1.0 : 0.0, ""),
         &m_params.torqueModelEnabled);
     registry->registerBoolean(
-        describe(base + "torque_model.feedforward", 0.0, 1.0,
+        config::describeScalar(base + "torque_model.feedforward", 0.0, 1.0,
             m_params.torqueModelFeedforward ? 1.0 : 0.0, ""),
         &m_params.torqueModelFeedforward);
     registry->registerBoolean(
-        describe(base + "torque_model.auto_scale", 0.0, 1.0,
+        config::describeScalar(base + "torque_model.auto_scale", 0.0, 1.0,
             m_params.torqueModel.autoScale ? 1.0 : 0.0, ""),
         &m_torqueModel.getParametersMutable().autoScale);
     registry->registerScalar(
-        describe(base + "torque_model.estimate_min",
+        config::describeScalar(base + "torque_model.estimate_min",
             0.0, units::torque(5000.0, units::Nm),
             m_torqueModel.getParametersMutable().estimateMin, "Nm"),
         &m_torqueModel.getParametersMutable().estimateMin);
     registry->registerScalar(
-        describe(base + "torque_model.estimate_max",
+        config::describeScalar(base + "torque_model.estimate_max",
             0.0, units::torque(5000.0, units::Nm),
             m_torqueModel.getParametersMutable().estimateMax, "Nm"),
         &m_torqueModel.getParametersMutable().estimateMax);
     registry->registerScalar(
-        describe(base + "torque_model.covariance_limit", 0.0, 1e9,
+        config::describeScalar(base + "torque_model.covariance_limit", 0.0, 1e9,
             m_torqueModel.getParametersMutable().covarianceLimit, ""),
         &m_torqueModel.getParametersMutable().covarianceLimit);
     registry->registerScalar(
-        describe(base + "torque_model.minimum_regressor", 0.0, 1.0,
+        config::describeScalar(base + "torque_model.minimum_regressor", 0.0, 1.0,
             m_torqueModel.getParametersMutable().minimumRegressor, ""),
         &m_torqueModel.getParametersMutable().minimumRegressor);
     registry->registerScalar(
-        describe(base + "torque_model.forgetting", 0.5, 1.0,
+        config::describeScalar(base + "torque_model.forgetting", 0.5, 1.0,
             m_params.torqueModel.forgettingFactor, ""),
         &m_params.torqueModel.forgettingFactor);
 }

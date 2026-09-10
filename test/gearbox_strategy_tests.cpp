@@ -342,7 +342,7 @@ TEST(TorqueConverterStrategyTests, TheScheduleIsReachableFromTheRegistry) {
 
     powertrain::TransmissionControlUnit tcu;
     tcu.initialize(converterParameters());
-    tcu.registerParameters(&registry, "");
+    tcu.registerParameters(&registry);
 
     for (const char *path : {
         "tcu.lockup_map",
@@ -477,7 +477,7 @@ TEST(RobotisedManualTests, TheSpeedMatchToleranceIsTunable) {
 
     powertrain::TransmissionControlUnit tcu;
     tcu.initialize(amtParameters());
-    tcu.registerParameters(&registry, "");
+    tcu.registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("tcu.shift.speed_match_tolerance"));
     ASSERT_TRUE(registry.set("tcu.shift.speed_match_tolerance", units::rpm(300.0)));
@@ -792,7 +792,7 @@ TEST(KickdownTests, TheKickdownIsReachableFromTheRegistry) {
 
     powertrain::TransmissionControlUnit tcu;
     tcu.initialize(kickdownParameters());
-    tcu.registerParameters(&registry, "");
+    tcu.registerParameters(&registry);
 
     for (const char *path : {
         "tcu.kickdown_map",
@@ -946,7 +946,7 @@ TEST(MultiShiftTests, TheStrategyIsReachableFromTheRegistry) {
 
     powertrain::TransmissionControlUnit tcu;
     tcu.initialize(bridgeParameters());
-    tcu.registerParameters(&registry, "");
+    tcu.registerParameters(&registry);
 
     for (const char *path : {
         "tcu.shift.multi_via_intermediate",

@@ -28,12 +28,10 @@ void powertrain::PowertrainUnit::reset() {
     m_tcu.reset();
 }
 
-void powertrain::PowertrainUnit::registerParameters(
-    config::ParameterRegistry *registry,
-    const char *prefix)
+void powertrain::PowertrainUnit::registerParameters(config::ParameterRegistry *registry)
 {
-    m_ecu.registerParameters(registry, prefix);
-    m_tcu.registerParameters(registry, prefix);
+    m_ecu.registerParameters(registry);
+    m_tcu.registerParameters(registry);
 }
 
 namespace {

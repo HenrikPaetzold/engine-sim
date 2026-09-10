@@ -22,7 +22,7 @@ namespace powertrain {
             PowertrainController() { /* void */ }
             virtual ~PowertrainController() { /* void */ }
 
-            virtual void registerParameters(config::ParameterRegistry *registry, const char *prefix);
+            virtual void registerParameters(config::ParameterRegistry *registry);
             virtual void fillTelemetry(config::TelemetrySample *sample) const;
             virtual void fillChannels(config::ChannelTable *table) const;
             virtual void reset();

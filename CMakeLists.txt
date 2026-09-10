@@ -132,6 +132,7 @@ add_library(engine-sim STATIC
     # Include files
     include/adaptation/adaptation_manager.h
     include/adaptation/rls_estimator.h
+    include/config/channel_recorder.h
     include/config/config_server.h
     include/config/shift_recorder.h
     include/config/drive_mode.h

@@ -34,10 +34,10 @@ void Vehicle::initialize(const Parameters &params) {
     m_maxBrakeForce = params.maxBrakeForce;
 }
 
-void Vehicle::registerParameters(config::ParameterRegistry *registry, const char *prefix) {
+void Vehicle::registerParameters(config::ParameterRegistry *registry) {
     if (registry == nullptr) return;
 
-    const std::string base = std::string(prefix) + "vehicle.";
+    const std::string base = "vehicle.";
 
     registry->registerScalar(
         config::describeScalar(base + "mass", 100.0, 20000.0, m_mass, "kg"),

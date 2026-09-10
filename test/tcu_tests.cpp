@@ -340,7 +340,7 @@ TEST(TransmissionControlUnitTests, ParametersAreReachableThroughTheRegistry) {
 
     powertrain::TransmissionControlUnit tcu;
     tcu.initialize(tcuParameters());
-    tcu.registerParameters(&registry, "");
+    tcu.registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("tcu.shift.min_gear_time"));
     ASSERT_TRUE(registry.contains("tcu.upshift_map"));
@@ -445,7 +445,7 @@ TEST(EngageProfileTests, TheLimitStaysSymmetricWhenItIsEdited) {
     tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
 
     config::ParameterRegistry registry;
-    tcu.registerParameters(&registry, "");
+    tcu.registerParameters(&registry);
 
     ASSERT_TRUE(registry.set("tcu.engage.limit", 0.8));
 
@@ -469,7 +469,7 @@ TEST(EngageProfileTests, TheBinCountIsAnIntegerParameterAndRebuilds) {
     tcu.initialize(powertrain::TransmissionControlUnit::Parameters());
 
     config::ParameterRegistry registry;
-    tcu.registerParameters(&registry, "");
+    tcu.registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("tcu.engage.bins"));
     ASSERT_TRUE(registry.set("tcu.engage.bins", 16.0));
@@ -494,7 +494,7 @@ TEST(LaunchTests, TheLaunchSpeedIsScriptableAndRegistered) {
         1e-12);
 
     config::ParameterRegistry registry;
-    tcu.registerParameters(&registry, "");
+    tcu.registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("tcu.launch.speed"));
     ASSERT_TRUE(registry.set("tcu.launch.speed", 5.0));

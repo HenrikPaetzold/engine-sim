@@ -147,7 +147,7 @@ TEST(PassthroughControllerTests, ExposesItsGammaThroughTheRegistry) {
 
     powertrain::PassthroughController controller;
     controller.initialize(params);
-    controller.registerParameters(&registry, "");
+    controller.registerParameters(&registry);
 
     ASSERT_TRUE(registry.contains("passthrough.throttle_gamma"));
 

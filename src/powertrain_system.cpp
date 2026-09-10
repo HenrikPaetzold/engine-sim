@@ -173,11 +173,11 @@ void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
             "control.shift_window", 0.2, 10.0, m_params.shiftWindow, "s"),
         &m_params.shiftWindow);
 
-    m_throttle.registerParameters(registry, "");
+    m_throttle.registerParameters(registry);
 
     if (m_simulator != nullptr) {
         Vehicle *vehicle = m_simulator->getVehicle();
-        if (vehicle != nullptr) vehicle->registerParameters(registry, "");
+        if (vehicle != nullptr) vehicle->registerParameters(registry);
 
         registry->registerMap(
             config::describeScalar(
@@ -193,14 +193,14 @@ void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
             &m_simulator->m_starterMotor.m_speedMap);
 
         Engine *engine = m_simulator->getEngine();
-        if (engine != nullptr) engine->getThermalModel().registerParameters(registry, "");
+        if (engine != nullptr) engine->getThermalModel().registerParameters(registry);
 
         Transmission *transmission = m_simulator->getTransmission();
-        if (transmission != nullptr) transmission->registerParameters(registry, "");
+        if (transmission != nullptr) transmission->registerParameters(registry);
     }
 
-    if (m_controller != nullptr) m_controller->registerParameters(registry, "");
-    if (m_overlay != nullptr) m_overlay->registerParameters(registry, "");
+    if (m_controller != nullptr) m_controller->registerParameters(registry);
+    if (m_overlay != nullptr) m_overlay->registerParameters(registry);
 }
 
 bool PowertrainSystem::selectDriveMode(
