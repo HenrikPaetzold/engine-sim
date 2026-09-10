@@ -142,34 +142,6 @@ void PowertrainSystem::conditionInputs(double dt) {
     m_driverClutch = m_driven.clutchPedal;
 }
 
-namespace {
-    void registerCylinderFriction(config::ParameterRegistry *registry, Engine *engine) {
-        CombustionChamber::FrictionModelParams &params = engine->getCylinderFriction();
-
-        registry->registerScalar(
-            config::describeScalar("friction.cylinder_friction", 0.0, 0.5,
-                params.frictionCoeff, ""),
-            &params.frictionCoeff);
-        registry->registerScalar(
-            config::describeScalar("friction.breakaway_friction", 0.0,
-                units::force(500.0, units::N), params.breakawayFriction, "N"),
-            &params.breakawayFriction);
-        registry->registerScalar(
-            config::describeScalar("friction.breakaway_velocity", 0.0,
-                units::velocity(2.0, units::m / units::sec),
-                params.breakawayFrictionVelocity, "m/s"),
-            &params.breakawayFrictionVelocity);
-        registry->registerScalar(
-            config::describeScalar("friction.viscous_friction", 0.0, 500.0,
-                params.viscousFrictionCoefficient, "N s/m"),
-            &params.viscousFrictionCoefficient);
-        registry->registerScalar(
-            config::describeScalar("friction.boundary_exponent", 0.0, 2.0,
-                params.boundaryExponent, ""),
-            &params.boundaryExponent);
-    }
-}
-
 void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
     if (registry == nullptr) return;
 
@@ -223,7 +195,7 @@ void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
         Engine *engine = m_simulator->getEngine();
         if (engine != nullptr) engine->getThermalModel().registerParameters(registry);
         if (engine != nullptr) engine->getFrictionModel().registerParameters(registry);
-        if (engine != nullptr) registerCylinderFriction(registry, engine);
+        if (engine != nullptr) engine->registerFrictionParameters(registry);
 
         Transmission *transmission = m_simulator->getTransmission();
         if (transmission != nullptr) transmission->registerParameters(registry);

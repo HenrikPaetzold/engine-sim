@@ -74,6 +74,7 @@ class Engine : public Part {
         void applyWallTemperature();
 
         void updateFriction(double dt);
+        void registerFrictionParameters(config::ParameterRegistry *registry);
         double getFrictionPower() const;
         double getCrankFrictionTorque() const;
         inline double getOilViscosity() const { return m_oilViscosity; }

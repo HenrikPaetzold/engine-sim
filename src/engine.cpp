@@ -4,6 +4,7 @@
 #include "../include/units.h"
 #include "../include/fuel.h"
 #include "../include/piston_engine_simulator.h"
+#include "../include/config/parameter_registry.h"
 
 #include <algorithm>
 #include <cmath>
@@ -32,6 +33,12 @@ Engine::Engine() {
     m_dynoMaxSpeed = 0;
     m_dynoHoldStep = 0;
     m_redline = 0;
+    m_displacement = 0;
+
+    m_oilViscosity = 0;
+    m_viscosityRatio = 1.0;
+    m_frictionPower = 0;
+    m_crankFrictionTorque = 0;
 
     m_throttle = nullptr;
     m_throttleValue = 0.0;
@@ -354,7 +361,37 @@ void Engine::updateThermal(double dt, double vehicleSpeed) {
     m_thermalModel.update(dt, vehicleSpeed);
 }
 
+void Engine::registerFrictionParameters(config::ParameterRegistry *registry) {
+    if (registry == nullptr) return;
+
+    CombustionChamber::FrictionModelParams &params = m_cylinderFriction;
+
+    registry->registerScalar(
+        config::describeScalar("friction.cylinder_friction", 0.0, 0.5,
+            params.frictionCoeff, ""),
+        &params.frictionCoeff);
+    registry->registerScalar(
+        config::describeScalar("friction.breakaway_friction", 0.0,
+            units::force(500.0, units::N), params.breakawayFriction, "N"),
+        &params.breakawayFriction);
+    registry->registerScalar(
+        config::describeScalar("friction.breakaway_velocity", 0.0,
+            units::velocity(2.0, units::m / units::sec),
+            params.breakawayFrictionVelocity, "m/s"),
+        &params.breakawayFrictionVelocity);
+    registry->registerScalar(
+        config::describeScalar("friction.viscous_friction", 0.0, 500.0,
+            params.viscousFrictionCoefficient, "N s/m"),
+        &params.viscousFrictionCoefficient);
+    registry->registerScalar(
+        config::describeScalar("friction.boundary_exponent", 0.0, 2.0,
+            params.boundaryExponent, ""),
+        &params.boundaryExponent);
+}
+
 void Engine::updateFriction(double dt) {
+    if (m_displacement <= 0.0) calculateDisplacement();
+
     m_oilViscosity = m_friction.viscosity(m_thermalModel.getOilTemperature());
     m_viscosityRatio = m_friction.viscosityRatio(m_thermalModel.getOilTemperature());
 
