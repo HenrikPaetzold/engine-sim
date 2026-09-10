@@ -473,156 +473,262 @@ double powertrain::TransmissionControlUnit::launchPressure(
     return m_slipController.update(dt, -target, -slip);
 }
 
+double powertrain::TransmissionControlUnit::phaseFraction(double duration) const {
+    if (duration <= 0.0) return 1.0;
+    return std::clamp(m_shiftTimer.getElapsed() / duration, 0.0, 1.0);
+}
+
+void powertrain::TransmissionControlUnit::advanceTorqueReduction() {
+    const double t = phaseFraction(m_params.torqueReductionTime);
+
+    m_bus.torqueReductionRequest = m_params.shiftTorqueReduction * t;
+    m_bus.interventionType = TorqueIntervention::Spark;
+
+    if (t < 1.0) return;
+
+    m_shiftState = ShiftState::ClutchRelease;
+    m_releasePressure = m_clutchPressure;
+    m_shiftTimer.reset();
+}
+
+void powertrain::TransmissionControlUnit::advanceClutchRelease() {
+    const double t = phaseFraction(m_params.clutchReleaseTime);
+
+    m_clutchPressure = m_releasePressure * (1.0 - t);
+    m_bus.torqueReductionRequest = m_params.shiftTorqueCut;
+
+    if (t < 1.0) return;
+
+    m_clutchPressure = 0.0;
+    m_shiftState = ShiftState::GearChange;
+    m_shiftTimer.reset();
+}
+
+void powertrain::TransmissionControlUnit::advanceGearChange() {
+    m_clutchPressure = 0.0;
+    m_currentGear = m_targetGear;
+    m_bus.torqueReductionRequest = m_params.shiftTorqueCut;
+
+    if (!m_shiftTimer.hasElapsed(m_params.gearChangeTime)) return;
+
+    const bool downshift = m_targetGear > m_previousGear ? false : true;
+    m_shiftState = (downshift && !m_params.hasLaunchDevice)
+        ? ShiftState::SpeedMatch
+        : ShiftState::ClutchEngage;
+    m_shiftTimer.reset();
+}
+
+void powertrain::TransmissionControlUnit::advanceSpeedMatch(
+    const PowertrainState &state)
+{
+    const double target =
+        engineSpeedForGear(m_currentGear, std::abs(state.vehicleSpeed));
+
+    m_bus.speedRequest = target;
+    m_bus.speedRequestActive = target > 0.0;
+    m_bus.torqueReductionRequest = 0.0;
+    m_clutchPressure = 0.0;
+
+    const bool matched =
+        std::abs(state.engineSpeed - target) < m_params.speedMatchTolerance;
+
+    if (!matched && !m_shiftTimer.hasElapsed(m_params.speedMatchTime)) return;
+
+    m_bus.speedRequestActive = false;
+    m_shiftState = ShiftState::ClutchEngage;
+    m_shiftTimer.reset();
+}
+
+void powertrain::TransmissionControlUnit::advanceClutchOverlap(
+    const DriverInputs &inputs)
+{
+    const double t = phaseFraction(m_params.clutchOverlapTime);
+
+    m_engagePhase = t;
+
+    const double pedal = std::clamp(inputs.accelerator, 0.0, 1.0);
+    const double shaped =
+        std::clamp(m_overlapShape.sample(t, pedal), 0.0, 1.0);
+
+    const double oncoming =
+        std::clamp(shaped + m_engageProfile.correction(t), 0.0, 1.0);
+    const double offgoing =
+        std::clamp((1.0 - shaped)
+            + m_params.overlapHold * (1.0 - std::abs(2.0 * t - 1.0)),
+            0.0, 1.0);
+
+    const int target = clutchForGear(m_targetGear);
+    const int source = clutchForGear(m_currentGear);
+
+    m_clutchPressure = (source == 0) ? offgoing : oncoming;
+    m_secondaryPressure = (target == 1) ? oncoming : offgoing;
+
+    m_bus.torqueReductionRequest =
+        m_params.shiftTorqueReduction * (1.0 - std::abs(2.0 * t - 1.0));
+
+    if (t < 1.0) return;
+
+    m_currentGear = m_targetGear;
+    m_activeClutch = target;
+    m_clutchGear[target] = m_targetGear;
+
+    m_clutchPressure = (target == 0) ? 1.0 : 0.0;
+    m_secondaryPressure = (target == 1) ? 1.0 : 0.0;
+
+    m_bus.torqueReductionRequest = 0.0;
+    m_shiftState = ShiftState::Idle;
+    m_gearTimer.reset();
+    ++m_completedShifts;
+
+    const int pending = m_finalGear;
+    m_finalGear = -1;
+
+    if (pending >= 0 && pending != m_currentGear) beginShift(pending);
+}
+
+void powertrain::TransmissionControlUnit::advanceClutchEngage(
+    const DriverInputs &inputs)
+{
+    const double t = phaseFraction(m_params.clutchEngageTime);
+
+    m_engagePhase = t;
+
+    const double pedal = std::clamp(inputs.accelerator, 0.0, 1.0);
+    const double shaped =
+        std::clamp(m_engageShape.sample(t, pedal), 0.0, 1.0);
+
+    m_clutchPressure = std::clamp(shaped + m_engageProfile.correction(t), 0.0, 1.0);
+    m_bus.torqueReductionRequest = m_params.shiftTorqueReduction * (1.0 - t);
+
+    if (t < 1.0) return;
+
+    m_clutchPressure = 1.0;
+    m_bus.torqueReductionRequest = 0.0;
+    m_shiftState = ShiftState::Idle;
+    m_gearTimer.reset();
+    ++m_completedShifts;
+}
+
 void powertrain::TransmissionControlUnit::advanceShift(
     double dt,
     const PowertrainState &state,
-    const DriverInputs &inputs,
-    ActuatorCommands *commands)
+    const DriverInputs &inputs)
 {
     m_shiftTimer.advance(dt);
 
     switch (m_shiftState) {
-    case ShiftState::TorqueReduction: {
-        const double t = (m_params.torqueReductionTime > 0.0)
-            ? std::clamp(m_shiftTimer.getElapsed() / m_params.torqueReductionTime, 0.0, 1.0)
-            : 1.0;
+    case ShiftState::TorqueReduction: advanceTorqueReduction(); break;
+    case ShiftState::ClutchRelease:   advanceClutchRelease();   break;
+    case ShiftState::GearChange:      advanceGearChange();      break;
+    case ShiftState::SpeedMatch:      advanceSpeedMatch(state); break;
+    case ShiftState::ClutchOverlap:   advanceClutchOverlap(inputs); break;
+    case ShiftState::ClutchEngage:    advanceClutchEngage(inputs);  break;
+    default: break;
+    }
+}
 
-        m_bus.torqueReductionRequest = m_params.shiftTorqueReduction * t;
-        m_bus.interventionType = TorqueIntervention::Spark;
-
-        if (t >= 1.0) {
-            m_shiftState = ShiftState::ClutchRelease;
-            m_releasePressure = m_clutchPressure;
-            m_shiftTimer.reset();
-        }
-        break;
+void powertrain::TransmissionControlUnit::syncEngageProfile() {
+    if (m_params.engageBins != m_engageBins) {
+        m_params.engageProfile.binCount = std::max(m_params.engageBins, 1);
+        m_engageProfile.initialize(m_params.engageProfile);
+        m_engageBins = m_params.engageBins;
     }
 
-    case ShiftState::ClutchRelease: {
-        const double t = (m_params.clutchReleaseTime > 0.0)
-            ? std::clamp(m_shiftTimer.getElapsed() / m_params.clutchReleaseTime, 0.0, 1.0)
-            : 1.0;
+    m_engageProfile.getParametersMutable().outputMax = m_params.engageLimit;
+    m_engageProfile.getParametersMutable().outputMin = -m_params.engageLimit;
+}
 
-        m_clutchPressure = m_releasePressure * (1.0 - t);
-        m_bus.torqueReductionRequest = m_params.shiftTorqueCut;
+void powertrain::TransmissionControlUnit::updatePedalFilter(double dt, double pedal) {
+    if (dt <= 0.0) return;
 
-        if (t >= 1.0) {
-            m_clutchPressure = 0.0;
-            m_shiftState = ShiftState::GearChange;
-            m_shiftTimer.reset();
+    const double tau = std::max(m_params.kickdownFilter, dt);
+    const double alpha = dt / tau;
+    const double previous = m_pedalFiltered;
+
+    m_pedalFiltered += (pedal - m_pedalFiltered) * std::min(alpha, 1.0);
+    m_pedalRate = (m_pedalFiltered - previous) / dt;
+}
+
+int powertrain::TransmissionControlUnit::requestedGear(
+    const PowertrainState &state,
+    const DriverInputs &inputs,
+    double pedal) const
+{
+    int requested = m_currentGear;
+
+    if (inputs.manualMode) {
+        if (inputs.shiftUpRequest && !m_previousShiftUp) {
+            if (requested + 1 < m_params.gearCount) ++requested;
         }
-        break;
+        else if (inputs.shiftDownRequest && !m_previousShiftDown) {
+            if (requested - 1 >= -1) --requested;
+        }
+
+        return requested;
     }
 
-    case ShiftState::GearChange: {
+    const bool stab =
+        m_params.kickdownPedalRate > 0.0
+        && m_pedalRate >= m_params.kickdownPedalRate
+        && pedal >= m_params.kickdownPedalFloor;
+
+    const bool kickdown = stab || pedal >= m_params.kickdownThreshold;
+
+    if (m_currentGear < 0 && inputs.accelerator > 0.0) requested = 0;
+    else {
+        requested = scheduleGear(
+            m_currentGear, inputs.accelerator, state.vehicleSpeed, kickdown);
+    }
+
+    if (requested > 0
+        && engineSpeedForGear(requested, std::abs(state.vehicleSpeed))
+            < m_params.stallProtectSpeed)
+    {
+        requested = m_currentGear;
+    }
+
+    return requested;
+}
+
+void powertrain::TransmissionControlUnit::applyClutchPressures(
+    double dt,
+    const PowertrainState &state,
+    const DriverInputs &inputs,
+    bool driving,
+    bool reversing)
+{
+    if (m_shiftState != ShiftState::Idle) {
+        advanceShift(dt, state, inputs);
+        m_bus.shiftInProgress = true;
+        return;
+    }
+
+    if (reversing) {
+        m_currentGear = -1;
+        m_targetGear = -1;
+        m_clutchPressure = launchPressure(dt, state, inputs);
+        return;
+    }
+
+    if (!driving) return;
+
+    m_targetGear = m_currentGear;
+
+    if (m_currentGear < 0) {
         m_clutchPressure = 0.0;
-        m_currentGear = m_targetGear;
-        m_bus.torqueReductionRequest = m_params.shiftTorqueCut;
-
-        if (m_shiftTimer.hasElapsed(m_params.gearChangeTime)) {
-            const bool downshift = m_targetGear > m_previousGear ? false : true;
-            m_shiftState = (downshift && !m_params.hasLaunchDevice)
-                ? ShiftState::SpeedMatch
-                : ShiftState::ClutchEngage;
-            m_shiftTimer.reset();
-        }
-        break;
+        m_secondaryPressure = 0.0;
+        m_slipController.reset();
+        return;
     }
 
-    case ShiftState::SpeedMatch: {
-        const double target =
-            engineSpeedForGear(m_currentGear, std::abs(state.vehicleSpeed));
+    const double pressure = launchPressure(dt, state, inputs);
 
-        m_bus.speedRequest = target;
-        m_bus.speedRequestActive = target > 0.0;
-        m_bus.torqueReductionRequest = 0.0;
-        m_clutchPressure = 0.0;
-
-        const bool matched =
-            std::abs(state.engineSpeed - target) < m_params.speedMatchTolerance;
-
-        if (matched || m_shiftTimer.hasElapsed(m_params.speedMatchTime)) {
-            m_bus.speedRequestActive = false;
-            m_shiftState = ShiftState::ClutchEngage;
-            m_shiftTimer.reset();
-        }
-        break;
+    if (m_params.supportsPreselect) {
+        m_clutchPressure = (m_activeClutch == 0) ? pressure : 0.0;
+        m_secondaryPressure = (m_activeClutch == 1) ? pressure : 0.0;
     }
-
-    case ShiftState::ClutchOverlap: {
-        const double t = (m_params.clutchOverlapTime > 0.0)
-            ? std::clamp(m_shiftTimer.getElapsed() / m_params.clutchOverlapTime, 0.0, 1.0)
-            : 1.0;
-
-        m_engagePhase = t;
-
-        const double pedal = std::clamp(inputs.accelerator, 0.0, 1.0);
-        const double shaped =
-            std::clamp(m_overlapShape.sample(t, pedal), 0.0, 1.0);
-
-        const double oncoming =
-            std::clamp(shaped + m_engageProfile.correction(t), 0.0, 1.0);
-        const double offgoing =
-            std::clamp((1.0 - shaped)
-                + m_params.overlapHold * (1.0 - std::abs(2.0 * t - 1.0)),
-                0.0, 1.0);
-
-        const int target = clutchForGear(m_targetGear);
-        const int source = clutchForGear(m_currentGear);
-
-        m_clutchPressure = (source == 0) ? offgoing : oncoming;
-        m_secondaryPressure = (target == 1) ? oncoming : offgoing;
-
-        m_bus.torqueReductionRequest =
-            m_params.shiftTorqueReduction * (1.0 - std::abs(2.0 * t - 1.0));
-
-        if (t >= 1.0) {
-            m_currentGear = m_targetGear;
-            m_activeClutch = target;
-            m_clutchGear[target] = m_targetGear;
-
-            m_clutchPressure = (target == 0) ? 1.0 : 0.0;
-            m_secondaryPressure = (target == 1) ? 1.0 : 0.0;
-
-            m_bus.torqueReductionRequest = 0.0;
-            m_shiftState = ShiftState::Idle;
-            m_gearTimer.reset();
-            ++m_completedShifts;
-
-            const int pending = m_finalGear;
-            m_finalGear = -1;
-
-            if (pending >= 0 && pending != m_currentGear) beginShift(pending);
-        }
-        break;
-    }
-
-    case ShiftState::ClutchEngage: {
-        const double t = (m_params.clutchEngageTime > 0.0)
-            ? std::clamp(m_shiftTimer.getElapsed() / m_params.clutchEngageTime, 0.0, 1.0)
-            : 1.0;
-
-        m_engagePhase = t;
-
-        const double pedal = std::clamp(inputs.accelerator, 0.0, 1.0);
-        const double shaped =
-            std::clamp(m_engageShape.sample(t, pedal), 0.0, 1.0);
-
-        m_clutchPressure = std::clamp(shaped + m_engageProfile.correction(t), 0.0, 1.0);
-        m_bus.torqueReductionRequest = m_params.shiftTorqueReduction * (1.0 - t);
-
-        if (t >= 1.0) {
-            m_clutchPressure = 1.0;
-            m_bus.torqueReductionRequest = 0.0;
-            m_shiftState = ShiftState::Idle;
-            m_gearTimer.reset();
-            ++m_completedShifts;
-        }
-        break;
-    }
-
-    default:
-        break;
+    else {
+        m_clutchPressure = pressure;
     }
 }
 
@@ -635,28 +741,14 @@ void powertrain::TransmissionControlUnit::update(
     m_bus.resetTransmissionRequests();
     m_gearTimer.advance(dt);
 
-    if (m_params.engageBins != m_engageBins) {
-        m_params.engageProfile.binCount = std::max(m_params.engageBins, 1);
-        m_engageProfile.initialize(m_params.engageProfile);
-        m_engageBins = m_params.engageBins;
-    }
-
-    m_engageProfile.getParametersMutable().outputMax = m_params.engageLimit;
-    m_engageProfile.getParametersMutable().outputMin = -m_params.engageLimit;
+    syncEngageProfile();
 
     if (commands != nullptr && commands->revLimit > 0.0) {
         m_revLimit = commands->revLimit;
     }
 
     const double pedalNow = std::clamp(inputs.accelerator, 0.0, 1.0);
-    if (dt > 0.0) {
-        const double tau = std::max(m_params.kickdownFilter, dt);
-        const double alpha = dt / tau;
-        const double previous = m_pedalFiltered;
-
-        m_pedalFiltered += (pedalNow - m_pedalFiltered) * std::min(alpha, 1.0);
-        m_pedalRate = (m_pedalFiltered - previous) / dt;
-    }
+    updatePedalFilter(dt, pedalNow);
 
     resolvePosition(dt, state, inputs);
 
@@ -676,73 +768,14 @@ void powertrain::TransmissionControlUnit::update(
     if (driving && m_shiftState == ShiftState::Idle) {
         m_currentGear = state.gear;
 
-        int requested = m_currentGear;
-
-        if (inputs.manualMode) {
-            if (inputs.shiftUpRequest && !m_previousShiftUp) {
-                if (requested + 1 < m_params.gearCount) ++requested;
-            }
-            else if (inputs.shiftDownRequest && !m_previousShiftDown) {
-                if (requested - 1 >= -1) --requested;
-            }
-        }
-        else {
-            const bool stab =
-                m_params.kickdownPedalRate > 0.0
-                && m_pedalRate >= m_params.kickdownPedalRate
-                && pedalNow >= m_params.kickdownPedalFloor;
-
-            const bool kickdown =
-                stab || pedalNow >= m_params.kickdownThreshold;
-
-            if (m_currentGear < 0 && inputs.accelerator > 0.0) requested = 0;
-            else {
-                requested = scheduleGear(
-                    m_currentGear, inputs.accelerator, state.vehicleSpeed, kickdown);
-            }
-
-            if (requested > 0
-                && engineSpeedForGear(requested, std::abs(state.vehicleSpeed))
-                    < m_params.stallProtectSpeed)
-            {
-                requested = m_currentGear;
-            }
-        }
+        const int requested = requestedGear(state, inputs, pedalNow);
 
         if (requested != m_currentGear && m_gearTimer.hasElapsed(m_params.minGearTime)) {
             beginShift(requested);
         }
     }
 
-    if (m_shiftState != ShiftState::Idle) {
-        advanceShift(dt, state, inputs, commands);
-        m_bus.shiftInProgress = true;
-    }
-    else if (reversing) {
-        m_currentGear = -1;
-        m_targetGear = -1;
-        m_clutchPressure = launchPressure(dt, state, inputs);
-    }
-    else if (driving) {
-        m_targetGear = m_currentGear;
-
-        if (m_currentGear < 0) {
-            m_clutchPressure = 0.0;
-            m_secondaryPressure = 0.0;
-            m_slipController.reset();
-        }
-        else {
-            const double pressure = launchPressure(dt, state, inputs);
-
-            if (m_params.supportsPreselect) {
-                m_clutchPressure = (m_activeClutch == 0) ? pressure : 0.0;
-                m_secondaryPressure = (m_activeClutch == 1) ? pressure : 0.0;
-            }
-            else {
-                m_clutchPressure = pressure;
-            }
-        }
-    }
+    applyClutchPressures(dt, state, inputs, driving, reversing);
 
     m_previousShiftUp = inputs.shiftUpRequest;
     m_previousShiftDown = inputs.shiftDownRequest;

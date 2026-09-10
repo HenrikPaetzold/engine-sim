@@ -170,11 +170,29 @@ namespace powertrain {
             void buildDefaultShapes();
             static void resizeGearAxis(control::Map2d *map, int gears);
             void beginShift(int gear);
-            void advanceShift(
+            void syncEngageProfile();
+            void updatePedalFilter(double dt, double pedal);
+            int requestedGear(
+                const PowertrainState &state,
+                const DriverInputs &inputs,
+                double pedal) const;
+            void applyClutchPressures(
                 double dt,
                 const PowertrainState &state,
                 const DriverInputs &inputs,
-                ActuatorCommands *commands);
+                bool driving,
+                bool reversing);
+            double phaseFraction(double duration) const;
+            void advanceTorqueReduction();
+            void advanceClutchRelease();
+            void advanceGearChange();
+            void advanceSpeedMatch(const PowertrainState &state);
+            void advanceClutchOverlap(const DriverInputs &inputs);
+            void advanceClutchEngage(const DriverInputs &inputs);
+            void advanceShift(
+                double dt,
+                const PowertrainState &state,
+                const DriverInputs &inputs);
             void resolvePosition(
                 double dt,
                 const PowertrainState &state,
