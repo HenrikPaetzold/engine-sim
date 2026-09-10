@@ -37,6 +37,11 @@ zwei greps.
 `driver_clutch` | `driverClutchAuthority` | `tcu.gearbox.driver_clutch_authority` | `.mr`-Name ist abgeschnitten
 `ambient` | `ambientTemperature` | `thermal.ambient_temperature` | „temperature" fehlt im `.mr`-Namen — und das ist **innerhalb des Thermoknotens inkonsistent**, denn `initial_block_temperature` und `initial_oil_temperature` schreiben es aus
 `cross_sectional_area` | `crossSectionArea` | `vehicle.cross_section_area` | drei Schreibweisen desselben Worts
+`cylinder_friction` | `frictionCoeff` | `friction.cylinder_friction` | „cylinder" nur im `.mr` und im Pfad, „coeff" nur in C++
+`breakaway_velocity` | `breakawayFrictionVelocity` | `friction.breakaway_velocity` | „friction" nur in C++
+`viscous_friction` | `viscousFrictionCoefficient` | `friction.viscous_friction` | „coefficient" nur in C++
+`heat_to_oil` | `frictionHeatToOil` | `friction.heat_to_oil` | „friction" nur in C++, die Gruppe heißt schon so
+`oil_cooler` | `oilCoolerConductance` | `thermal.oil_cooler` | „conductance" nur in C++, wie bei `radiator` daneben
 
 ---
 
@@ -85,6 +90,7 @@ Präfix | gesetzt in
 `tcu.` | `src/powertrain/transmission_control_unit_parameters.cpp`
 `adaptation.` | `src/adaptation/adaptation_manager.cpp`
 `thermal.` | `src/thermal_model.cpp`
+`friction.` | `src/engine_friction.cpp` — und die fünf Zylinderwerte in `src/powertrain_system.cpp`, weil sie am Motor hängen, nicht am Reibungsmodell
 `vehicle.` | `src/vehicle.cpp`
 `program.` | `src/powertrain/scripted_control_unit.cpp`
 `starter.`, `driver.`, `control.` | `src/powertrain_system.cpp`

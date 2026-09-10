@@ -22,6 +22,7 @@ wie eine Stellgröße heißt — dreimal | [parameter_map.md](parameter_map.md)
 wie der Wählhebel und seine Sperren funktionieren | [selector_gate.md](selector_gate.md)
 wie Kupplung, Wandler und Fahrzeug aneinanderhängen | [driveline.md](driveline.md)
 wie Block und Öl warm werden, und wer den Fahrer filtert | [thermal.md](thermal.md)
+wie Reibung entsteht, was das Öl damit zu tun hat | [friction.md](friction.md)
 wie der Anlasser bedatet wird | [starter.md](starter.md)
 wie man das Ganze unter Linux baut | [building-on-linux.md](building-on-linux.md)
 
@@ -52,6 +53,7 @@ deren Rückschrieb als `.mr` | `src/config/parameter_registry_export.cpp` | [cal
 **Verdrahtung zur Simulation** — Zustand lesen, Befehle anwenden | `src/powertrain_system.cpp` | —
 **Aufbau beim Laden** | `src/powertrain/bootstrap.cpp` | diese Datei, unten
 **Thermomodell und Fahrermodell** | `src/thermal_model.cpp`, `src/powertrain_system.cpp` | [thermal.md](thermal.md)
+**Reibung** — Stribeck am Kolben, Chen-Flynn an der Kurbelwelle, Ölviskosität nach Vogel | `src/engine_friction.cpp`, `frictionForce` in `src/combustion_chamber.cpp` | [friction.md](friction.md)
 **Antriebsstrang** — Kupplung, Wandler, Getriebe, Fahrzeug | `src/transmission.cpp`, `src/ratio_clutch_constraint.cpp`, `src/torque_converter_constraint.cpp`, `src/vehicle.cpp` | [driveline.md](driveline.md)
 **Skriptknoten** — die `.mr`-Seite | `scripting/include/powertrain_nodes.h`, `scripting/include/powertrain_actions.h`, `scripting/include/control_program_nodes.h` | unten
 **Skriptbibliothek** | `es/powertrain/*.mr`, `es/objects/objects.mr` | —
@@ -177,6 +179,7 @@ Kommen Reglerbefehle wirklich in der Simulation an? | `test/powertrain_attach_te
 Was kann ein Blockprogramm? | `test/control_program_tests.cpp`, `test/learner_tests.cpp`
 Wählhebel und Sperren | `test/selector_gate_tests.cpp`
 Zündaussetzer und Gemischbildung | `test/charge_tests.cpp`
+Reibung, Ölviskosität, Reibungswärme | `test/friction_tests.cpp`
 Registry, Grenzen, Adaptiv-Freigabe | `test/parameter_registry_tests.cpp`, `test/single_source_tests.cpp`
 Browser-Schnittstelle | `test/config_server_tests.cpp`
 
