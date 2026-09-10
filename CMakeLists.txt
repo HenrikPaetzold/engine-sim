@@ -71,11 +71,14 @@ add_library(engine-sim STATIC
     src/control/control_program.cpp
     src/control/pid_controller.cpp
     src/powertrain/engine_control_unit.cpp
+    src/powertrain/engine_control_unit_parameters.cpp
     src/powertrain/passthrough_controller.cpp
     src/powertrain/powertrain_unit.cpp
     src/powertrain/scripted_control_unit.cpp
     src/powertrain/selector_gate.cpp
     src/powertrain/transmission_control_unit.cpp
+    src/powertrain/transmission_control_unit_defaults.cpp
+    src/powertrain/transmission_control_unit_parameters.cpp
     src/powertrain/powertrain_controller.cpp
     src/external_throttle.cpp
     src/powertrain_system.cpp
