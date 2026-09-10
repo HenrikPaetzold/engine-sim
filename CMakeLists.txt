@@ -135,6 +135,7 @@ add_library(engine-sim STATIC
     include/config/config_server.h
     include/config/shift_recorder.h
     include/config/drive_mode.h
+    include/config/json_writer.h
     include/config/parameter_registry.h
     include/control/hysteresis.h
     include/control/iterative_learning.h
@@ -407,11 +408,12 @@ add_executable(engine-sim-test
     test/parameter_registry_tests.cpp
     test/powertrain_attach_tests.cpp
         test/powertrain_tests.cpp
+    test/charge_tests.cpp
     test/thermal_tests.cpp
     test/ecu_tests.cpp
     test/tcu_tests.cpp
     test/driveline_tests.cpp
-    test/range_tests.cpp
+    test/selector_gate_tests.cpp
     test/gearbox_strategy_tests.cpp
     test/starter_tests.cpp
     test/channel_recorder_tests.cpp

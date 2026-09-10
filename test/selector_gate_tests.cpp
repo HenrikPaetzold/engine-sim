@@ -394,7 +394,7 @@ TEST(SelectorGateTests, AGateWithoutParkNeverCommandsTheParkLock) {
     }
 }
 
-TEST(DeadKnobTests, TheBrakeInterlockCanBeTurnedOff) {
+TEST(BrakeInterlockTests, TheBrakeInterlockCanBeTurnedOff) {
     powertrain::TransmissionControlUnit::Parameters params;
     params.defaultPosition = "P";
     params.brakeInterlock = false;
@@ -421,7 +421,7 @@ TEST(DeadKnobTests, TheBrakeInterlockCanBeTurnedOff) {
     EXPECT_EQ(tcu.getPosition().name, "D");
 }
 
-TEST(DeadKnobTests, TheBrakeInterlockStillHoldsWhenOn) {
+TEST(BrakeInterlockTests, TheBrakeInterlockStillHoldsWhenOn) {
     powertrain::TransmissionControlUnit::Parameters params;
     params.defaultPosition = "P";
     params.brakeInterlock = true;

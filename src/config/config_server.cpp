@@ -1,5 +1,7 @@
 #include "../../include/config/config_server.h"
 
+#include "../../include/config/json_writer.h"
+
 #include "../../include/config/parameter_registry.h"
 #include "../../include/config/drive_mode.h"
 #include "../../include/config/shift_recorder.h"
@@ -16,16 +18,6 @@ namespace {
         return static_cast<httplib::Server *>(handle);
     }
 
-    std::string jsonString(const std::string &value) {
-        std::string out = "\"";
-        for (char c : value) {
-            if (c == '"' || c == '\\') { out += '\\'; out += c; }
-            else if (c == '\n') out += "\\n";
-            else out += c;
-        }
-
-        return out + "\"";
-    }
 
     bool extractNumber(const std::string &body, const std::string &key, double *value) {
         const std::string needle = "\"" + key + "\"";
@@ -110,7 +102,7 @@ void config::ConfigServer::buildSchema() {
     if (m_modes != nullptr) {
         for (int i = 0; i < m_modes->getCount(); ++i) {
             if (i != 0) out << ',';
-            out << jsonString(m_modes->get(i).getName());
+            out << config::jsonString(m_modes->get(i).getName());
         }
     }
     out << "]}";
@@ -132,7 +124,7 @@ void config::ConfigServer::refreshState(const TelemetrySample &sample) {
             if (!first) out << ',';
             first = false;
 
-            out << jsonString(d.path) << ':' << m_registry->getValue(i);
+            out << config::jsonString(d.path) << ':' << m_registry->getValue(i);
         }
     }
 
@@ -146,7 +138,7 @@ void config::ConfigServer::refreshState(const TelemetrySample &sample) {
             if (!first) out << ',';
             first = false;
 
-            out << jsonString(d.path) << ':' << (d.adaptive ? "true" : "false");
+            out << config::jsonString(d.path) << ':' << (d.adaptive ? "true" : "false");
         }
     }
 
@@ -164,7 +156,7 @@ void config::ConfigServer::refreshState(const TelemetrySample &sample) {
             if (!first) out << ',';
             first = false;
 
-            out << jsonString(d.path) << ":[";
+            out << config::jsonString(d.path) << ":[";
             for (int y = 0; y < map->getYCount(); ++y) {
                 for (int x = 0; x < map->getXCount(); ++x) {
                     if (x != 0 || y != 0) out << ',';
@@ -189,7 +181,7 @@ void config::ConfigServer::refreshState(const TelemetrySample &sample) {
         << ",\"vehicleSpeed\":" << sample.vehicleSpeed
         << ",\"roadGrade\":" << sample.roadGrade
         << ",\"gear\":" << sample.gear
-        << ",\"range\":" << jsonString(sample.range)
+        << ",\"range\":" << config::jsonString(sample.range)
         << ",\"parkLock\":" << (sample.parkLock ? "true" : "false")
         << ",\"clutchPressure\":" << sample.clutchPressure
         << ",\"ignitionCut\":" << sample.ignitionCut
@@ -201,8 +193,8 @@ void config::ConfigServer::refreshState(const TelemetrySample &sample) {
         << ",\"shiftErrorNorm\":" << sample.shiftErrorNorm
         << ",\"adaptionEnabled\":" << (sample.adaptionEnabled ? "true" : "false")
         << ",\"selectedMode\":" << sample.selectedMode
-        << ",\"engineState\":" << jsonString(sample.engineState)
-        << ",\"shiftState\":" << jsonString(sample.shiftState)
+        << ",\"engineState\":" << config::jsonString(sample.engineState)
+        << ",\"shiftState\":" << config::jsonString(sample.shiftState)
         << "}}";
 
     std::ostringstream exported;

@@ -52,6 +52,22 @@ namespace powertrain {
         std::string uiPath;
     };
 
+    enum class ControlMode {
+        ScriptOnly,
+        ControlUnits,
+        ScriptOverlay
+    };
+
+    struct ControllerSelection {
+        ControlMode mode = ControlMode::ControlUnits;
+        PowertrainController *primary = nullptr;
+        PowertrainController *overlay = nullptr;
+    };
+
+    ControllerSelection selectControllers(
+        PowertrainUnit *unit,
+        ScriptedControlUnit *program);
+
     struct BootstrapResult {
         PowertrainController *controller = nullptr;
         PowertrainController *overlay = nullptr;

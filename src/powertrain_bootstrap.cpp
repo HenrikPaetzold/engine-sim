@@ -5,6 +5,29 @@
 #include "../include/simulator.h"
 #include "../include/engine.h"
 
+powertrain::ControllerSelection powertrain::selectControllers(
+    PowertrainUnit *unit,
+    ScriptedControlUnit *program)
+{
+    ControllerSelection selection;
+
+    if (program != nullptr && unit != nullptr) {
+        selection.mode = ControlMode::ScriptOverlay;
+        selection.primary = unit;
+        selection.overlay = program;
+    }
+    else if (program != nullptr) {
+        selection.mode = ControlMode::ScriptOnly;
+        selection.primary = program;
+    }
+    else {
+        selection.mode = ControlMode::ControlUnits;
+        selection.primary = unit;
+    }
+
+    return selection;
+}
+
 powertrain::BootstrapResult powertrain::installPowertrain(
     const BootstrapInputs &inputs,
     const BootstrapContext &context)
@@ -14,17 +37,15 @@ powertrain::BootstrapResult powertrain::installPowertrain(
     if (context.system == nullptr || context.registry == nullptr) return result;
     if (inputs.unit == nullptr && inputs.program == nullptr) return result;
 
-    const bool overlayProgram =
-        inputs.program != nullptr && inputs.unit != nullptr;
+    const ControllerSelection selection =
+        selectControllers(inputs.unit, inputs.program);
 
-    result.controller = (inputs.program != nullptr && !overlayProgram)
-        ? static_cast<PowertrainController *>(inputs.program)
-        : static_cast<PowertrainController *>(inputs.unit);
+    result.controller = selection.primary;
+    result.overlay = selection.overlay;
 
-    if (inputs.program != nullptr) inputs.program->setOverlay(overlayProgram);
-    result.overlay = overlayProgram
-        ? static_cast<PowertrainController *>(inputs.program)
-        : nullptr;
+    if (inputs.program != nullptr) {
+        inputs.program->setOverlay(selection.mode == ControlMode::ScriptOverlay);
+    }
 
     PowertrainSystem &system = *context.system;
 

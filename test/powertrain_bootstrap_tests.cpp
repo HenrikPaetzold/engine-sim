@@ -235,3 +235,23 @@ TEST(PowertrainBootstrapTests, WithoutAGrantTheRegistryStillRefuses) {
 
     delete inputs.unit;
 }
+
+TEST(PowertrainBootstrapTests, TheThreeControlModesAreNamed) {
+    powertrain::PowertrainUnit unit;
+    powertrain::ScriptedControlUnit program;
+
+    const auto scriptOnly = powertrain::selectControllers(nullptr, &program);
+    EXPECT_EQ(scriptOnly.mode, powertrain::ControlMode::ScriptOnly);
+    EXPECT_EQ(scriptOnly.primary, &program);
+    EXPECT_EQ(scriptOnly.overlay, nullptr);
+
+    const auto units = powertrain::selectControllers(&unit, nullptr);
+    EXPECT_EQ(units.mode, powertrain::ControlMode::ControlUnits);
+    EXPECT_EQ(units.primary, &unit);
+    EXPECT_EQ(units.overlay, nullptr);
+
+    const auto overlay = powertrain::selectControllers(&unit, &program);
+    EXPECT_EQ(overlay.mode, powertrain::ControlMode::ScriptOverlay);
+    EXPECT_EQ(overlay.primary, &unit);
+    EXPECT_EQ(overlay.overlay, &program);
+}

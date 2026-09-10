@@ -586,7 +586,7 @@ TEST(WindupTests, TheOuterStopDoesNotWindTheIntegratorUp) {
     EXPECT_LT(ecu.getCommandedPlate(), limit);
 }
 
-TEST(DeadKnobTests, TheOverrunThresholdsAreLive) {
+TEST(OverrunCutTests, TheOverrunThresholdsAreLive) {
     powertrain::EngineControlUnit ecu;
     ecu.initialize(powertrain::EngineControlUnit::Parameters());
 

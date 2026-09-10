@@ -1,5 +1,7 @@
 #include "../../include/config/parameter_registry.h"
 
+#include "../../include/config/json_writer.h"
+
 #include "../../include/control/pid_controller.h"
 
 #include "../../include/control/map_2d.h"
@@ -46,15 +48,6 @@ namespace {
         return true;
     }
 
-    void writeJsonString(std::ostream &out, const std::string &s) {
-        out << '"';
-        for (char c : s) {
-            if (c == '"' || c == '\\') out << '\\' << c;
-            else if (c == '\n') out << "\\n";
-            else out << c;
-        }
-        out << '"';
-    }
 }
 
 config::ParameterDescriptor config::describeScalar(
@@ -473,11 +466,11 @@ void config::ParameterRegistry::serializeJson(std::ostream &out) const {
         if (i != 0) out << ',';
 
         out << "{\"path\":";
-        writeJsonString(out, d.path);
+        config::writeJsonString(out, d.path);
         out << ",\"type\":";
-        writeJsonString(out, typeName(d.type));
+        config::writeJsonString(out, typeName(d.type));
         out << ",\"unit\":";
-        writeJsonString(out, d.unit);
+        config::writeJsonString(out, d.unit);
         out << ",\"min\":" << d.minValue
             << ",\"max\":" << d.maxValue
             << ",\"display_min\":" << displayLow(d)

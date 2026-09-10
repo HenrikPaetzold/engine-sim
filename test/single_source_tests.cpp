@@ -267,6 +267,32 @@ namespace {
     }
 }
 
+TEST(RegistryCoverageTests, EveryPidExposesAllEightFields) {
+    powertrain::EngineControlUnit ecu;
+    ecu.initialize(powertrain::EngineControlUnit::Parameters());
+
+    powertrain::TransmissionControlUnit tcu;
+    powertrain::TransmissionControlUnit::Parameters tcuParams;
+    tcuParams.hasLaunchDevice = true;
+    tcu.initialize(tcuParams);
+
+    config::ParameterRegistry registry;
+    ecu.registerParameters(&registry, "");
+    tcu.registerParameters(&registry, "");
+
+    const char *bases[] = {
+        "ecu.idle.pid.", "ecu.torque.pid.", "tcu.launch.pid.", "tcu.lockup.pid." };
+    const char *fields[] = {
+        "kp", "ki", "kd", "min", "max",
+        "d_filter_hz", "anti_windup", "integrator_limit" };
+
+    for (const char *base : bases) {
+        for (const char *field : fields) {
+            const std::string path = std::string(base) + field;
+            EXPECT_TRUE(registry.contains(path)) << path << " is not reachable";
+        }
+    }
+}
 TEST(ExportScopeTests, LearnedScopeOnlyCoversAdaptiveValues) {
     double a = 0.0, b = 0.0, learned = 0.0;
     config::ParameterRegistry registry = buildRegistry(&a, &b, &learned);
@@ -341,29 +367,3 @@ TEST(ExportScopeTests, OverridesRoundTripThroughTheRegistry) {
     EXPECT_NEAR(b, 77.5, 1e-9);
 }
 
-TEST(RegistryCoverageTests, EveryPidExposesAllEightFields) {
-    powertrain::EngineControlUnit ecu;
-    ecu.initialize(powertrain::EngineControlUnit::Parameters());
-
-    powertrain::TransmissionControlUnit tcu;
-    powertrain::TransmissionControlUnit::Parameters tcuParams;
-    tcuParams.hasLaunchDevice = true;
-    tcu.initialize(tcuParams);
-
-    config::ParameterRegistry registry;
-    ecu.registerParameters(&registry, "");
-    tcu.registerParameters(&registry, "");
-
-    const char *bases[] = {
-        "ecu.idle.pid.", "ecu.torque.pid.", "tcu.launch.pid.", "tcu.lockup.pid." };
-    const char *fields[] = {
-        "kp", "ki", "kd", "min", "max",
-        "d_filter_hz", "anti_windup", "integrator_limit" };
-
-    for (const char *base : bases) {
-        for (const char *field : fields) {
-            const std::string path = std::string(base) + field;
-            EXPECT_TRUE(registry.contains(path)) << path << " is not reachable";
-        }
-    }
-}

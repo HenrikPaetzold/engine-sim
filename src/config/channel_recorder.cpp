@@ -1,19 +1,13 @@
 #include "../../include/config/channel_recorder.h"
 
+#include "../../include/config/json_writer.h"
+
 #include <algorithm>
 #include <cassert>
 
 namespace {
     const std::string s_missing;
 
-    void writeJsonString(std::ostream &out, const std::string &s) {
-        out << '"';
-        for (char c : s) {
-            if (c == '"' || c == '\\') out << '\\' << c;
-            else out << c;
-        }
-        out << '"';
-    }
 }
 
 config::ChannelTable::ChannelTable() {
@@ -70,7 +64,7 @@ void config::ChannelTable::serializeNames(std::ostream &out) const {
     out << '[';
     for (size_t i = 0; i < m_names.size(); ++i) {
         if (i != 0) out << ',';
-        writeJsonString(out, m_names[i]);
+        config::writeJsonString(out, m_names[i]);
     }
     out << ']';
 }
@@ -224,7 +218,7 @@ void config::ChannelRecorder::serializeJson(std::ostream &out) const {
         if (c != 0) out << ',';
 
         out << "{\"name\":";
-        writeJsonString(out, m_tracks[c].name);
+        config::writeJsonString(out, m_tracks[c].name);
         out << ",\"found\":" << (m_tracks[c].index >= 0 ? "true" : "false")
             << ",\"samples\":[";
 
