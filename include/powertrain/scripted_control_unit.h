@@ -21,6 +21,8 @@ namespace powertrain {
             TimingAdvance,
             CoolantTemperature,
             OilTemperature,
+            OilViscosity,
+            FrictionPower,
             Gear,
             PreselectedGear,
             GearCount,

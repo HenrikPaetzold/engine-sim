@@ -186,6 +186,8 @@ void config::ConfigServer::writeTelemetry(
         << ",\"torqueRequest\":" << sample.torqueRequest
         << ",\"coolantTemperature\":" << sample.coolantTemperature
         << ",\"oilTemperature\":" << sample.oilTemperature
+        << ",\"oilViscosity\":" << sample.oilViscosity
+        << ",\"frictionPower\":" << sample.frictionPower
         << ",\"vehicleSpeed\":" << sample.vehicleSpeed
         << ",\"roadGrade\":" << sample.roadGrade
         << ",\"gear\":" << sample.gear

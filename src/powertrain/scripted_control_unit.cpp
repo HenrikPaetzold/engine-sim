@@ -20,6 +20,8 @@ namespace {
         "timing_advance",
         "coolant_temperature",
         "oil_temperature",
+        "oil_viscosity",
+        "friction_power",
         "gear",
         "preselected_gear",
         "gear_count",
@@ -292,6 +294,8 @@ void powertrain::sampleSignalTable(
     table.set(signals::TimingAdvance, state.timingAdvance);
     table.set(signals::CoolantTemperature, state.coolantTemperature);
     table.set(signals::OilTemperature, state.oilTemperature);
+    table.set(signals::OilViscosity, state.oilViscosity);
+    table.set(signals::FrictionPower, state.frictionPower);
     table.set(signals::Gear, state.gear);
     table.set(signals::PreselectedGear, state.preselectedGear);
     table.set(signals::GearCount, state.gearCount);

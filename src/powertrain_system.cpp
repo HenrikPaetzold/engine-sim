@@ -142,6 +142,34 @@ void PowertrainSystem::conditionInputs(double dt) {
     m_driverClutch = m_driven.clutchPedal;
 }
 
+namespace {
+    void registerCylinderFriction(config::ParameterRegistry *registry, Engine *engine) {
+        CombustionChamber::FrictionModelParams &params = engine->getCylinderFriction();
+
+        registry->registerScalar(
+            config::describeScalar("friction.cylinder_friction", 0.0, 0.5,
+                params.frictionCoeff, ""),
+            &params.frictionCoeff);
+        registry->registerScalar(
+            config::describeScalar("friction.breakaway_friction", 0.0,
+                units::force(500.0, units::N), params.breakawayFriction, "N"),
+            &params.breakawayFriction);
+        registry->registerScalar(
+            config::describeScalar("friction.breakaway_velocity", 0.0,
+                units::velocity(2.0, units::m / units::sec),
+                params.breakawayFrictionVelocity, "m/s"),
+            &params.breakawayFrictionVelocity);
+        registry->registerScalar(
+            config::describeScalar("friction.viscous_friction", 0.0, 500.0,
+                params.viscousFrictionCoefficient, "N s/m"),
+            &params.viscousFrictionCoefficient);
+        registry->registerScalar(
+            config::describeScalar("friction.boundary_exponent", 0.0, 2.0,
+                params.boundaryExponent, ""),
+            &params.boundaryExponent);
+    }
+}
+
 void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
     if (registry == nullptr) return;
 
@@ -194,6 +222,8 @@ void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
 
         Engine *engine = m_simulator->getEngine();
         if (engine != nullptr) engine->getThermalModel().registerParameters(registry);
+        if (engine != nullptr) engine->getFrictionModel().registerParameters(registry);
+        if (engine != nullptr) registerCylinderFriction(registry, engine);
 
         Transmission *transmission = m_simulator->getTransmission();
         if (transmission != nullptr) transmission->registerParameters(registry);
@@ -296,6 +326,8 @@ void PowertrainSystem::fillTelemetry(config::TelemetrySample *sample) const {
     out.indicatedTorque = m_state.indicatedTorque;
     out.coolantTemperature = m_state.coolantTemperature;
     out.oilTemperature = m_state.oilTemperature;
+    out.oilViscosity = m_state.oilViscosity;
+    out.frictionPower = m_state.frictionPower;
     out.vehicleSpeed = m_state.vehicleSpeed;
     out.roadGrade = m_state.roadGrade;
     out.gear = m_state.gear;
@@ -363,6 +395,8 @@ void PowertrainSystem::sampleState(double dt) {
         m_state.engineRunning = engine->getRpm() > 1.0;
         m_state.coolantTemperature = engine->getCoolantTemperature();
         m_state.oilTemperature = engine->getOilTemperature();
+        m_state.oilViscosity = engine->getOilViscosity();
+        m_state.frictionPower = engine->getFrictionPower();
 
         IgnitionModule *ignition = engine->getIgnitionModule();
         if (ignition != nullptr) m_state.timingAdvance = ignition->getTimingAdvance();

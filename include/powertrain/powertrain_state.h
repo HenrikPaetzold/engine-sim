@@ -22,6 +22,8 @@ namespace powertrain {
 
         double coolantTemperature = 0.0;
         double oilTemperature = 0.0;
+        double oilViscosity = 0.0;
+        double frictionPower = 0.0;
 
         GateEngagement engagement = GateEngagement::Neutral;
         int gatePosition = 0;

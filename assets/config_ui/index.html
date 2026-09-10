@@ -388,6 +388,8 @@ function renderTelemetry() {
         ["grade", n(t.roadGrade * 100, 2) + " %"],
         ["coolant", n(t.coolantTemperature - 273.15) + " °C"],
         ["oil", n(t.oilTemperature - 273.15) + " °C"],
+        ["viscosity", n(t.oilViscosity, 1) + " mm²/s"],
+        ["friction", n(t.frictionPower / 1000, 2) + " kW"],
         ["spark cut", n(t.ignitionCut, 2)],
         ["fuel cut", n(t.fuelCut, 2)],
         ["engine", t.engineState],

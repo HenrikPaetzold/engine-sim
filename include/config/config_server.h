@@ -23,6 +23,8 @@ namespace config {
         double torqueRequest = 0.0;
         double coolantTemperature = 0.0;
         double oilTemperature = 0.0;
+        double oilViscosity = 0.0;
+        double frictionPower = 0.0;
         double vehicleSpeed = 0.0;
         double roadGrade = 0.0;
         int gear = -1;
