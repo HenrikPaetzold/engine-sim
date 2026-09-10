@@ -12,6 +12,7 @@
 #include "ignition_module.h"
 #include "intake.h"
 #include "combustion_chamber.h"
+#include "engine_friction.h"
 #include "thermal_model.h"
 #include "control/map_2d.h"
 #include "units.h"
@@ -71,6 +72,18 @@ class Engine : public Part {
         virtual void update(double dt);
         virtual void updateThermal(double dt, double vehicleSpeed);
         void applyWallTemperature();
+
+        void updateFriction(double dt);
+        double getFrictionPower() const;
+        double getCrankFrictionTorque() const;
+        inline double getOilViscosity() const { return m_oilViscosity; }
+        inline double getViscosityRatio() const { return m_viscosityRatio; }
+
+        inline EngineFriction &getFrictionModel() { return m_friction; }
+        inline const EngineFriction &getFrictionModel() const { return m_friction; }
+        inline CombustionChamber::FrictionModelParams &getCylinderFriction() {
+            return m_cylinderFriction;
+        }
 
         inline ThermalModel &getThermalModel() { return m_thermalModel; }
         inline const ThermalModel &getThermalModel() const { return m_thermalModel; }
@@ -171,6 +184,13 @@ class Engine : public Part {
         double m_fuelFactor;
 
         ThermalModel m_thermalModel;
+        EngineFriction m_friction;
+        CombustionChamber::FrictionModelParams m_cylinderFriction;
+
+        double m_oilViscosity;
+        double m_viscosityRatio;
+        double m_frictionPower;
+        double m_crankFrictionTorque;
         double m_displacement;
 };
 

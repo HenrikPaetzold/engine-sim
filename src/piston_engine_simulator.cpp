@@ -286,6 +286,14 @@ void PistonEngineSimulator::simulateStep_() {
     const double timestep = getTimestep();
     m_starterMotor.m_temperature = m_engine->getOilTemperature();
 
+    const double crankFriction = m_engine->getCrankFrictionTorque();
+    for (int i = 0; i < m_engine->getCrankshaftCount(); ++i) {
+        const double total =
+            m_engine->getCrankshaft(i)->getFrictionTorque() + crankFriction;
+        m_crankshaftFrictionConstraints[i].m_minTorque = -total;
+        m_crankshaftFrictionConstraints[i].m_maxTorque = total;
+    }
+
     IgnitionModule *im = m_engine->getIgnitionModule();
     im->update(timestep);
 

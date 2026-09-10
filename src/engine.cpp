@@ -5,6 +5,7 @@
 #include "../include/fuel.h"
 #include "../include/piston_engine_simulator.h"
 
+#include <algorithm>
 #include <cmath>
 #include <assert.h>
 
@@ -336,12 +337,50 @@ void Engine::update(double dt) {
 
 void Engine::updateThermal(double dt, double vehicleSpeed) {
     double heat = 0.0;
+    double frictionWork = 0.0;
     for (int i = 0; i < m_cylinderCount; ++i) {
         heat += m_combustionChambers[i].popHeatRejected();
+        frictionWork += m_combustionChambers[i].popFrictionWork();
     }
+
+    frictionWork += std::abs(m_crankFrictionTorque * getSpeed()) * dt;
+    m_frictionPower = (dt > 0.0) ? (frictionWork / dt) : 0.0;
+
+    const double toOil = std::clamp(m_friction.getParameters().frictionHeatToOil, 0.0, 1.0);
+    m_thermalModel.addOilHeat(frictionWork * toOil);
+    m_thermalModel.addHeat(frictionWork * (1.0 - toOil));
 
     m_thermalModel.addHeat(heat * m_thermalModel.getParameters().combustionHeatFraction);
     m_thermalModel.update(dt, vehicleSpeed);
+}
+
+void Engine::updateFriction(double dt) {
+    m_oilViscosity = m_friction.viscosity(m_thermalModel.getOilTemperature());
+    m_viscosityRatio = m_friction.viscosityRatio(m_thermalModel.getOilTemperature());
+
+    double peak = 0.0;
+    for (int i = 0; i < m_cylinderCount; ++i) {
+        m_combustionChambers[i].getFrictionModel() = m_cylinderFriction;
+        m_combustionChambers[i].setViscosityRatio(m_viscosityRatio);
+        peak = std::max(peak, m_combustionChambers[i].getPressure());
+    }
+
+    m_friction.updatePeakPressure(dt, peak);
+
+    const double stroke = (m_crankshaftCount > 0)
+        ? 2.0 * m_crankshafts[0].getThrow()
+        : 0.0;
+
+    m_crankFrictionTorque = m_friction.crankTorque(
+        getSpeed(), stroke, m_displacement, m_viscosityRatio);
+}
+
+double Engine::getFrictionPower() const {
+    return m_frictionPower;
+}
+
+double Engine::getCrankFrictionTorque() const {
+    return m_crankFrictionTorque;
 }
 
 void Engine::applyWallTemperature() {
