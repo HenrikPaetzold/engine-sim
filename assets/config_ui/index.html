@@ -160,6 +160,11 @@ pre {
             <div id="manoeuvres"></div>
         </div>
         <div class="group">
+            <h2>Record</h2>
+            <div id="recordControls"></div>
+            <pre id="recorded">—</pre>
+        </div>
+        <div class="group">
             <h2>Drive mode</h2>
             <div id="modes"></div>
         </div>
@@ -398,7 +403,9 @@ function renderTelemetry() {
         ["fuel cut", n(t.fuelCut, 2)],
         ["engine", t.engineState],
         ["shift", t.shiftState],
-        ["blocked by", t.shiftBlock || "—"]
+        ["blocked by", t.shiftBlock || "—"],
+        ["last shift", n(t.lastShiftDuration * 1000, 0) + " ms"],
+        ["output torque", n(t.outputTorque, 0) + " Nm"]
     ]);
 
     fill("learning", [
@@ -979,6 +986,44 @@ views.step = {
     }
 };
 
+function tractionGap(recording) {
+    const samples = recording.samples;
+    if (samples.length < 4) return null;
+
+    const torque = samples.map(s => s[6]);
+    const head = Math.max(1, Math.floor(samples.length * 0.1));
+
+    let before = 0.0;
+    for (let i = 0; i < head; ++i) before += torque[i];
+    before /= head;
+
+    if (Math.abs(before) < 1e-6) return null;
+
+    let lowest = torque[0];
+    let lowestTime = samples[0][0];
+    for (let i = 0; i < torque.length; ++i) {
+        if (Math.abs(torque[i]) < Math.abs(lowest)) {
+            lowest = torque[i];
+            lowestTime = samples[i][0];
+        }
+    }
+
+    let area = 0.0;
+    for (let i = 1; i < samples.length; ++i) {
+        const dt = samples[i][0] - samples[i - 1][0];
+        const deficit = Math.max(0.0, Math.abs(before) - Math.abs(torque[i]));
+        area += deficit * dt;
+    }
+
+    return {
+        before,
+        lowest,
+        lowestTime,
+        drop: (1.0 - Math.abs(lowest) / Math.abs(before)) * 100.0,
+        area
+    };
+}
+
 views.shifts = {
     label: "Shift scope",
     note: "the last shifts on one time base. older ones are paler — watch them get smoother.",
@@ -991,6 +1036,17 @@ views.shifts = {
             ctx.textAlign = "center";
             ctx.fillText("no shift recorded yet", w / 2, h / 2);
             return;
+        }
+
+        const gap = tractionGap(runs[runs.length - 1]);
+        if (gap != null) {
+            ctx.fillStyle = "#fdbd2e";
+            ctx.font = "11px ui-monospace, monospace";
+            ctx.textAlign = "left";
+            ctx.fillText(
+                "traction gap  " + n(gap.drop, 0) + " %  at " + n(gap.lowestTime * 1000, 0)
+                    + " ms,  lost " + n(gap.area, 1) + " Nm s",
+                box.pad.l + 8, box.pad.t + 14);
         }
 
         let tMax = 0.1, slipMax = 1;
@@ -1251,6 +1307,35 @@ function renderManoeuvres() {
     }
 }
 
+function renderRecorder() {
+    const host = document.getElementById("recordControls");
+    const data = state.record;
+
+    host.textContent = "";
+
+    const button = document.createElement("button");
+    const running = data != null && data.recording;
+
+    button.textContent = running
+        ? ("stop  " + n(data.elapsed, 1) + " s, " + data.samples + " samples")
+        : "record driver inputs";
+    button.className = running ? "on" : "";
+    button.addEventListener("click", () => {
+        api("/api/record", running ? { stop: 1 } : { start: 1 }).catch(() => {});
+    });
+
+    host.appendChild(button);
+
+    const script = (data != null && data.script) ? data.script.trim() : "";
+    document.getElementById("recorded").textContent =
+        script || "nothing recorded yet";
+}
+
+async function pollRecorder() {
+    try { state.record = await api("/api/record"); }
+    catch (error) { /* keep what we have */ }
+}
+
 async function pollManoeuvres() {
     try { state.manoeuvres = await api("/api/manoeuvres"); }
     catch (error) { /* keep what we have */ }
@@ -1278,6 +1363,8 @@ async function poll() {
         renderTelemetry();
         await pollManoeuvres();
         renderManoeuvres();
+        await pollRecorder();
+        renderRecorder();
         plot();
 
         if (activeView === "scope") {
@@ -1340,6 +1427,8 @@ async function main() {
     await pollShifts();
     await pollManoeuvres();
     renderManoeuvres();
+    await pollRecorder();
+    renderRecorder();
 
     setInterval(poll, 100);
     setInterval(pollExport, 2000);

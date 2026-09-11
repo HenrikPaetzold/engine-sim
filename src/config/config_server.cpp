@@ -188,6 +188,8 @@ void config::ConfigServer::writeTelemetry(
         << ",\"torqueRequest\":" << sample.torqueRequest
         << ",\"coolantTemperature\":" << sample.coolantTemperature
         << ",\"oilTemperature\":" << sample.oilTemperature
+        << ",\"outputTorque\":" << sample.outputTorque
+        << ",\"lastShiftDuration\":" << sample.lastShiftDuration
         << ",\"oilViscosity\":" << sample.oilViscosity
         << ",\"frictionPower\":" << sample.frictionPower
         << ",\"vehicleSpeed\":" << sample.vehicleSpeed
@@ -275,6 +277,20 @@ void config::ConfigServer::setScope(ChannelRecorder *recorder) {
 
 void config::ConfigServer::setPowertrain(PowertrainSystem *system) {
     m_powertrain = system;
+}
+
+void config::ConfigServer::publishRecording(
+    bool recording, int samples, double elapsed, const std::string &script)
+{
+    std::ostringstream out;
+    out << "{\"recording\":" << (recording ? "true" : "false")
+        << ",\"samples\":" << samples
+        << ",\"elapsed\":" << elapsed
+        << ",\"script\":" << jsonString(script)
+        << "}";
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_recording = out.str();
 }
 
 void config::ConfigServer::publishScope(
@@ -377,6 +393,21 @@ int config::ConfigServer::applyPendingCommands() {
                 ++applied;
             }
             break;
+
+        case ParameterCommand::Kind::StartRecording:
+            if (m_powertrain != nullptr) {
+                m_powertrain->startRecording();
+                ++applied;
+            }
+            break;
+
+        case ParameterCommand::Kind::StopRecording:
+            if (m_powertrain != nullptr) {
+                m_powertrain->stopRecording();
+                m_powertrain->republishRecording();
+                ++applied;
+            }
+            break;
         }
     }
 
@@ -458,6 +489,29 @@ void config::ConfigServer::registerReadRoutes(void *handle) {
 void config::ConfigServer::registerWriteRoutes(void *handle) {
     httplib::Server *server = serverOf(handle);
 
+    server->Get("/api/record", [this](const httplib::Request &, httplib::Response &res) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        res.set_content(m_recording, "application/json");
+    });
+    server->Post("/api/record", [this](const httplib::Request &req, httplib::Response &res) {
+        ParameterCommand command;
+
+        double value = 0.0;
+        if (extractNumber(req.body, "start", &value) && value != 0.0) {
+            command.kind = ParameterCommand::Kind::StartRecording;
+        }
+        else if (extractNumber(req.body, "stop", &value) && value != 0.0) {
+            command.kind = ParameterCommand::Kind::StopRecording;
+        }
+        else {
+            res.status = 400;
+            res.set_content("{\"error\":\"start or stop expected\"}", "application/json");
+            return;
+        }
+
+        queueCommand(command);
+        res.set_content("{\"queued\":true}", "application/json");
+    });
     server->Post("/api/manoeuvre", [this](const httplib::Request &req, httplib::Response &res) {
         ParameterCommand command;
 

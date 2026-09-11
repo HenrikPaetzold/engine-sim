@@ -22,6 +22,8 @@ namespace config {
         double revLimitSoft = 0.0;
         double revLimitHard = 0.0;
         double indicatedTorque = 0.0;
+        double outputTorque = 0.0;
+        double lastShiftDuration = 0.0;
         double torqueRequest = 0.0;
         double coolantTemperature = 0.0;
         double oilTemperature = 0.0;
@@ -60,7 +62,9 @@ namespace config {
             ScopeMode,
             ScopeArm,
             StartManoeuvre,
-            StopManoeuvre
+            StopManoeuvre,
+            StartRecording,
+            StopRecording
         };
 
         Kind kind = Kind::SetParameter;
@@ -100,6 +104,7 @@ namespace config {
             void publishScope(const ChannelRecorder &recorder, const ChannelTable &table);
             void setScope(ChannelRecorder *recorder);
             void setPowertrain(PowertrainSystem *system);
+            void publishRecording(bool recording, int samples, double elapsed, const std::string &script);
             int applyPendingCommands();
 
             std::string schemaJson() const;
@@ -134,6 +139,7 @@ namespace config {
             std::string m_channelNames;
             ChannelRecorder *m_scopeRecorder = nullptr;
             PowertrainSystem *m_powertrain = nullptr;
+            std::string m_recording = "{\"recording\":false,\"samples\":0,\"elapsed\":0,\"script\":\"\"}";
 
             std::vector<ParameterCommand> m_commands;
 
