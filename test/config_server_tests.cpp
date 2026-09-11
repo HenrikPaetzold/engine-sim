@@ -142,6 +142,32 @@ TEST_F(ServerFixture, TheFrictionTelemetryReachesTheClient) {
         << response->body;
 }
 
+TEST_F(ServerFixture, WithoutAPowertrainTheManoeuvreListIsEmptyRatherThanAnError) {
+    auto response = client().Get("/api/manoeuvres");
+
+    ASSERT_TRUE(response);
+    EXPECT_EQ(response->status, 200);
+    EXPECT_NE(response->body.find("\"list\":[]"), std::string::npos) << response->body;
+    EXPECT_NE(response->body.find("\"running\":false"), std::string::npos);
+}
+
+TEST_F(ServerFixture, StartingAManoeuvreIsQueuedLikeEveryOtherCommand) {
+    auto response = client().Post(
+        "/api/manoeuvre", "{\"start\":\"launch\"}", "application/json");
+
+    ASSERT_TRUE(response);
+    EXPECT_EQ(response->status, 200);
+    EXPECT_EQ(m_server.applyPendingCommands(), 0)
+        << "there is no powertrain attached, so nothing may be applied";
+}
+
+TEST_F(ServerFixture, AManoeuvreRequestWithoutStartOrStopIsRejected) {
+    auto response = client().Post("/api/manoeuvre", "{}", "application/json");
+
+    ASSERT_TRUE(response);
+    EXPECT_EQ(response->status, 400);
+}
+
 TEST_F(ServerFixture, SetIsQueuedAndNotAppliedUntilTheSimulationAsks) {
     auto response = client().Post(
         "/api/set",

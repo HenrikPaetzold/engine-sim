@@ -1213,3 +1213,133 @@ TEST(AuthoredMapTests, AnUnsetDrivelineStillComesFromTheVehicle) {
     EXPECT_NEAR(
         tcu.getParameters().tireRadius, units::distance(10.0, units::inch), 1e-12);
 }
+
+// --- why the gearbox refuses to shift -------------------------------------
+
+namespace {
+    powertrain::TransmissionControlUnit blockRig() {
+        powertrain::TransmissionControlUnit tcu;
+        powertrain::TransmissionControlUnit::Parameters params = dctParameters();
+        params.stallProtectSpeed = units::rpm(1200.0);
+        tcu.initialize(params);
+
+        return tcu;
+    }
+}
+
+TEST(ShiftBlockTests, OutsideADrivingRangeTheReasonSaysSo) {
+    powertrain::TransmissionControlUnit tcu = blockRig();
+
+    powertrain::PowertrainState state = drivingState(2, 0.0);
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.brake = 1.0;
+    step(tcu, state, inputs, commands, 5);
+    ASSERT_EQ(tcu.getEngagement(), powertrain::GateEngagement::Forward);
+
+    for (int position = tcu.getGatePosition(); position >= 0; --position) {
+        inputs.gatePosition = position;
+        step(tcu, state, inputs, commands, 200);
+        if (tcu.getEngagement() == powertrain::GateEngagement::Neutral) break;
+    }
+
+    ASSERT_EQ(tcu.getEngagement(), powertrain::GateEngagement::Neutral)
+        << "the rig must actually reach neutral";
+
+    EXPECT_EQ(tcu.getShiftBlock(), powertrain::ShiftBlock::NotInDrive);
+}
+
+TEST(ShiftBlockTests, TheMinimumGearTimeIsNamedAsTheReason) {
+    powertrain::TransmissionControlUnit tcu = blockRig();
+
+    powertrain::PowertrainState state = drivingState(0, 5.0);
+    state.engagement = powertrain::GateEngagement::Forward;
+
+    powertrain::DriverInputs inputs;
+    inputs.accelerator = 1.0;
+    powertrain::ActuatorCommands commands;
+
+    step(tcu, state, inputs, commands, 2);
+
+    state.vehicleSpeed = 60.0;
+    tcu.update(1e-3, state, inputs, &commands);
+
+    EXPECT_EQ(tcu.getShiftBlock(), powertrain::ShiftBlock::GearDwell)
+        << "a wanted shift was discarded by the dwell timer and must say so";
+}
+
+TEST(ShiftBlockTests, StallProtectionIsNamedAsTheReason) {
+    powertrain::TransmissionControlUnit tcu = blockRig();
+
+    powertrain::PowertrainState state = drivingState(3, 4.0);
+    powertrain::DriverInputs inputs;
+    inputs.accelerator = 0.0;
+    powertrain::ActuatorCommands commands;
+
+    step(tcu, state, inputs, commands, 2000);
+
+    EXPECT_EQ(tcu.getShiftBlock(), powertrain::ShiftBlock::StallProtection)
+        << "a high gear at walking pace must trip the stall guard";
+}
+
+TEST(ShiftBlockTests, InManualModeTheTopGearClampIsNamed) {
+    powertrain::TransmissionControlUnit tcu = blockRig();
+
+    powertrain::PowertrainState state = drivingState(5, 60.0);
+    state.engagement = powertrain::GateEngagement::Forward;
+
+    powertrain::DriverInputs inputs;
+    inputs.manualMode = true;
+    inputs.accelerator = 0.3;
+    powertrain::ActuatorCommands commands;
+
+    step(tcu, state, inputs, commands, 400);
+
+    inputs.shiftUpRequest = true;
+    tcu.update(1e-3, state, inputs, &commands);
+
+    EXPECT_EQ(tcu.getShiftBlock(), powertrain::ShiftBlock::TopGear);
+}
+
+TEST(ShiftBlockTests, WhileAShiftRunsTheReasonSaysSo) {
+    powertrain::TransmissionControlUnit tcu = blockRig();
+
+    powertrain::PowertrainState state = drivingState(0, 2.0);
+    powertrain::DriverInputs inputs;
+    inputs.accelerator = 0.5;
+    powertrain::ActuatorCommands commands;
+
+    step(tcu, state, inputs, commands, 400);
+
+    bool seen = false;
+    for (int i = 0; i < 4000 && !seen; ++i) {
+        state.vehicleSpeed += 0.02;
+        step(tcu, state, inputs, commands, 1);
+        if (tcu.isShifting()) seen = true;
+    }
+
+    ASSERT_TRUE(seen) << "the rig must actually reach a shift";
+
+    step(tcu, state, inputs, commands, 1);
+    ASSERT_TRUE(tcu.isShifting());
+
+    EXPECT_EQ(tcu.getShiftBlock(), powertrain::ShiftBlock::ShiftInProgress)
+        << "the tick that starts a shift blocks nothing; the next one does";
+}
+
+TEST(ShiftBlockTests, TheReasonClearsWhenTheGearboxIsSimplyContent) {
+    powertrain::TransmissionControlUnit tcu = blockRig();
+
+    powertrain::PowertrainState state = drivingState(2, 25.0);
+    state.engagement = powertrain::GateEngagement::Forward;
+
+    powertrain::DriverInputs inputs;
+    inputs.accelerator = 0.35;
+    powertrain::ActuatorCommands commands;
+
+    step(tcu, state, inputs, commands, 2000);
+
+    EXPECT_NE(tcu.getShiftBlock(), powertrain::ShiftBlock::NotInDrive);
+    EXPECT_NE(tcu.getShiftBlock(), powertrain::ShiftBlock::GearDwell);
+}

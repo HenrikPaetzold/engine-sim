@@ -3,6 +3,7 @@
 #include "../scripting/include/compiler.h"
 
 #include "../include/powertrain/scripted_control_unit.h"
+#include "../include/powertrain/manoeuvre.h"
 #include "../include/transmission.h"
 #include "../include/vehicle.h"
 #include "../include/thermal_model.h"
@@ -10,6 +11,7 @@
 #include "../include/piston_engine_simulator.h"
 #include "../include/combustion_chamber.h"
 #include "../include/config/parameter_registry.h"
+#include "../include/config/mr_number.h"
 #include "../include/units.h"
 
 #include <fstream>
@@ -489,6 +491,67 @@ TEST_F(ScriptFixture, TheExportedScriptCompilesAndRestoresTheValues) {
 
     EXPECT_NEAR(minGearTime, 0.42, 1e-6);
     EXPECT_NEAR(cell, 33.0, 1e-6);
+}
+
+TEST_F(ScriptFixture, TheExportSurvivesVeryLargeAndVerySmallValues) {
+    ASSERT_TRUE(run("set_powertrain(tcu: transmission_control_unit())\n"));
+
+    powertrain::PowertrainUnit *unit = es_script::Compiler::output()->powertrain;
+    ASSERT_NE(unit, nullptr);
+
+    config::ParameterRegistry registry;
+    unit->registerParameters(&registry);
+
+    ASSERT_TRUE(registry.set("tcu.upshift_map[0][0]", 0.000001));
+    ASSERT_TRUE(registry.set("tcu.upshift_map[1][0]", 1000000.0));
+
+    std::ostringstream exported;
+    registry.exportScript(exported, config::ParameterRegistry::ExportScope::Changed);
+
+    const std::string body = exported.str();
+    EXPECT_EQ(body.find("e+"), std::string::npos)
+        << "the exported script uses scientific notation, which piranha cannot parse:\n"
+        << body;
+    EXPECT_EQ(body.find("e-"), std::string::npos)
+        << "the exported script uses scientific notation, which piranha cannot parse:\n"
+        << body;
+
+    ASSERT_TRUE(run(body)) << "the exported script does not compile:\n" << body;
+
+    double small = -1.0;
+    double large = -1.0;
+    for (const auto &override : es_script::Compiler::output()->parameterOverrides) {
+        if (override.first == "tcu.upshift_map[0][0]") small = override.second;
+        if (override.first == "tcu.upshift_map[1][0]") large = override.second;
+    }
+
+    EXPECT_NEAR(small, 0.000001, 1e-12);
+    EXPECT_NEAR(large, 1000000.0, 1e-6);
+}
+
+TEST(MrNumberTests, EveryEmittedNumberMatchesThePiranhaFloatRule) {
+    for (double v : { 0.0, 1.0, -1.0, 0.5, -0.5, 0.000001, -0.000001,
+                      1000000.0, 1000000000.0, 3600.0, 0.125, 1e-9 })
+    {
+        const std::string text = config::mrNumber(v);
+
+        const std::size_t dot = text.find('.');
+        ASSERT_NE(dot, std::string::npos) << v << " -> " << text;
+        EXPECT_EQ(text.find('e'), std::string::npos) << v << " -> " << text;
+        EXPECT_GT(dot, (text[0] == '-') ? 1u : 0u) << v << " -> " << text;
+        EXPECT_LT(dot + 1, text.size()) << v << " -> " << text;
+
+        for (std::size_t i = (text[0] == '-') ? 1 : 0; i < text.size(); ++i) {
+            if (i == dot) continue;
+            EXPECT_TRUE(text[i] >= '0' && text[i] <= '9') << v << " -> " << text;
+        }
+    }
+}
+
+TEST(MrNumberTests, NonFiniteValuesBecomeZeroRatherThanUnparseableText) {
+    EXPECT_EQ(config::mrNumber(std::nan("")), "0.0");
+    EXPECT_EQ(config::mrNumber(1.0 / 0.0), "0.0");
+    EXPECT_EQ(config::mrNumber(-1.0 / 0.0), "0.0");
 }
 
 TEST_F(ScriptFixture, ADriveModeCarriesAWholeShiftMap) {
@@ -1798,6 +1861,64 @@ public node friction_probe {
 
 set_engine(friction_probe())
 )MR";
+}
+
+TEST_F(ScriptFixture, AManoeuvreReachesTheCompilerOutput) {
+    ASSERT_TRUE(run(
+        "add_manoeuvre(\n"
+        "    manoeuvre(name: \"wide open throttle\")\n"
+        "        .at(time: 0.0, accelerator: 0.0, gate: 3)\n"
+        "        .at(time: 2.0, accelerator: 1.0)\n"
+        "        .at(time: 6.0, accelerator: 1.0, shift_up: true)\n"
+        "        .at(time: 9.0, accelerator: 0.0, brake: 1.0))\n"));
+
+    const auto &manoeuvres = es_script::Compiler::output()->manoeuvres;
+    ASSERT_EQ(manoeuvres.size(), 1u);
+
+    const powertrain::Manoeuvre &manoeuvre = manoeuvres[0];
+    EXPECT_EQ(manoeuvre.getName(), "wide open throttle");
+    EXPECT_EQ(manoeuvre.getCount(), 4);
+    EXPECT_NEAR(manoeuvre.getDuration(), 9.0, 1e-9);
+
+    EXPECT_NEAR(manoeuvre.sample(1.0).accelerator, 0.5, 1e-9);
+    EXPECT_EQ(manoeuvre.sample(1.0).gatePosition, 3);
+    EXPECT_TRUE(manoeuvre.sample(6.0).shiftUpRequest);
+    EXPECT_FALSE(manoeuvre.sample(2.0).shiftUpRequest);
+    EXPECT_NEAR(manoeuvre.sample(9.0).brake, 1.0, 1e-9);
+}
+
+TEST_F(ScriptFixture, TheSetpointsAreOrderedByTimeNotBySourceOrder) {
+    ASSERT_TRUE(run(
+        "add_manoeuvre(\n"
+        "    manoeuvre(name: \"out of order\")\n"
+        "        .at(time: 4.0, accelerator: 1.0)\n"
+        "        .at(time: 0.0, accelerator: 0.0)\n"
+        "        .at(time: 2.0, accelerator: 0.5))\n"));
+
+    const auto &manoeuvres = es_script::Compiler::output()->manoeuvres;
+    ASSERT_EQ(manoeuvres.size(), 1u);
+
+    EXPECT_NEAR(manoeuvres[0].get(0).time, 0.0, 1e-9);
+    EXPECT_NEAR(manoeuvres[0].get(2).time, 4.0, 1e-9);
+    EXPECT_NEAR(manoeuvres[0].sample(1.0).accelerator, 0.25, 1e-9);
+}
+
+TEST_F(ScriptFixture, SeveralManoeuvresFormALibrary) {
+    ASSERT_TRUE(run(
+        "add_manoeuvre(manoeuvre(name: \"a\").at(time: 0.0).at(time: 1.0))\n"
+        "add_manoeuvre(manoeuvre(name: \"b\").at(time: 0.0).at(time: 5.0))\n"));
+
+    const auto &manoeuvres = es_script::Compiler::output()->manoeuvres;
+    ASSERT_EQ(manoeuvres.size(), 2u);
+    EXPECT_EQ(manoeuvres[0].getName(), "a");
+    EXPECT_EQ(manoeuvres[1].getName(), "b");
+    EXPECT_NEAR(manoeuvres[1].getDuration(), 5.0, 1e-9);
+}
+
+TEST_F(ScriptFixture, AnEmptyManoeuvreIsNotAdded) {
+    ASSERT_TRUE(run("add_manoeuvre(manoeuvre(name: \"nothing\"))\n"));
+
+    EXPECT_TRUE(es_script::Compiler::output()->manoeuvres.empty());
 }
 
 TEST_F(ScriptFixture, TheFrictionNodeReachesTheEngine) {
