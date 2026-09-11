@@ -111,6 +111,8 @@ class PowertrainSystem {
         bool m_driverPrimed = false;
         powertrain::ActuatorCommands m_commands;
         powertrain::ManoeuvrePlayer m_player;
+        powertrain::ManoeuvreRecorder m_recorder;
+        int m_publishedSamples = -1;
         std::vector<powertrain::Manoeuvre> m_manoeuvres;
 
         Parameters m_params;
@@ -129,6 +131,12 @@ class PowertrainSystem {
         const powertrain::Manoeuvre &getManoeuvre(int index) const { return m_manoeuvres[index]; }
         bool startManoeuvre(const std::string &name);
         void stopManoeuvre() { m_player.stop(); }
+
+        void startRecording() { m_recorder.start(m_time); }
+        void stopRecording() { m_recorder.stop(); }
+        void republishRecording() { m_publishedSamples = -1; }
+        inline powertrain::ManoeuvreRecorder &getRecorder() { return m_recorder; }
+        inline const powertrain::ManoeuvreRecorder &getRecorder() const { return m_recorder; }
         inline powertrain::ManoeuvrePlayer &getPlayer() { return m_player; }
         inline const powertrain::ManoeuvrePlayer &getPlayer() const { return m_player; }
 };

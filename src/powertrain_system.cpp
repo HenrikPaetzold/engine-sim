@@ -144,6 +144,8 @@ void PowertrainSystem::conditionInputs(double dt) {
 
 void PowertrainSystem::setManoeuvres(const std::vector<powertrain::Manoeuvre> &manoeuvres) {
     m_player.stop();
+    m_recorder.stop();
+    m_publishedSamples = -1;
     m_player.setManoeuvre(nullptr);
     m_manoeuvres = manoeuvres;
 }
@@ -318,6 +320,7 @@ void PowertrainSystem::fillTelemetry(config::TelemetrySample *sample) const {
     out.indicatedTorque = m_state.indicatedTorque;
     out.coolantTemperature = m_state.coolantTemperature;
     out.oilTemperature = m_state.oilTemperature;
+    out.outputTorque = m_state.outputTorque;
     out.oilViscosity = m_state.oilViscosity;
     out.frictionPower = m_state.frictionPower;
     out.vehicleSpeed = m_state.vehicleSpeed;
@@ -349,6 +352,7 @@ void PowertrainSystem::recordShift(double dt) {
     sample.torqueRequest = 0.0;
     sample.torqueReduction = bus.torqueReductionRequest;
     sample.clutchSlip = m_state.clutchSlipSpeed[0];
+    sample.outputTorque = m_state.outputTorque;
 
     config::TelemetrySample telemetry;
     if (m_controller != nullptr) m_controller->fillTelemetry(&telemetry);
@@ -407,6 +411,8 @@ void PowertrainSystem::sampleState(double dt) {
             m_state.clutchPressure[i] = transmission->getClutchPressure(i);
             m_state.clutchSlipSpeed[i] = transmission->getClutchSlipSpeed(i);
         }
+
+        m_state.outputTorque = transmission->getOutputTorque();
 
         m_state.turbineSpeed = transmission->getTurbineSpeed();
         m_state.converterSlip = transmission->getConverterSlip();
@@ -499,6 +505,7 @@ void PowertrainSystem::update(double dt) {
 
     sampleState(controlDt);
     m_player.update(m_time, &m_inputs);
+    m_recorder.update(m_time, m_inputs);
     conditionInputs(controlDt);
     m_controller->update(controlDt, m_state, m_driven, &m_commands);
 
@@ -528,6 +535,15 @@ void PowertrainSystem::update(double dt) {
             m_server->applyPendingCommands();
             m_server->publishShifts(m_shiftRecorder);
             m_server->publishScope(m_scope, m_channels);
+            const bool recording = m_recorder.isRecording();
+            if (recording || m_recorder.getCount() != m_publishedSamples) {
+                m_publishedSamples = m_recorder.getCount();
+                m_server->publishRecording(
+                    recording,
+                    m_publishedSamples,
+                    m_recorder.getElapsed(),
+                    recording ? std::string() : m_recorder.toScript("recorded"));
+            }
         }
 
         publishTelemetry();

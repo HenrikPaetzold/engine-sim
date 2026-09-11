@@ -79,6 +79,42 @@ namespace powertrain {
             int m_lastIndex;
     };
 
+    class ManoeuvreRecorder {
+        public:
+            static constexpr int MaxSamples = 8192;
+
+        public:
+            ManoeuvreRecorder();
+            ~ManoeuvreRecorder();
+
+            void setInterval(double interval) { m_interval = interval; }
+            void setTolerance(double tolerance) { m_tolerance = tolerance; }
+
+            void start(double time);
+            void stop();
+            bool isRecording() const { return m_recording; }
+
+            int getCount() const { return static_cast<int>(m_samples.size()); }
+            double getElapsed() const { return m_elapsed; }
+
+            void update(double time, const DriverInputs &inputs);
+
+            void thin(Manoeuvre *manoeuvre) const;
+            std::string toScript(const std::string &name) const;
+
+        protected:
+            static bool discreteChanged(const Setpoint &a, const Setpoint &b);
+
+            std::vector<Setpoint> m_samples;
+
+            bool m_recording;
+            double m_startTime;
+            double m_elapsed;
+            double m_sinceSample;
+            double m_interval;
+            double m_tolerance;
+    };
+
 }
 
 #endif /* ATG_ENGINE_SIM_MANOEUVRE_H */
