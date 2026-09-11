@@ -100,6 +100,27 @@ Der Rundlauf ist geprüft: das exportierte Skript wird vom echten Compiler
 
 ---
 
+## Die Grenzen, und wie sie sich melden
+
+Beide Puffer sind endlich, und beide sagen es, wenn sie voll sind — stilles
+Abschneiden gibt es nicht.
+
+Grenze | Wert | Was passiert
+---|---|---
+Stützstellen je Manöver | 512 | Das Skript wird **abgelehnt**, nicht gekürzt, und `error_log.log` nennt Namen und Anzahl
+Abtastungen je Aufnahme | 8192 | Die Aufnahme stoppt, die Oberfläche zeigt **BUFFER FULL**, und das exportierte `.mr` trägt eine Kommentarzeile mit der Zahl der verworfenen Proben
+
+Bei 50 Abtastungen pro Sekunde reicht der Aufnahmepuffer für gut zweieinhalb
+Minuten. Ein ausgedünntes Manöver liegt weit unter 512 Stützstellen; die Grenze
+erreicht man praktisch nur mit einem von Hand geschriebenen Skript oder mit sehr
+vielen diskreten Wechseln, weil jeder davon eine Zwangsstütze ist.
+
+Die Kommentarzeile im Export ist Absicht: die Datei wandert weiter, also muss
+die Warnung mit ihr wandern. `//` ist in Piranha ein Kommentar, das Skript
+bleibt übersetzbar.
+
+---
+
 ## Kennzahlen
 
 ### Sprungantwort — im Browser, Ansicht „Step"

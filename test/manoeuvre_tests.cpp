@@ -339,3 +339,59 @@ TEST(ManoeuvrePlayerTests, TwoShiftsCrossedInOneTickStillRaiseTheRequestOnce) {
     EXPECT_FALSE(inputs.shiftUpRequest) << "and it must fall again on the next tick";
     EXPECT_FALSE(inputs.shiftDownRequest);
 }
+
+// --- the caps are loud, not silent ------------------------------------------
+
+TEST(ManoeuvreTests, SetpointsBeyondTheLimitAreCountedNotSwallowed) {
+    powertrain::Manoeuvre manoeuvre;
+
+    for (int i = 0; i < powertrain::Manoeuvre::MaxSetpoints + 25; ++i) {
+        const bool accepted = manoeuvre.add(at(i * 0.01, 0.5));
+        EXPECT_EQ(accepted, i < powertrain::Manoeuvre::MaxSetpoints) << i;
+    }
+
+    EXPECT_EQ(manoeuvre.getCount(), powertrain::Manoeuvre::MaxSetpoints);
+    EXPECT_EQ(manoeuvre.getDroppedCount(), 25);
+    EXPECT_TRUE(manoeuvre.isTruncated());
+}
+
+TEST(ManoeuvreTests, ClearForgetsTheDropCount) {
+    powertrain::Manoeuvre manoeuvre;
+    for (int i = 0; i < powertrain::Manoeuvre::MaxSetpoints + 5; ++i) {
+        manoeuvre.add(at(i * 0.01, 0.5));
+    }
+    ASSERT_TRUE(manoeuvre.isTruncated());
+
+    manoeuvre.clear();
+
+    EXPECT_FALSE(manoeuvre.isTruncated());
+    EXPECT_EQ(manoeuvre.getDroppedCount(), 0);
+}
+
+TEST(ManoeuvreRecorderTests, TheSampleLimitIsCountedAndShowsUpInTheScript) {
+    powertrain::ManoeuvreRecorder recorder;
+    recorder.setInterval(0.0);
+
+    recorder.start(0.0);
+    for (int i = 0; i < powertrain::ManoeuvreRecorder::MaxSamples + 40; ++i) {
+        recorder.update(i * 0.001, drive(0.5));
+    }
+    recorder.stop();
+
+    EXPECT_EQ(recorder.getCount(), powertrain::ManoeuvreRecorder::MaxSamples);
+    EXPECT_EQ(recorder.getDroppedCount(), 40);
+    EXPECT_TRUE(recorder.isFull());
+
+    const std::string script = recorder.toScript("overflowing");
+    EXPECT_NE(script.find("dropped 40 samples"), std::string::npos) << script;
+    EXPECT_NE(script.find("cut short"), std::string::npos);
+}
+
+TEST(ManoeuvreRecorderTests, AShortRecordingSaysNothingAboutLimits) {
+    powertrain::ManoeuvreRecorder recorder;
+    recorder.setInterval(0.05);
+    recordRamp(&recorder, 1.0);
+
+    EXPECT_FALSE(recorder.isFull());
+    EXPECT_EQ(recorder.toScript("fine").find("//"), std::string::npos);
+}

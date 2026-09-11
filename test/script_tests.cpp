@@ -1921,6 +1921,33 @@ TEST_F(ScriptFixture, AnEmptyManoeuvreIsNotAdded) {
     EXPECT_TRUE(es_script::Compiler::output()->manoeuvres.empty());
 }
 
+TEST_F(ScriptFixture, TooManySetpointsAreReportedAndTheManoeuvreIsRefused) {
+    std::ostringstream body;
+    body << "add_manoeuvre(\n    manoeuvre(name: \"far too long\")";
+    for (int i = 0; i < powertrain::Manoeuvre::MaxSetpoints + 3; ++i) {
+        body << "\n        .at(time: " << config::mrNumber(i * 0.01) << ")";
+    }
+    body << ")\n";
+
+    ASSERT_TRUE(run(body.str()));
+
+    const auto &errors = es_script::Compiler::output()->errors;
+    ASSERT_FALSE(errors.empty()) << "the overflow must not pass silently";
+
+    bool named = false;
+    for (const std::string &error : errors) {
+        if (error.find("far too long") != std::string::npos
+            && error.find("dropped") != std::string::npos)
+        {
+            named = true;
+        }
+    }
+
+    EXPECT_TRUE(named) << "the error must name the manoeuvre and say what happened";
+    EXPECT_TRUE(es_script::Compiler::output()->manoeuvres.empty())
+        << "a truncated manoeuvre must be refused, not silently shortened";
+}
+
 TEST_F(ScriptFixture, ARecordedManoeuvreCompilesAndReplaysTheSameShape) {
     powertrain::ManoeuvreRecorder recorder;
     recorder.setInterval(0.02);
