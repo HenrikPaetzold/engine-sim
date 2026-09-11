@@ -156,6 +156,10 @@ pre {
             <div id="viewNote"></div>
         </div>
         <div class="group">
+            <h2>Manoeuvre</h2>
+            <div id="manoeuvres"></div>
+        </div>
+        <div class="group">
             <h2>Drive mode</h2>
             <div id="modes"></div>
         </div>
@@ -393,7 +397,8 @@ function renderTelemetry() {
         ["spark cut", n(t.ignitionCut, 2)],
         ["fuel cut", n(t.fuelCut, 2)],
         ["engine", t.engineState],
-        ["shift", t.shiftState]
+        ["shift", t.shiftState],
+        ["blocked by", t.shiftBlock || "—"]
     ]);
 
     fill("learning", [
@@ -727,6 +732,10 @@ views.cloud = {
 const SCOPE_COLORS = ["#6fb2ff", "#7ddc9a", "#fdbd2e", "#ff8f6f", "#c48fff", "#5fd8d8", "#e8a13a", "#ff6fa8"];
 let scopeFrozen = null;
 
+function usesScopeBuffer(key) {
+    return key === "scope" || key === "step";
+}
+
 views.scope = {
     label: "Scope",
     note: "any channels over time, recorded at control rate. freeze holds a run so the next one draws over it.",
@@ -803,6 +812,173 @@ views.scope = {
     }
 };
 
+function stepMetrics(time, samples) {
+    const count = Math.min(time.length, samples.length);
+    if (count < 8) return null;
+
+    const median = (values) => {
+        const sorted = values.slice().sort((a, b) => a - b);
+        return sorted[Math.floor(sorted.length / 2)];
+    };
+
+    const head = Math.max(1, Math.floor(count * 0.05));
+    const tail = Math.max(1, Math.floor(count * 0.10));
+
+    const start = median(samples.slice(0, head));
+    const settled = median(samples.slice(count - tail));
+    const span = settled - start;
+
+    const scale = Math.max(Math.abs(start), Math.abs(settled), 1e-12);
+    if (Math.abs(span) < scale * 1e-4) return { flat: true, start, settled };
+
+    const passed = (value, level) => (span > 0) ? (value >= level) : (value <= level);
+    const crossing = (fraction) => {
+        const level = start + span * fraction;
+        for (let i = 1; i < count; ++i) {
+            if (!passed(samples[i], level)) continue;
+            const previous = samples[i - 1];
+            const delta = samples[i] - previous;
+            const t = (Math.abs(delta) < 1e-15)
+                ? time[i]
+                : time[i - 1] + (time[i] - time[i - 1]) * ((level - previous) / delta);
+            return { time: t, index: i };
+        }
+        return null;
+    };
+
+    const step = crossing(0.02);
+    const ten = crossing(0.10);
+    const ninety = crossing(0.90);
+    if (step == null || ten == null || ninety == null) return { flat: true, start, settled };
+
+    let peak = samples[step.index];
+    let peakTime = time[step.index];
+    for (let i = step.index; i < count; ++i) {
+        if (passed(samples[i], peak) && samples[i] !== peak) { peak = samples[i]; peakTime = time[i]; }
+    }
+
+    const band = Math.abs(span) * 0.02;
+    let settleIndex = step.index;
+    for (let i = step.index; i < count; ++i) {
+        if (Math.abs(samples[i] - settled) > band) settleIndex = i;
+    }
+
+    return {
+        flat: false,
+        start,
+        settled,
+        span,
+        band,
+        peak,
+        peakTime,
+        stepTime: step.time,
+        riseTime: ninety.time - ten.time,
+        tenTime: ten.time,
+        ninetyTime: ninety.time,
+        overshoot: (span !== 0.0) ? Math.max(0.0, (peak - settled) / span) * 100.0 : 0.0,
+        settleTime: (settleIndex + 1 < count)
+            ? time[settleIndex + 1] - step.time
+            : null
+    };
+}
+
+views.step = {
+    label: "Step",
+    note: "rise time, overshoot and settling time over the scope buffer. arm, then make a step: the first channel is drawn, all of them are measured.",
+    channels: ["engine_rpm", "cmd.throttle_plate"],
+    tools: [
+        ["arm", () => { api("/api/scope", { arm: 1 }).catch(() => {}); }]
+    ],
+    draw(ctx, w, h) {
+        const scope = state.scope;
+        if (scope == null || !scope.channels || scope.channels.length === 0
+            || !scope.time || scope.time.length < 8)
+        {
+            frame(ctx, w, h, "time  s", "");
+            ctx.fillStyle = "#8b93a1";
+            ctx.font = "12px ui-monospace, monospace";
+            ctx.fillText("pick channels below, then arm and make a step", 70, 40);
+            return;
+        }
+
+        const time = scope.time;
+        const window = Math.max(1e-6, time[time.length - 1] - time[0]);
+        const box = frame(ctx, w, h, "time  s", scope.channels[0].name || "");
+
+        const lead = scope.channels.find(channel => channel.found && channel.samples.length >= 8);
+        const metrics = lead ? stepMetrics(time, lead.samples) : null;
+
+        if (lead != null && metrics != null && !metrics.flat) {
+            let low = Math.min(metrics.start, metrics.settled, metrics.peak);
+            let high = Math.max(metrics.start, metrics.settled, metrics.peak);
+            const margin = Math.max((high - low) * 0.12, 1e-9);
+            low -= margin;
+            high += margin;
+
+            const toX = (t) => box.x((t - time[0]) / window);
+            const toY = (v) => box.y((v - low) / (high - low));
+
+            ctx.strokeStyle = "#2b3038";
+            ctx.setLineDash([3, 3]);
+            for (const level of [metrics.settled + metrics.band, metrics.settled - metrics.band]) {
+                ctx.beginPath();
+                ctx.moveTo(box.x(0), toY(level));
+                ctx.lineTo(box.x(1), toY(level));
+                ctx.stroke();
+            }
+
+            ctx.strokeStyle = "#4a525e";
+            for (const t of [metrics.tenTime, metrics.ninetyTime]) {
+                ctx.beginPath();
+                ctx.moveTo(toX(t), box.y(0));
+                ctx.lineTo(toX(t), box.y(1));
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+
+            ctx.strokeStyle = "#6fb2ff";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            for (let i = 0; i < time.length; ++i) {
+                const x = toX(time[i]);
+                const y = toY(lead.samples[i]);
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.lineWidth = 1;
+
+            ctx.fillStyle = "#ff8f6f";
+            ctx.beginPath();
+            ctx.arc(toX(metrics.peakTime), toY(metrics.peak), 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            axisTicks(ctx, box, w, h, window, high, 2);
+        }
+
+        ctx.font = "11px ui-monospace, monospace";
+        ctx.textAlign = "left";
+        let row = box.pad.t + 14;
+        for (const channel of scope.channels) {
+            if (!channel.found) continue;
+            const m = stepMetrics(time, channel.samples);
+            ctx.fillStyle = (channel === lead) ? "#6fb2ff" : "#8b93a1";
+            let text;
+            if (m == null) text = channel.name + "  —";
+            else if (m.flat) text = channel.name + "  flat at " + n(m.settled, 3);
+            else {
+                text = channel.name
+                    + "   rise " + n(m.riseTime * 1000, 1) + " ms"
+                    + "   over " + n(m.overshoot, 1) + " %"
+                    + "   settle " + (m.settleTime == null ? ">window" : n(m.settleTime * 1000, 1) + " ms")
+                    + "   final " + n(m.settled, 3);
+            }
+            ctx.fillText(text, box.pad.l + 8, row);
+            row += 14;
+        }
+        ctx.textAlign = "center";
+    }
+};
+
 views.shifts = {
     label: "Shift scope",
     note: "the last shifts on one time base. older ones are paler — watch them get smoother.",
@@ -876,7 +1052,7 @@ function buildTabs() {
 
     document.getElementById("viewNote").textContent = views[activeView].note;
 
-    if (activeView === "scope") {
+    if (usesScopeBuffer(activeView)) {
         const host = document.getElementById("cellEditor");
         host.textContent = "";
         host.dataset.role = "";
@@ -999,7 +1175,7 @@ async function pollScope() {
 }
 
 function buildScopePicker() {
-    if (activeView !== "scope") return;
+    if (!usesScopeBuffer(activeView)) return;
 
     const host = document.getElementById("cellEditor");
     const built = Number(host.dataset.channels || 0);
@@ -1028,14 +1204,14 @@ function buildScopePicker() {
             pick.appendChild(option);
         }
 
-        pick.value = views.scope.channels[slot] || "";
+        pick.value = views[activeView].channels[slot] || "";
         pick.addEventListener("change", () => {
             const chosen = [];
             for (const select of host.querySelectorAll("select")) {
                 if (select.value) chosen.push(select.value);
             }
 
-            views.scope.channels = chosen;
+            views[activeView].channels = chosen;
             api("/api/scope", { channels: chosen }).catch(() => {});
         });
 
@@ -1043,8 +1219,41 @@ function buildScopePicker() {
     }
 
     if (state.channels.length) {
-        api("/api/scope", { channels: views.scope.channels }).catch(() => {});
+        api("/api/scope", { channels: views[activeView].channels }).catch(() => {});
     }
+}
+
+function renderManoeuvres() {
+    const host = document.getElementById("manoeuvres");
+    const data = state.manoeuvres;
+
+    if (data == null || !data.list || data.list.length === 0) {
+        host.textContent = "no manoeuvre in the script";
+        return;
+    }
+
+    host.textContent = "";
+
+    for (const entry of data.list) {
+        const button = document.createElement("button");
+        const active = data.running && data.name === entry.name;
+
+        button.textContent = active
+            ? (entry.name + "  " + n(data.progress * 100, 0) + " %")
+            : (entry.name + "  " + n(entry.duration, 1) + " s");
+        button.className = active ? "on" : "";
+        button.addEventListener("click", () => {
+            const body = active ? { stop: 1 } : { start: entry.name };
+            api("/api/manoeuvre", body).catch(() => {});
+        });
+
+        host.appendChild(button);
+    }
+}
+
+async function pollManoeuvres() {
+    try { state.manoeuvres = await api("/api/manoeuvres"); }
+    catch (error) { /* keep what we have */ }
 }
 
 async function pollShifts() {
@@ -1067,6 +1276,8 @@ async function poll() {
 
         applyValues();
         renderTelemetry();
+        await pollManoeuvres();
+        renderManoeuvres();
         plot();
 
         if (activeView === "scope") {
@@ -1127,6 +1338,8 @@ async function main() {
     buildModes();
     buildTabs();
     await pollShifts();
+    await pollManoeuvres();
+    renderManoeuvres();
 
     setInterval(poll, 100);
     setInterval(pollExport, 2000);

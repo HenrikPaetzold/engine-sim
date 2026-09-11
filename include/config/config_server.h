@@ -7,6 +7,8 @@
 #include <thread>
 #include <atomic>
 
+class PowertrainSystem;
+
 namespace config {
 
     class ParameterRegistry;
@@ -44,6 +46,7 @@ namespace config {
         int selectedMode = -1;
         std::string engineState;
         std::string shiftState;
+        std::string shiftBlock;
     };
 
     struct ParameterCommand {
@@ -55,7 +58,9 @@ namespace config {
             SelectChannels,
             ScopeWindow,
             ScopeMode,
-            ScopeArm
+            ScopeArm,
+            StartManoeuvre,
+            StopManoeuvre
         };
 
         Kind kind = Kind::SetParameter;
@@ -94,6 +99,7 @@ namespace config {
             void publishShifts(const ShiftRecorder &recorder);
             void publishScope(const ChannelRecorder &recorder, const ChannelTable &table);
             void setScope(ChannelRecorder *recorder);
+            void setPowertrain(PowertrainSystem *system);
             int applyPendingCommands();
 
             std::string schemaJson() const;
@@ -127,6 +133,7 @@ namespace config {
             std::string m_scope;
             std::string m_channelNames;
             ChannelRecorder *m_scopeRecorder = nullptr;
+            PowertrainSystem *m_powertrain = nullptr;
 
             std::vector<ParameterCommand> m_commands;
 

@@ -1,5 +1,7 @@
 #include "../../include/config/config_server.h"
 
+#include "../../include/powertrain_system.h"
+
 #include "../../include/config/json_writer.h"
 
 #include "../../include/config/parameter_registry.h"
@@ -205,6 +207,7 @@ void config::ConfigServer::writeTelemetry(
         << ",\"selectedMode\":" << sample.selectedMode
         << ",\"engineState\":" << config::jsonString(sample.engineState)
         << ",\"shiftState\":" << config::jsonString(sample.shiftState)
+        << ",\"shiftBlock\":" << config::jsonString(sample.shiftBlock)
         ;
 }
 
@@ -268,6 +271,10 @@ std::string config::ConfigServer::exportOverrides() const {
 
 void config::ConfigServer::setScope(ChannelRecorder *recorder) {
     m_scopeRecorder = recorder;
+}
+
+void config::ConfigServer::setPowertrain(PowertrainSystem *system) {
+    m_powertrain = system;
 }
 
 void config::ConfigServer::publishScope(
@@ -356,6 +363,20 @@ int config::ConfigServer::applyPendingCommands() {
                 ++applied;
             }
             break;
+
+        case ParameterCommand::Kind::StartManoeuvre:
+            if (m_powertrain != nullptr && m_powertrain->startManoeuvre(command.path)) {
+                if (m_scopeRecorder != nullptr) m_scopeRecorder->arm();
+                ++applied;
+            }
+            break;
+
+        case ParameterCommand::Kind::StopManoeuvre:
+            if (m_powertrain != nullptr) {
+                m_powertrain->stopManoeuvre();
+                ++applied;
+            }
+            break;
         }
     }
 
@@ -373,6 +394,37 @@ void config::ConfigServer::registerReadRoutes(void *handle) {
     });
     server->Get("/api/export", [this](const httplib::Request &, httplib::Response &res) {
         res.set_content(exportScript(), "text/plain");
+    });
+    server->Get("/api/manoeuvres", [this](const httplib::Request &, httplib::Response &res) {
+        std::ostringstream out;
+        out << "{\"running\":";
+
+        if (m_powertrain == nullptr) {
+            out << "false,\"name\":\"\",\"progress\":0,\"list\":[]}";
+            res.set_content(out.str(), "application/json");
+            return;
+        }
+
+        const powertrain::ManoeuvrePlayer &player = m_powertrain->getPlayer();
+        const powertrain::Manoeuvre *active = player.getManoeuvre();
+
+        out << (player.isRunning() ? "true" : "false")
+            << ",\"name\":"
+            << jsonString((active != nullptr) ? active->getName() : std::string())
+            << ",\"progress\":" << player.getProgress()
+            << ",\"elapsed\":" << player.getElapsed()
+            << ",\"list\":[";
+
+        for (int i = 0; i < m_powertrain->getManoeuvreCount(); ++i) {
+            const powertrain::Manoeuvre &manoeuvre = m_powertrain->getManoeuvre(i);
+            if (i > 0) out << ",";
+            out << "{\"name\":" << jsonString(manoeuvre.getName())
+                << ",\"duration\":" << manoeuvre.getDuration()
+                << ",\"setpoints\":" << manoeuvre.getCount() << "}";
+        }
+
+        out << "]}";
+        res.set_content(out.str(), "application/json");
     });
     server->Get("/api/shifts", [this](const httplib::Request &, httplib::Response &res) {
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -406,6 +458,29 @@ void config::ConfigServer::registerReadRoutes(void *handle) {
 void config::ConfigServer::registerWriteRoutes(void *handle) {
     httplib::Server *server = serverOf(handle);
 
+    server->Post("/api/manoeuvre", [this](const httplib::Request &req, httplib::Response &res) {
+        ParameterCommand command;
+
+        std::string name;
+        if (extractString(req.body, "start", &name) && !name.empty()) {
+            command.kind = ParameterCommand::Kind::StartManoeuvre;
+            command.path = name;
+            queueCommand(command);
+            res.set_content("{\"queued\":true}", "application/json");
+            return;
+        }
+
+        double stop = 0.0;
+        if (extractNumber(req.body, "stop", &stop) && stop != 0.0) {
+            command.kind = ParameterCommand::Kind::StopManoeuvre;
+            queueCommand(command);
+            res.set_content("{\"queued\":true}", "application/json");
+            return;
+        }
+
+        res.status = 400;
+        res.set_content("{\"error\":\"start or stop expected\"}", "application/json");
+    });
     server->Post("/api/scope", [this](const httplib::Request &req, httplib::Response &res) {
         ParameterCommand command;
 

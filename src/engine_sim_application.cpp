@@ -642,6 +642,7 @@ void EngineSimApplication::loadScript() {
     double driverClutchTimeConstant = -1.0;
     double driverClutchPedalRate = -1.0;
     config::DriveModeSet driveModes;
+    std::vector<powertrain::Manoeuvre> manoeuvres;
     std::string defaultMode;
     std::vector<std::pair<std::string, double>> parameterOverrides;
     std::vector<powertrain::AdaptiveOverride> adaptiveOverrides;
@@ -671,6 +672,7 @@ void EngineSimApplication::loadScript() {
         parameterOverrides = output.parameterOverrides;
 
         adaptiveOverrides = output.adaptiveOverrides;
+        manoeuvres = output.manoeuvres;
     }
     else {
         engine = nullptr;
@@ -735,6 +737,9 @@ void EngineSimApplication::loadScript() {
         const powertrain::BootstrapResult bootstrapResult =
             powertrain::installPowertrain(bootstrapInputs, bootstrapContext);
         m_driveModeIndex = bootstrapResult.defaultModeIndex;
+
+        m_simulator->m_powertrain.setManoeuvres(manoeuvres);
+        m_configServer.setPowertrain(&m_simulator->m_powertrain);
     }
 
     refreshUserInterface();

@@ -142,6 +142,25 @@ void PowertrainSystem::conditionInputs(double dt) {
     m_driverClutch = m_driven.clutchPedal;
 }
 
+void PowertrainSystem::setManoeuvres(const std::vector<powertrain::Manoeuvre> &manoeuvres) {
+    m_player.stop();
+    m_player.setManoeuvre(nullptr);
+    m_manoeuvres = manoeuvres;
+}
+
+bool PowertrainSystem::startManoeuvre(const std::string &name) {
+    for (const powertrain::Manoeuvre &manoeuvre : m_manoeuvres) {
+        if (manoeuvre.getName() != name) continue;
+
+        m_player.setManoeuvre(&manoeuvre);
+        m_player.start(m_time);
+
+        return m_player.isRunning();
+    }
+
+    return false;
+}
+
 void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
     if (registry == nullptr) return;
 
@@ -274,6 +293,7 @@ void PowertrainSystem::reset() {
     m_accumulator = 0.0;
     m_telemetryAccumulator = 0.0;
     m_time = 0.0;
+    m_player.stop();
     m_state = powertrain::PowertrainState();
     m_commands = powertrain::ActuatorCommands();
     m_shiftRecorder.reset();
@@ -478,6 +498,7 @@ void PowertrainSystem::update(double dt) {
     m_accumulator = 0.0;
 
     sampleState(controlDt);
+    m_player.update(m_time, &m_inputs);
     conditionInputs(controlDt);
     m_controller->update(controlDt, m_state, m_driven, &m_commands);
 

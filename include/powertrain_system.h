@@ -2,6 +2,7 @@
 #define ATG_ENGINE_SIM_POWERTRAIN_SYSTEM_H
 
 #include "powertrain/powertrain_controller.h"
+#include "powertrain/manoeuvre.h"
 #include "external_throttle.h"
 #include "config/parameter_registry.h"
 #include "config/config_server.h"
@@ -109,6 +110,8 @@ class PowertrainSystem {
         double m_driverClutch = 1.0;
         bool m_driverPrimed = false;
         powertrain::ActuatorCommands m_commands;
+        powertrain::ManoeuvrePlayer m_player;
+        std::vector<powertrain::Manoeuvre> m_manoeuvres;
 
         Parameters m_params;
 
@@ -117,6 +120,17 @@ class PowertrainSystem {
         double m_accumulator;
         double m_telemetryAccumulator;
         double m_time;
+
+    public:
+        inline double getTime() const { return m_time; }
+
+        void setManoeuvres(const std::vector<powertrain::Manoeuvre> &manoeuvres);
+        int getManoeuvreCount() const { return (int)m_manoeuvres.size(); }
+        const powertrain::Manoeuvre &getManoeuvre(int index) const { return m_manoeuvres[index]; }
+        bool startManoeuvre(const std::string &name);
+        void stopManoeuvre() { m_player.stop(); }
+        inline powertrain::ManoeuvrePlayer &getPlayer() { return m_player; }
+        inline const powertrain::ManoeuvrePlayer &getPlayer() const { return m_player; }
 };
 
 #endif /* ATG_ENGINE_SIM_POWERTRAIN_SYSTEM_H */
