@@ -229,7 +229,7 @@ TEST(ShiftRecorderTests, ItSerializesValidJsonWhenEmpty) {
     EXPECT_EQ(out.str(), "[]");
 }
 
-TEST(ShiftRecorderTests, ASerializedRecordingCarriesSixChannels) {
+TEST(ShiftRecorderTests, ASerializedRecordingCarriesSevenChannels) {
     config::ShiftRecorder recorder;
     recorder.initialize(1.5);
     driveShift(recorder, 1, 0.3);
@@ -247,7 +247,8 @@ TEST(ShiftRecorderTests, ASerializedRecordingCarriesSixChannels) {
     ASSERT_NE(close, std::string::npos);
 
     const std::string first = json.substr(open + 2, close - open - 2);
-    EXPECT_EQ(std::count(first.begin(), first.end(), ','), 5);
+    EXPECT_EQ(std::count(first.begin(), first.end(), ','), 6)
+        << "time, clutch, rpm, request, reduction, slip, output torque";
 }
 
 namespace {

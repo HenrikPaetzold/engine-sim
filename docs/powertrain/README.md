@@ -23,6 +23,7 @@ wie der Wählhebel und seine Sperren funktionieren | [selector_gate.md](selector
 wie Kupplung, Wandler und Fahrzeug aneinanderhängen | [driveline.md](driveline.md)
 wie Block und Öl warm werden, und wer den Fahrer filtert | [thermal.md](thermal.md)
 wie Reibung entsteht, was das Öl damit zu tun hat | [friction.md](friction.md)
+wie man eine Fahrt skriptet, aufnimmt und bewertet | [manoeuvres.md](manoeuvres.md)
 wie der Anlasser bedatet wird | [starter.md](starter.md)
 wie man das Ganze unter Linux baut | [building-on-linux.md](building-on-linux.md)
 
@@ -54,6 +55,7 @@ deren Rückschrieb als `.mr` | `src/config/parameter_registry_export.cpp` | [cal
 **Aufbau beim Laden** | `src/powertrain/bootstrap.cpp` | diese Datei, unten
 **Thermomodell und Fahrermodell** | `src/thermal_model.cpp`, `src/powertrain_system.cpp` | [thermal.md](thermal.md)
 **Reibung** — Stribeck am Kolben, Chen-Flynn an der Kurbelwelle, Ölviskosität nach Vogel | `src/engine_friction.cpp`, `frictionForce` in `src/combustion_chamber.cpp` | [friction.md](friction.md)
+**Manöver** — Stützstellenfolge, Abspieler, Aufnahme und Ausdünnen | `include/powertrain/manoeuvre.h`, `src/powertrain/manoeuvre.cpp` | [manoeuvres.md](manoeuvres.md)
 **Antriebsstrang** — Kupplung, Wandler, Getriebe, Fahrzeug | `src/transmission.cpp`, `src/ratio_clutch_constraint.cpp`, `src/torque_converter_constraint.cpp`, `src/vehicle.cpp` | [driveline.md](driveline.md)
 **Skriptknoten** — die `.mr`-Seite | `scripting/include/powertrain_nodes.h`, `scripting/include/powertrain_actions.h`, `scripting/include/control_program_nodes.h` | unten
 **Skriptbibliothek** | `es/powertrain/*.mr`, `es/objects/objects.mr` | —
@@ -180,6 +182,9 @@ Was kann ein Blockprogramm? | `test/control_program_tests.cpp`, `test/learner_te
 Wählhebel und Sperren | `test/selector_gate_tests.cpp`
 Zündaussetzer und Gemischbildung | `test/charge_tests.cpp`
 Reibung, Ölviskosität, Reibungswärme | `test/friction_tests.cpp`
+Manöver, Abspieler, Aufnahme und Ausdünnen | `test/manoeuvre_tests.cpp`
+Warum die TCU nicht schaltet, und wie lange sie braucht | `test/gearbox_strategy_tests.cpp`
+Kennzahlen im Browser | `test/ui/step_metrics_test.js`, `test/ui/traction_gap_test.js`
 Registry, Grenzen, Adaptiv-Freigabe | `test/parameter_registry_tests.cpp`, `test/single_source_tests.cpp`
 Browser-Schnittstelle | `test/config_server_tests.cpp`
 

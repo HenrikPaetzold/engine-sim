@@ -1343,3 +1343,65 @@ TEST(ShiftBlockTests, TheReasonClearsWhenTheGearboxIsSimplyContent) {
     EXPECT_NE(tcu.getShiftBlock(), powertrain::ShiftBlock::NotInDrive);
     EXPECT_NE(tcu.getShiftBlock(), powertrain::ShiftBlock::GearDwell);
 }
+
+// --- shift duration -------------------------------------------------------
+
+TEST(ShiftMetricTests, TheShiftDurationIsZeroBeforeTheFirstShift) {
+    powertrain::TransmissionControlUnit tcu = blockRig();
+
+    EXPECT_EQ(tcu.getLastShiftDuration(), 0.0);
+    EXPECT_EQ(tcu.getShiftElapsed(), 0.0);
+}
+
+TEST(ShiftMetricTests, TheShiftDurationIsRecordedWhenTheShiftEnds) {
+    powertrain::TransmissionControlUnit tcu = blockRig();
+
+    powertrain::PowertrainState state = drivingState(0, 2.0);
+    powertrain::DriverInputs inputs;
+    inputs.accelerator = 0.5;
+    powertrain::ActuatorCommands commands;
+
+    step(tcu, state, inputs, commands, 400);
+
+    bool started = false;
+    for (int i = 0; i < 8000; ++i) {
+        state.vehicleSpeed += 0.02;
+        step(tcu, state, inputs, commands, 1);
+        if (tcu.isShifting()) { started = true; break; }
+    }
+    ASSERT_TRUE(started);
+
+    double peak = 0.0;
+    for (int i = 0; i < 8000 && tcu.isShifting(); ++i) {
+        peak = std::max(peak, tcu.getShiftElapsed());
+        step(tcu, state, inputs, commands, 1);
+    }
+
+    ASSERT_FALSE(tcu.isShifting()) << "the shift must actually finish";
+
+    EXPECT_GT(tcu.getLastShiftDuration(), 0.0);
+    EXPECT_NEAR(tcu.getLastShiftDuration(), peak, 5e-3)
+        << "the recorded duration must match how long the timer actually ran";
+}
+
+TEST(ShiftMetricTests, TheElapsedTimeRisesWhileAShiftRuns) {
+    powertrain::TransmissionControlUnit tcu = blockRig();
+
+    powertrain::PowertrainState state = drivingState(0, 2.0);
+    powertrain::DriverInputs inputs;
+    inputs.accelerator = 0.5;
+    powertrain::ActuatorCommands commands;
+
+    step(tcu, state, inputs, commands, 400);
+
+    for (int i = 0; i < 8000 && !tcu.isShifting(); ++i) {
+        state.vehicleSpeed += 0.02;
+        step(tcu, state, inputs, commands, 1);
+    }
+    ASSERT_TRUE(tcu.isShifting());
+
+    const double early = tcu.getShiftElapsed();
+    step(tcu, state, inputs, commands, 20);
+
+    EXPECT_GT(tcu.getShiftElapsed(), early);
+}

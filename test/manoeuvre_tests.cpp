@@ -160,3 +160,123 @@ TEST(ManoeuvrePlayerTests, AFreshPlayerWithoutAManoeuvreNeverRuns) {
     powertrain::DriverInputs inputs;
     EXPECT_FALSE(player.update(1.0, &inputs));
 }
+
+// --- record mode ----------------------------------------------------------
+
+namespace {
+    powertrain::DriverInputs drive(double accelerator) {
+        powertrain::DriverInputs inputs;
+        inputs.accelerator = accelerator;
+        inputs.clutchPedal = 0.0;
+        inputs.gatePosition = 3;
+
+        return inputs;
+    }
+
+    void recordRamp(powertrain::ManoeuvreRecorder *recorder, double duration) {
+        recorder->start(0.0);
+        for (double t = 0.0; t <= duration; t += 0.001) {
+            recorder->update(t, drive(std::min(1.0, t / duration)));
+        }
+        recorder->stop();
+    }
+}
+
+TEST(ManoeuvreRecorderTests, TheRecorderSamplesAtItsIntervalNotEveryTick) {
+    powertrain::ManoeuvreRecorder recorder;
+    recorder.setInterval(0.05);
+
+    recordRamp(&recorder, 1.0);
+
+    EXPECT_GT(recorder.getCount(), 15);
+    EXPECT_LT(recorder.getCount(), 40)
+        << "a 1 kHz tick rate must not produce 1000 samples per second";
+}
+
+TEST(ManoeuvreRecorderTests, AStraightRampThinsDownToItsEnds) {
+    powertrain::ManoeuvreRecorder recorder;
+    recorder.setInterval(0.05);
+    recorder.setTolerance(0.02);
+
+    recordRamp(&recorder, 2.0);
+
+    powertrain::Manoeuvre manoeuvre;
+    recorder.thin(&manoeuvre);
+
+    EXPECT_LE(manoeuvre.getCount(), 4)
+        << "a straight line needs no intermediate setpoints";
+    EXPECT_GE(manoeuvre.getCount(), 2);
+    EXPECT_NEAR(manoeuvre.sample(1.0).accelerator, 0.5, 0.03);
+}
+
+TEST(ManoeuvreRecorderTests, EveryDiscreteChangeSurvivesTheThinning) {
+    powertrain::ManoeuvreRecorder recorder;
+    recorder.setInterval(0.05);
+    recorder.start(0.0);
+
+    for (double t = 0.0; t <= 2.0; t += 0.001) {
+        powertrain::DriverInputs inputs = drive(0.5);
+        if (t >= 1.0 && t < 1.002) inputs.shiftUpRequest = true;
+        if (t >= 1.5) inputs.gatePosition = 2;
+        recorder.update(t, inputs);
+    }
+    recorder.stop();
+
+    powertrain::Manoeuvre manoeuvre;
+    recorder.thin(&manoeuvre);
+
+    bool sawShift = false;
+    bool sawGate = false;
+    for (int i = 0; i < manoeuvre.getCount(); ++i) {
+        if (manoeuvre.get(i).shiftUp) sawShift = true;
+        if (manoeuvre.get(i).gatePosition == 2) sawGate = true;
+    }
+
+    EXPECT_TRUE(sawShift) << "a shift request must never be thinned away";
+    EXPECT_TRUE(sawGate) << "a gate change must never be thinned away";
+}
+
+TEST(ManoeuvreRecorderTests, TheThinnedShapeStaysWithinTheTolerance) {
+    powertrain::ManoeuvreRecorder recorder;
+    recorder.setInterval(0.02);
+    recorder.setTolerance(0.05);
+
+    recorder.start(0.0);
+    for (double t = 0.0; t <= 4.0; t += 0.001) {
+        recorder.update(t, drive(0.5 + 0.5 * std::sin(t * 2.0)));
+    }
+    recorder.stop();
+
+    powertrain::Manoeuvre manoeuvre;
+    recorder.thin(&manoeuvre);
+
+    for (double t = 0.0; t <= 4.0; t += 0.01) {
+        const double expected = 0.5 + 0.5 * std::sin(t * 2.0);
+        EXPECT_NEAR(manoeuvre.sample(t).accelerator, expected, 0.06) << t;
+    }
+}
+
+TEST(ManoeuvreRecorderTests, TheExportedScriptUsesNoScientificNotation) {
+    powertrain::ManoeuvreRecorder recorder;
+    recorder.setInterval(0.001);
+
+    recorder.start(0.0);
+    for (double t = 0.0; t <= 0.01; t += 0.001) {
+        recorder.update(t, drive(t * 0.0001));
+    }
+    recorder.stop();
+
+    const std::string script = recorder.toScript("tiny");
+
+    EXPECT_EQ(script.find("e+"), std::string::npos) << script;
+    EXPECT_EQ(script.find("e-"), std::string::npos) << script;
+}
+
+TEST(ManoeuvreRecorderTests, AnEmptyRecordingStillProducesAValidHeader) {
+    powertrain::ManoeuvreRecorder recorder;
+
+    const std::string script = recorder.toScript("nothing");
+
+    EXPECT_NE(script.find("add_manoeuvre("), std::string::npos);
+    EXPECT_NE(script.find("manoeuvre(name: \"nothing\")"), std::string::npos);
+}

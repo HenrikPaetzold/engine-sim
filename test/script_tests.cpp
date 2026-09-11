@@ -1921,6 +1921,49 @@ TEST_F(ScriptFixture, AnEmptyManoeuvreIsNotAdded) {
     EXPECT_TRUE(es_script::Compiler::output()->manoeuvres.empty());
 }
 
+TEST_F(ScriptFixture, ARecordedManoeuvreCompilesAndReplaysTheSameShape) {
+    powertrain::ManoeuvreRecorder recorder;
+    recorder.setInterval(0.02);
+    recorder.setTolerance(0.02);
+
+    recorder.start(0.0);
+    for (double t = 0.0; t <= 3.0; t += 0.001) {
+        powertrain::DriverInputs inputs;
+        inputs.clutchPedal = 0.0;
+        inputs.gatePosition = 3;
+        inputs.accelerator = (t < 1.0) ? t : ((t < 2.0) ? 1.0 : (3.0 - t));
+        if (t >= 1.5 && t < 1.502) inputs.shiftUpRequest = true;
+        recorder.update(t, inputs);
+    }
+    recorder.stop();
+
+    powertrain::Manoeuvre reference;
+    recorder.thin(&reference);
+    ASSERT_GT(reference.getCount(), 2);
+
+    const std::string script = recorder.toScript("recorded");
+    ASSERT_TRUE(run(script)) << "the recorded manoeuvre does not compile:\n" << script;
+
+    const auto &manoeuvres = es_script::Compiler::output()->manoeuvres;
+    ASSERT_EQ(manoeuvres.size(), 1u);
+    EXPECT_EQ(manoeuvres[0].getName(), "recorded");
+    EXPECT_EQ(manoeuvres[0].getCount(), reference.getCount());
+
+    for (double t = 0.0; t <= 3.0; t += 0.01) {
+        EXPECT_NEAR(
+            manoeuvres[0].sample(t).accelerator,
+            reference.sample(t).accelerator,
+            1e-6) << t;
+    }
+
+    bool sawShift = false;
+    for (int i = 0; i < manoeuvres[0].getCount(); ++i) {
+        if (manoeuvres[0].get(i).shiftUp) sawShift = true;
+    }
+
+    EXPECT_TRUE(sawShift) << "the shift request must survive the round trip";
+}
+
 TEST_F(ScriptFixture, TheFrictionNodeReachesTheEngine) {
     ASSERT_TRUE(run(FrictionEngineScript));
 
