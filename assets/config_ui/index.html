@@ -1316,9 +1316,12 @@ function renderRecorder() {
     const button = document.createElement("button");
     const running = data != null && data.recording;
 
+    const full = data != null && data.dropped > 0;
+
     button.textContent = running
-        ? ("stop  " + n(data.elapsed, 1) + " s, " + data.samples + " samples")
-        : "record driver inputs";
+        ? ("stop  " + n(data.elapsed, 1) + " s, " + data.samples + " samples"
+            + (full ? "  BUFFER FULL" : ""))
+        : (full ? "record again — last run hit the buffer limit" : "record driver inputs");
     button.className = running ? "on" : "";
     button.addEventListener("click", () => {
         api("/api/record", running ? { stop: 1 } : { start: 1 }).catch(() => {});
@@ -1327,8 +1330,13 @@ function renderRecorder() {
     host.appendChild(button);
 
     const script = (data != null && data.script) ? data.script.trim() : "";
+    const warning = full
+        ? ("the recorder stopped after " + data.samples + " samples and dropped "
+            + data.dropped + " more — this manoeuvre is cut short\n\n")
+        : "";
+
     document.getElementById("recorded").textContent =
-        script || "nothing recorded yet";
+        script ? (warning + script) : (warning || "nothing recorded yet");
 }
 
 async function pollRecorder() {

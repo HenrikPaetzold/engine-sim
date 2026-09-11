@@ -280,11 +280,12 @@ void config::ConfigServer::setPowertrain(PowertrainSystem *system) {
 }
 
 void config::ConfigServer::publishRecording(
-    bool recording, int samples, double elapsed, const std::string &script)
+    bool recording, int samples, int dropped, double elapsed, const std::string &script)
 {
     std::ostringstream out;
     out << "{\"recording\":" << (recording ? "true" : "false")
         << ",\"samples\":" << samples
+        << ",\"dropped\":" << dropped
         << ",\"elapsed\":" << elapsed
         << ",\"script\":" << jsonString(script)
         << "}";

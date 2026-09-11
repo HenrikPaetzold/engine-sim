@@ -104,7 +104,7 @@ namespace config {
             void publishScope(const ChannelRecorder &recorder, const ChannelTable &table);
             void setScope(ChannelRecorder *recorder);
             void setPowertrain(PowertrainSystem *system);
-            void publishRecording(bool recording, int samples, double elapsed, const std::string &script);
+            void publishRecording(bool recording, int samples, int dropped, double elapsed, const std::string &script);
             int applyPendingCommands();
 
             std::string schemaJson() const;
@@ -140,7 +140,7 @@ namespace config {
             std::string m_channelNames;
             ChannelRecorder *m_scopeRecorder = nullptr;
             PowertrainSystem *m_powertrain = nullptr;
-            std::string m_recording = "{\"recording\":false,\"samples\":0,\"elapsed\":0,\"script\":\"\"}";
+            std::string m_recording = "{\"recording\":false,\"samples\":0,\"dropped\":0,\"elapsed\":0,\"script\":\"\"}";
 
             std::vector<ParameterCommand> m_commands;
 

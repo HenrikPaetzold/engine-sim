@@ -541,6 +541,7 @@ void PowertrainSystem::update(double dt) {
                 m_server->publishRecording(
                     recording,
                     m_publishedSamples,
+                    m_recorder.getDroppedCount(),
                     m_recorder.getElapsed(),
                     recording ? std::string() : m_recorder.toScript("recorded"));
             }
