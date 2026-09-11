@@ -319,7 +319,7 @@ TEST(ExportScopeTests, ChangedScopeCoversEveryDeviation) {
     std::ostringstream out;
     registry.exportScript(out, config::ParameterRegistry::ExportScope::Changed);
 
-    EXPECT_NE(out.str().find("set_parameter(\"ecu.a\", 55)"), std::string::npos);
+    EXPECT_NE(out.str().find("set_parameter(\"ecu.a\", 55.0)"), std::string::npos);
     EXPECT_EQ(out.str().find("ecu.b"), std::string::npos);
 }
 
