@@ -47,6 +47,26 @@ namespace {
         }
     }
 
+    const char *shiftBlockName(powertrain::ShiftBlock block) {
+        switch (block) {
+        case powertrain::ShiftBlock::None: return "";
+        case powertrain::ShiftBlock::NotInDrive: return "not in a driving range";
+        case powertrain::ShiftBlock::Reversing: return "reversing";
+        case powertrain::ShiftBlock::GateRefused: return "gate move refused";
+        case powertrain::ShiftBlock::GateStepping: return "gate still stepping";
+        case powertrain::ShiftBlock::ShiftInProgress: return "a shift is running";
+        case powertrain::ShiftBlock::GearDwell: return "minimum gear time not elapsed";
+        case powertrain::ShiftBlock::TopGear: return "already in top gear";
+        case powertrain::ShiftBlock::BottomGear: return "already in bottom gear";
+        case powertrain::ShiftBlock::StallProtection: return "stall protection";
+        case powertrain::ShiftBlock::NoUpshiftThreshold: return "below the upshift line";
+        case powertrain::ShiftBlock::NoDownshiftThreshold: return "above the downshift line";
+        case powertrain::ShiftBlock::NoKickdownGear: return "no lower gear for kickdown";
+        case powertrain::ShiftBlock::Coasting: return "neutral, pedal closed";
+        default: return "unknown";
+        }
+    }
+
     const char *shiftStateName(powertrain::ShiftState state) {
         switch (state) {
         case powertrain::ShiftState::Idle: return "Idle";
@@ -71,6 +91,7 @@ void powertrain::PowertrainUnit::fillTelemetry(config::TelemetrySample *sample) 
     sample->engineState = engineStateName(m_ecu.getEngineState());
 
     sample->shiftState = shiftStateName(m_tcu.getShiftState());
+    sample->shiftBlock = shiftBlockName(m_tcu.getShiftBlock());
     sample->range = m_tcu.getPosition().name;
     sample->parkLock = m_tcu.getEngagement() == powertrain::GateEngagement::Park;
     sample->shiftIterations = m_tcu.getEngageProfile().getIterationCount();
@@ -111,6 +132,7 @@ void powertrain::PowertrainUnit::fillChannels(config::ChannelTable *table) const
     table->set("tcu.active_clutch", m_tcu.getActiveClutch());
     table->set("tcu.pedal_rate", m_tcu.getPedalRate());
     table->set("tcu.shifting", m_tcu.isShifting() ? 1.0 : 0.0);
+    table->set("tcu.shift_block", (double)(int)m_tcu.getShiftBlock());
     table->set("tcu.gear_count", m_tcu.getParameters().gearCount);
     table->set("tcu.gears_requested", m_tcu.getRequestedGearCount());
 }

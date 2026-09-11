@@ -270,6 +270,7 @@ void powertrain::TransmissionControlUnit::resolvePosition(
     }
     else {
         m_positionRefused = true;
+        m_shiftBlock = ShiftBlock::GateRefused;
     }
 }
 
@@ -652,16 +653,20 @@ void powertrain::TransmissionControlUnit::updatePedalFilter(double dt, double pe
 int powertrain::TransmissionControlUnit::requestedGear(
     const PowertrainState &state,
     const DriverInputs &inputs,
-    double pedal) const
+    double pedal,
+    ShiftBlock *block) const
 {
     int requested = m_currentGear;
+    *block = ShiftBlock::None;
 
     if (inputs.manualMode) {
         if (inputs.shiftUpRequest && !m_previousShiftUp) {
             if (requested + 1 < m_params.gearCount) ++requested;
+            else *block = ShiftBlock::TopGear;
         }
         else if (inputs.shiftDownRequest && !m_previousShiftDown) {
             if (requested - 1 >= -1) --requested;
+            else *block = ShiftBlock::BottomGear;
         }
 
         return requested;
@@ -675,9 +680,21 @@ int powertrain::TransmissionControlUnit::requestedGear(
     const bool kickdown = stab || pedal >= m_params.kickdownThreshold;
 
     if (m_currentGear < 0 && inputs.accelerator > 0.0) requested = 0;
+    else if (m_currentGear < 0) {
+        *block = ShiftBlock::Coasting;
+    }
     else {
         requested = scheduleGear(
             m_currentGear, inputs.accelerator, state.vehicleSpeed, kickdown);
+
+        if (requested == m_currentGear) {
+            *block = kickdown
+                ? ShiftBlock::NoKickdownGear
+                : ShiftBlock::NoUpshiftThreshold;
+        }
+        else if (requested < m_currentGear && !kickdown) {
+            *block = ShiftBlock::NoDownshiftThreshold;
+        }
     }
 
     if (requested > 0
@@ -685,6 +702,7 @@ int powertrain::TransmissionControlUnit::requestedGear(
             < m_params.stallProtectSpeed)
     {
         requested = m_currentGear;
+        *block = ShiftBlock::StallProtection;
     }
 
     return requested;
@@ -787,12 +805,26 @@ void powertrain::TransmissionControlUnit::update(
         m_slipController.reset();
     }
 
-    if (driving && m_shiftState == ShiftState::Idle) {
+    if (!driving) {
+        m_shiftBlock = reversing ? ShiftBlock::Reversing : ShiftBlock::NotInDrive;
+    }
+    else if (m_shiftState != ShiftState::Idle) {
+        m_shiftBlock = ShiftBlock::ShiftInProgress;
+    }
+    else {
         m_currentGear = state.gear;
 
-        const int requested = requestedGear(state, inputs, pedalNow);
+        ShiftBlock reason = ShiftBlock::None;
+        const int requested = requestedGear(state, inputs, pedalNow, &reason);
 
-        if (requested != m_currentGear && m_gearTimer.hasElapsed(m_params.minGearTime)) {
+        if (requested == m_currentGear) {
+            m_shiftBlock = reason;
+        }
+        else if (!m_gearTimer.hasElapsed(m_params.minGearTime)) {
+            m_shiftBlock = ShiftBlock::GearDwell;
+        }
+        else {
+            m_shiftBlock = ShiftBlock::None;
             beginShift(requested);
         }
     }

@@ -27,6 +27,23 @@ namespace powertrain {
         ClutchEngage
     };
 
+    enum class ShiftBlock {
+        None,
+        NotInDrive,
+        Reversing,
+        GateRefused,
+        GateStepping,
+        ShiftInProgress,
+        GearDwell,
+        TopGear,
+        BottomGear,
+        StallProtection,
+        NoUpshiftThreshold,
+        NoDownshiftThreshold,
+        NoKickdownGear,
+        Coasting
+    };
+
     class TransmissionControlUnit : public PowertrainController {
         public:
             struct Parameters {
@@ -126,6 +143,7 @@ namespace powertrain {
             const GatePosition &getPosition() const;
             inline GateEngagement getEngagement() const { return getPosition().engagement; }
             inline bool wasPositionRefused() const { return m_positionRefused; }
+            inline ShiftBlock getShiftBlock() const { return m_shiftBlock; }
             inline const std::string &getRequestedMode() const { return m_requestedMode; }
             bool positionAllowed(
                 int from,
@@ -182,7 +200,8 @@ namespace powertrain {
             int requestedGear(
                 const PowertrainState &state,
                 const DriverInputs &inputs,
-                double pedal) const;
+                double pedal,
+                ShiftBlock *block) const;
             void applyClutchPressures(
                 double dt,
                 const PowertrainState &state,
@@ -248,6 +267,7 @@ namespace powertrain {
             SelectorGate m_gate;
             int m_gateIndex;
             bool m_positionRefused;
+            ShiftBlock m_shiftBlock = ShiftBlock::None;
             std::string m_requestedMode;
             control::StateTimer m_shiftTimer;
             control::StateTimer m_gearTimer;
