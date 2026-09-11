@@ -131,9 +131,12 @@ bool powertrain::ManoeuvrePlayer::update(double time, DriverInputs *inputs) {
         if (m_manoeuvre->get(i).time <= m_elapsed) index = i;
     }
 
-    if (index == m_lastIndex) {
-        inputs->shiftUpRequest = false;
-        inputs->shiftDownRequest = false;
+    inputs->shiftUpRequest = false;
+    inputs->shiftDownRequest = false;
+
+    for (int i = m_lastIndex + 1; i <= index; ++i) {
+        if (m_manoeuvre->get(i).shiftUp) inputs->shiftUpRequest = true;
+        if (m_manoeuvre->get(i).shiftDown) inputs->shiftDownRequest = true;
     }
 
     m_lastIndex = index;

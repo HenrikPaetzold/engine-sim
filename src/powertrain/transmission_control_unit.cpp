@@ -96,6 +96,8 @@ void powertrain::TransmissionControlUnit::reset() {
     }
 
     m_positionRefused = false;
+    m_shiftBlock = ShiftBlock::None;
+    m_lastShiftDuration = 0.0;
     m_requestedMode.clear();
 
     m_activeClutch = 0;
