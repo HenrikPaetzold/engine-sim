@@ -280,3 +280,62 @@ TEST(ManoeuvreRecorderTests, AnEmptyRecordingStillProducesAValidHeader) {
     EXPECT_NE(script.find("add_manoeuvre("), std::string::npos);
     EXPECT_NE(script.find("manoeuvre(name: \"nothing\")"), std::string::npos);
 }
+
+// --- findings from the read-through -----------------------------------------
+
+TEST(ManoeuvrePlayerTests, AShiftSurvivesATickThatSkipsOverItsSetpoint) {
+    powertrain::Manoeuvre manoeuvre;
+    manoeuvre.add(at(0.0, 0.5));
+
+    powertrain::Setpoint shift = at(1.0, 0.5);
+    shift.shiftUp = true;
+    manoeuvre.add(shift);
+
+    manoeuvre.add(at(1.001, 0.5));
+    manoeuvre.add(at(3.0, 0.5));
+    manoeuvre.sort();
+
+    powertrain::ManoeuvrePlayer player;
+    player.setManoeuvre(&manoeuvre);
+    player.start(0.0);
+
+    powertrain::DriverInputs inputs;
+    player.update(0.5, &inputs);
+
+    ASSERT_TRUE(player.update(1.5, &inputs))
+        << "this tick crosses both the shift setpoint and the one after it";
+
+    EXPECT_TRUE(inputs.shiftUpRequest)
+        << "a shift request must not be lost when one tick skips its setpoint";
+}
+
+TEST(ManoeuvrePlayerTests, TwoShiftsCrossedInOneTickStillRaiseTheRequestOnce) {
+    powertrain::Manoeuvre manoeuvre;
+    manoeuvre.add(at(0.0, 0.5));
+
+    powertrain::Setpoint up = at(1.0, 0.5);
+    up.shiftUp = true;
+    manoeuvre.add(up);
+
+    powertrain::Setpoint down = at(1.001, 0.5);
+    down.shiftDown = true;
+    manoeuvre.add(down);
+
+    manoeuvre.add(at(3.0, 0.5));
+    manoeuvre.sort();
+
+    powertrain::ManoeuvrePlayer player;
+    player.setManoeuvre(&manoeuvre);
+    player.start(0.0);
+
+    powertrain::DriverInputs inputs;
+    player.update(0.5, &inputs);
+    player.update(1.5, &inputs);
+
+    EXPECT_TRUE(inputs.shiftUpRequest);
+    EXPECT_TRUE(inputs.shiftDownRequest);
+
+    ASSERT_TRUE(player.update(1.6, &inputs));
+    EXPECT_FALSE(inputs.shiftUpRequest) << "and it must fall again on the next tick";
+    EXPECT_FALSE(inputs.shiftDownRequest);
+}

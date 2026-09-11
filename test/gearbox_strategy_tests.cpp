@@ -1405,3 +1405,27 @@ TEST(ShiftMetricTests, TheElapsedTimeRisesWhileAShiftRuns) {
 
     EXPECT_GT(tcu.getShiftElapsed(), early);
 }
+
+TEST(ShiftMetricTests, ResetClearsTheBlockReasonAndTheShiftDuration) {
+    powertrain::TransmissionControlUnit tcu = blockRig();
+
+    powertrain::PowertrainState state = drivingState(2, 0.0);
+    powertrain::DriverInputs inputs;
+    powertrain::ActuatorCommands commands;
+
+    inputs.brake = 1.0;
+    step(tcu, state, inputs, commands, 5);
+
+    for (int position = tcu.getGatePosition(); position >= 0; --position) {
+        inputs.gatePosition = position;
+        step(tcu, state, inputs, commands, 200);
+        if (tcu.getEngagement() == powertrain::GateEngagement::Neutral) break;
+    }
+    ASSERT_EQ(tcu.getShiftBlock(), powertrain::ShiftBlock::NotInDrive);
+
+    tcu.reset();
+
+    EXPECT_EQ(tcu.getShiftBlock(), powertrain::ShiftBlock::None)
+        << "a stale reason must not survive a reset";
+    EXPECT_EQ(tcu.getLastShiftDuration(), 0.0);
+}
