@@ -1921,6 +1921,21 @@ TEST_F(ScriptFixture, AnEmptyManoeuvreIsNotAdded) {
     EXPECT_TRUE(es_script::Compiler::output()->manoeuvres.empty());
 }
 
+TEST_F(ScriptFixture, TheRecorderSettingsReachTheCompilerOutput) {
+    ASSERT_TRUE(run(
+        "set_powertrain(driver: driver(record_interval: 0.005, record_tolerance: 0.04))\n"));
+
+    EXPECT_NEAR(es_script::Compiler::output()->recordInterval, 0.005, 1e-12);
+    EXPECT_NEAR(es_script::Compiler::output()->recordTolerance, 0.04, 1e-12);
+}
+
+TEST_F(ScriptFixture, WithoutADriverNodeTheRecorderKeepsItsDefaults) {
+    ASSERT_TRUE(run("set_powertrain()\n"));
+
+    EXPECT_NEAR(es_script::Compiler::output()->recordInterval, 0.02, 1e-12);
+    EXPECT_NEAR(es_script::Compiler::output()->recordTolerance, 0.01, 1e-12);
+}
+
 TEST_F(ScriptFixture, TooManySetpointsAreReportedAndTheManoeuvreIsRefused) {
     std::ostringstream body;
     body << "add_manoeuvre(\n    manoeuvre(name: \"far too long\")";

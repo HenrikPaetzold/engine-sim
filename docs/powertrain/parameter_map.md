@@ -42,6 +42,8 @@ zwei greps.
 `viscous_friction` | `viscousFrictionCoefficient` | `friction.viscous_friction` | „coefficient" nur in C++
 `heat_to_oil` | `frictionHeatToOil` | `friction.heat_to_oil` | „friction" nur in C++, die Gruppe heißt schon so
 `oil_cooler` | `oilCoolerConductance` | `thermal.oil_cooler` | „conductance" nur in C++, wie bei `radiator` daneben
+`record_interval` | `recordInterval` | `record.interval` | die Gruppe heißt `record`, der `.mr`-Eingang trägt sie noch einmal, weil er am `driver`-Knoten hängt
+`record_tolerance` | `recordTolerance` | `record.tolerance` | dito
 
 ---
 
@@ -93,7 +95,7 @@ Präfix | gesetzt in
 `friction.` | `src/engine_friction.cpp` — und die fünf Zylinderwerte in `src/powertrain_system.cpp`, weil sie am Motor hängen, nicht am Reibungsmodell
 `vehicle.` | `src/vehicle.cpp`
 `program.` | `src/powertrain/scripted_control_unit.cpp`
-`starter.`, `driver.`, `control.` | `src/powertrain_system.cpp`
+`starter.`, `driver.`, `control.`, `record.` | `src/powertrain_system.cpp`
 
 Die Oberfläche schneidet den Pfad selbst auf: **die ersten zwei Segmente werden
 die Gruppenüberschrift, der Rest die Beschriftung** (`groupOf` in

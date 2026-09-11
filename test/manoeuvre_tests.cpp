@@ -2,6 +2,8 @@
 
 #include "../include/powertrain/manoeuvre.h"
 #include "../include/units.h"
+#include "../include/powertrain_system.h"
+#include "../include/config/parameter_registry.h"
 
 #include <cmath>
 
@@ -394,4 +396,34 @@ TEST(ManoeuvreRecorderTests, AShortRecordingSaysNothingAboutLimits) {
 
     EXPECT_FALSE(recorder.isFull());
     EXPECT_EQ(recorder.toScript("fine").find("//"), std::string::npos);
+}
+
+TEST(ManoeuvreRecorderTests, TheRegistryValuesReachTheRecorderOnStart) {
+    PowertrainSystem::Parameters params;
+    params.recordInterval = 0.005;
+    params.recordTolerance = 0.04;
+
+    PowertrainSystem system;
+    system.initialize(params);
+
+    config::ParameterRegistry registry;
+    system.registerParameters(&registry);
+
+    ASSERT_TRUE(registry.contains("record.interval"));
+    ASSERT_TRUE(registry.contains("record.tolerance"));
+
+    ASSERT_TRUE(registry.set("record.interval", 0.1));
+    ASSERT_TRUE(registry.set("record.tolerance", 0.2));
+
+    system.startRecording();
+
+    powertrain::ManoeuvreRecorder &recorder = system.getRecorder();
+    for (int i = 0; i < 200; ++i) {
+        powertrain::DriverInputs inputs;
+        inputs.accelerator = 0.5;
+        recorder.update(i * 0.01, inputs);
+    }
+
+    EXPECT_LE(recorder.getCount(), 25)
+        << "a 0.1 s interval over 2 s must not produce hundreds of samples";
 }

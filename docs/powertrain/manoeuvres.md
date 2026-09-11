@@ -88,6 +88,21 @@ Der Knopf **record driver inputs** schneidet mit, was der Mensch tut — aus
 `driver.pedal_raw` und `driver.clutch_raw`, also **vor** dem Filter. Beim
 Stoppen erscheint das fertige `.mr` zum Kopieren.
 
+Beide Stellschrauben der Aufnahme hängen am `driver`-Knoten, weil der Rekorder
+den Fahrer aufzeichnet — und beide sind zugleich Schieber im Browser:
+
+```
+set_powertrain(
+    driver: driver(
+        record_interval: 0.02,      // Abtastabstand, Sekunden
+        record_tolerance: 0.01))    // Korridorbreite beim Ausduennen
+```
+
+Ein kleineres `record_interval` nimmt feiner auf, ein größeres `record_tolerance`
+dünnt schärfer aus. Die Registry-Pfade sind `record.interval` und
+`record.tolerance`; sie werden beim **Start** einer Aufnahme übernommen, nicht
+mittendrin.
+
 Dazwischen liegt das **Ausdünnen**: aus einer Aufnahme mit 50 Abtastungen pro
 Sekunde werden wenige Stützstellen. Der Algorithmus ist ein Korridortest — eine
 Stützstelle fällt weg, wenn die gerade Linie zwischen ihren Nachbarn überall
