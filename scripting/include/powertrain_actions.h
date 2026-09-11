@@ -246,6 +246,18 @@ namespace es_script {
 
             if (m_manoeuvre == nullptr || m_manoeuvre->isEmpty()) return;
 
+            if (m_manoeuvre->getDroppedCount() > 0) {
+                Compiler::output()->errors.push_back(
+                    "manoeuvre '" + m_manoeuvre->getName() + "' has "
+                    + std::to_string(
+                        powertrain::Manoeuvre::MaxSetpoints
+                            + m_manoeuvre->getDroppedCount())
+                    + " setpoints; the limit is "
+                    + std::to_string(powertrain::Manoeuvre::MaxSetpoints)
+                    + " and the rest were dropped");
+                return;
+            }
+
             powertrain::Manoeuvre built;
             m_manoeuvre->generate(&built);
             Compiler::output()->manoeuvres.push_back(built);

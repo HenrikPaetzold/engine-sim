@@ -14,10 +14,15 @@ powertrain::Manoeuvre::~Manoeuvre() {
     /* void */
 }
 
-void powertrain::Manoeuvre::add(const Setpoint &setpoint) {
-    if (static_cast<int>(m_setpoints.size()) >= MaxSetpoints) return;
+bool powertrain::Manoeuvre::add(const Setpoint &setpoint) {
+    if (static_cast<int>(m_setpoints.size()) >= MaxSetpoints) {
+        ++m_dropped;
+        return false;
+    }
 
     m_setpoints.push_back(setpoint);
+
+    return true;
 }
 
 void powertrain::Manoeuvre::sort() {
@@ -29,6 +34,7 @@ void powertrain::Manoeuvre::sort() {
 
 void powertrain::Manoeuvre::clear() {
     m_setpoints.clear();
+    m_dropped = 0;
 }
 
 double powertrain::Manoeuvre::getDuration() const {
@@ -151,6 +157,7 @@ powertrain::ManoeuvreRecorder::ManoeuvreRecorder() {
     m_sinceSample = 0.0;
     m_interval = 0.02;
     m_tolerance = 0.01;
+    m_dropped = 0;
 }
 
 powertrain::ManoeuvreRecorder::~ManoeuvreRecorder() {
@@ -163,6 +170,7 @@ void powertrain::ManoeuvreRecorder::start(double time) {
     m_startTime = time;
     m_elapsed = 0.0;
     m_sinceSample = m_interval;
+    m_dropped = 0;
 }
 
 void powertrain::ManoeuvreRecorder::stop() {
@@ -184,7 +192,11 @@ bool powertrain::ManoeuvreRecorder::discreteChanged(
 
 void powertrain::ManoeuvreRecorder::update(double time, const DriverInputs &inputs) {
     if (!m_recording) return;
-    if (static_cast<int>(m_samples.size()) >= MaxSamples) return;
+
+    if (static_cast<int>(m_samples.size()) >= MaxSamples) {
+        ++m_dropped;
+        return;
+    }
 
     const double elapsed = time - m_startTime;
     m_sinceSample += elapsed - m_elapsed;
@@ -281,6 +293,18 @@ std::string powertrain::ManoeuvreRecorder::toScript(const std::string &name) con
     thin(&manoeuvre);
 
     std::ostringstream out;
+
+    if (m_dropped > 0) {
+        out << "// the recorder hit its sample limit and dropped " << m_dropped
+            << " samples; this manoeuvre is cut short\n";
+    }
+
+    if (manoeuvre.isTruncated()) {
+        out << "// thinning still left more than " << Manoeuvre::MaxSetpoints
+            << " setpoints; " << manoeuvre.getDroppedCount()
+            << " were dropped\n";
+    }
+
     out << "add_manoeuvre(\n    manoeuvre(name: \"" << name << "\")";
 
     for (int i = 0; i < manoeuvre.getCount(); ++i) {

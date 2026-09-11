@@ -312,7 +312,12 @@ namespace es_script {
             if ((int)m_setpoints.size() < powertrain::Manoeuvre::MaxSetpoints) {
                 m_setpoints.push_back(setpoint);
             }
+            else {
+                ++m_dropped;
+            }
         }
+
+        int getDroppedCount() const { return m_dropped; }
 
         const std::string &getName() const { return m_name; }
         bool isEmpty() const { return m_setpoints.empty(); }
@@ -340,6 +345,7 @@ namespace es_script {
 
         std::string m_name = "";
         std::vector<powertrain::Setpoint> m_setpoints;
+        int m_dropped = 0;
     };
 
     class ThermalNode : public ObjectReferenceNode<ThermalNode> {

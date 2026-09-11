@@ -37,9 +37,12 @@ namespace powertrain {
             void setName(const std::string &name) { m_name = name; }
             const std::string &getName() const { return m_name; }
 
-            void add(const Setpoint &setpoint);
+            bool add(const Setpoint &setpoint);
             void sort();
             void clear();
+
+            int getDroppedCount() const { return m_dropped; }
+            bool isTruncated() const { return m_dropped > 0; }
 
             int getCount() const { return static_cast<int>(m_setpoints.size()); }
             const Setpoint &get(int index) const { return m_setpoints[index]; }
@@ -51,6 +54,7 @@ namespace powertrain {
         protected:
             std::string m_name;
             std::vector<Setpoint> m_setpoints;
+            int m_dropped = 0;
     };
 
     class ManoeuvrePlayer {
@@ -96,6 +100,8 @@ namespace powertrain {
 
             int getCount() const { return static_cast<int>(m_samples.size()); }
             double getElapsed() const { return m_elapsed; }
+            int getDroppedCount() const { return m_dropped; }
+            bool isFull() const { return m_dropped > 0; }
 
             void update(double time, const DriverInputs &inputs);
 
@@ -113,6 +119,7 @@ namespace powertrain {
             double m_sinceSample;
             double m_interval;
             double m_tolerance;
+            int m_dropped;
     };
 
 }
