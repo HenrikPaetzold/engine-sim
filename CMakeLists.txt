@@ -73,6 +73,7 @@ add_library(engine-sim STATIC
     src/control/control_program.cpp
     src/control/pid_controller.cpp
     src/powertrain/bootstrap.cpp
+    src/powertrain/manoeuvre.cpp
     src/powertrain/engine_control_unit.cpp
     src/powertrain/engine_control_unit_parameters.cpp
     src/powertrain/passthrough_controller.cpp
@@ -152,6 +153,7 @@ add_library(engine-sim STATIC
     include/powertrain/actuator_commands.h
     include/powertrain/driver_inputs.h
     include/powertrain/bootstrap.h
+    include/powertrain/manoeuvre.h
     include/powertrain/engine_control_unit.h
     include/powertrain/passthrough_controller.h
     include/powertrain/powertrain_bus.h
@@ -415,6 +417,7 @@ add_executable(engine-sim-test
         test/powertrain_tests.cpp
     test/charge_tests.cpp
     test/friction_tests.cpp
+    test/manoeuvre_tests.cpp
     test/thermal_tests.cpp
     test/ecu_tests.cpp
     test/tcu_tests.cpp

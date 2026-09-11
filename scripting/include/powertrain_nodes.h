@@ -6,6 +6,8 @@
 
 #include "engine_sim.h"
 
+#include "../../include/powertrain/manoeuvre.h"
+
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -299,6 +301,45 @@ namespace es_script {
         double m_maxEntrySpeed = -1.0;
         double m_maxExitSpeed = -1.0;
         bool m_requiresBrake = false;
+    };
+
+    class ManoeuvreNode : public ObjectReferenceNode<ManoeuvreNode> {
+    public:
+        ManoeuvreNode() { /* void */ }
+        virtual ~ManoeuvreNode() { /* void */ }
+
+        void addSetpoint(const powertrain::Setpoint &setpoint) {
+            if ((int)m_setpoints.size() < powertrain::Manoeuvre::MaxSetpoints) {
+                m_setpoints.push_back(setpoint);
+            }
+        }
+
+        const std::string &getName() const { return m_name; }
+        bool isEmpty() const { return m_setpoints.empty(); }
+
+        void generate(powertrain::Manoeuvre *manoeuvre) const {
+            manoeuvre->clear();
+            manoeuvre->setName(m_name);
+            for (const powertrain::Setpoint &setpoint : m_setpoints) {
+                manoeuvre->add(setpoint);
+            }
+            manoeuvre->sort();
+        }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("name", &m_name);
+
+            ObjectReferenceNode<ManoeuvreNode>::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            setOutput(this);
+            readAllInputs();
+        }
+
+        std::string m_name = "";
+        std::vector<powertrain::Setpoint> m_setpoints;
     };
 
     class ThermalNode : public ObjectReferenceNode<ThermalNode> {

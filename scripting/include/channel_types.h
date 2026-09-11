@@ -35,6 +35,7 @@ namespace es_script {
         static const piranha::ChannelType AdaptationChannel;
         static const piranha::ChannelType ThermalChannel;
         static const piranha::ChannelType FrictionChannel;
+        static const piranha::ChannelType ManoeuvreChannel;
         static const piranha::ChannelType DriverChannel;
         static const piranha::ChannelType ControlBlockChannel;
         static const piranha::ChannelType ControlProgramChannel;
@@ -84,6 +85,7 @@ namespace es_script {
     ASSIGN_CHANNEL_TYPE(AdaptationNode, AdaptationChannel);
     ASSIGN_CHANNEL_TYPE(ThermalNode, ThermalChannel);
     ASSIGN_CHANNEL_TYPE(FrictionNode, FrictionChannel);
+    ASSIGN_CHANNEL_TYPE(ManoeuvreNode, ManoeuvreChannel);
     ASSIGN_CHANNEL_TYPE(DriverNode, DriverChannel);
     ASSIGN_CHANNEL_TYPE(ControlBlockNode, ControlBlockChannel);
     ASSIGN_CHANNEL_TYPE(ControlProgramNode, ControlProgramChannel);

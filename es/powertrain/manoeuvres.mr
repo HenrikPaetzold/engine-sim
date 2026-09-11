@@ -1,0 +1,74 @@
+module {
+    @name:      "Driving Manoeuvres"
+}
+
+private import "../types/atomic_types.mr"
+private import "../types/conversions.mr"
+private import "../types/operations.mr"
+private import "../constants/units.mr"
+
+public node manoeuvre_channel => __engine_sim__manoeuvre_channel { /* void */ }
+
+public node manoeuvre => __engine_sim__manoeuvre {
+    input name [string]: "";
+
+    alias output __out [manoeuvre_channel];
+}
+
+private node _add_setpoint => __engine_sim__add_setpoint {
+    input manoeuvre [manoeuvre_channel];
+    input time [float];
+    input accelerator [float];
+    input brake [float];
+    input clutch [float];
+    input gate [int];
+    input gear [int];
+    input drive_mode [int];
+    input manual [bool];
+    input shift_up [bool];
+    input shift_down [bool];
+    input ignition [bool];
+    input starter [bool];
+}
+
+public node at {
+    input time;
+    input accelerator: 0.0;
+    input brake: 0.0;
+    input clutch: 0.0;
+    input gate: -1;
+    input gear: -1;
+    input drive_mode: 0;
+    input manual: false;
+    input shift_up: false;
+    input shift_down: false;
+    input ignition: true;
+    input starter: false;
+    input this;
+    alias output __out: this;
+
+    _add_setpoint(
+        manoeuvre: this,
+        time: time,
+        accelerator: accelerator,
+        brake: brake,
+        clutch: clutch,
+        gate: gate,
+        gear: gear,
+        drive_mode: drive_mode,
+        manual: manual,
+        shift_up: shift_up,
+        shift_down: shift_down,
+        ignition: ignition,
+        starter: starter)
+}
+
+private node _add_manoeuvre => __engine_sim__add_manoeuvre {
+    input manoeuvre [manoeuvre_channel];
+}
+
+public node add_manoeuvre {
+    input manoeuvre;
+
+    _add_manoeuvre(manoeuvre: manoeuvre)
+}

@@ -32,4 +32,5 @@ DEFINE_CHANNEL(TransmissionControlUnitChannel);
 DEFINE_CHANNEL(AdaptationChannel);
 DEFINE_CHANNEL(ThermalChannel);
 DEFINE_CHANNEL(FrictionChannel);
+DEFINE_CHANNEL(ManoeuvreChannel);
 DEFINE_CHANNEL(DriverChannel);

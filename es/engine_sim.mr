@@ -33,6 +33,7 @@ public import "utilities/utilities.mr"
 public import "powertrain/powertrain.mr"
 public import "powertrain/gearboxes.mr"
 public import "powertrain/control_blocks.mr"
+public import "powertrain/manoeuvres.mr"
 
 // Application settings
 public import "settings/application_settings.mr"

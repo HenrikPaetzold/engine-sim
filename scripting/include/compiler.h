@@ -36,6 +36,7 @@ namespace es_script {
             std::vector<std::pair<std::string, double>> parameterOverrides;
 
             std::vector<powertrain::AdaptiveOverride> adaptiveOverrides;
+            std::vector<powertrain::Manoeuvre> manoeuvres;
         };
 
     private:

@@ -195,6 +195,65 @@ namespace es_script {
         double m_ratio = 1.0;
     };
 
+    class AddSetpointNode : public Node {
+    public:
+        AddSetpointNode() { /* void */ }
+        virtual ~AddSetpointNode() { /* void */ }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("manoeuvre", &m_manoeuvre, InputTarget::Type::Object);
+            addInput("time", &m_setpoint.time);
+            addInput("accelerator", &m_setpoint.accelerator);
+            addInput("brake", &m_setpoint.brake);
+            addInput("clutch", &m_setpoint.clutchPedal);
+            addInput("gate", &m_setpoint.gatePosition);
+            addInput("gear", &m_setpoint.selectedGear);
+            addInput("drive_mode", &m_setpoint.driveMode);
+            addInput("manual", &m_setpoint.manualMode);
+            addInput("shift_up", &m_setpoint.shiftUp);
+            addInput("shift_down", &m_setpoint.shiftDown);
+            addInput("ignition", &m_setpoint.ignitionKey);
+            addInput("starter", &m_setpoint.starterRequest);
+
+            Node::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            readAllInputs();
+
+            if (m_manoeuvre != nullptr) m_manoeuvre->addSetpoint(m_setpoint);
+        }
+
+        ManoeuvreNode *m_manoeuvre = nullptr;
+        powertrain::Setpoint m_setpoint;
+    };
+
+    class AddManoeuvreNode : public Node {
+    public:
+        AddManoeuvreNode() { /* void */ }
+        virtual ~AddManoeuvreNode() { /* void */ }
+
+    protected:
+        virtual void registerInputs() override {
+            addInput("manoeuvre", &m_manoeuvre, InputTarget::Type::Object);
+
+            Node::registerInputs();
+        }
+
+        virtual void _evaluate() override {
+            readAllInputs();
+
+            if (m_manoeuvre == nullptr || m_manoeuvre->isEmpty()) return;
+
+            powertrain::Manoeuvre built;
+            m_manoeuvre->generate(&built);
+            Compiler::output()->manoeuvres.push_back(built);
+        }
+
+        ManoeuvreNode *m_manoeuvre = nullptr;
+    };
+
     class AddGatePositionNode : public Node {
     public:
         AddGatePositionNode() { /* void */ }
