@@ -486,7 +486,7 @@ void config::ConfigServer::registerReadRoutes(void *handle) {
     });
 }
 
-void config::ConfigServer::registerWriteRoutes(void *handle) {
+void config::ConfigServer::registerSessionRoutes(void *handle) {
     httplib::Server *server = serverOf(handle);
 
     server->Get("/api/record", [this](const httplib::Request &, httplib::Response &res) {
@@ -586,6 +586,15 @@ void config::ConfigServer::registerWriteRoutes(void *handle) {
 
         res.set_content("{\"ok\":true}", "application/json");
     });
+}
+
+void config::ConfigServer::registerWriteRoutes(void *handle) {
+    httplib::Server *server = serverOf(handle);
+
+    server->Get("/api/record", [this](const httplib::Request &, httplib::Response &res) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        res.set_content(m_recording, "application/json");
+    });
     server->Post("/api/set", [this](const httplib::Request &req, httplib::Response &res) {
         ParameterCommand command;
         command.kind = ParameterCommand::Kind::SetParameter;
@@ -645,6 +654,7 @@ bool config::ConfigServer::start() {
     m_server = server;
 
     registerReadRoutes(m_server);
+    registerSessionRoutes(m_server);
     registerWriteRoutes(m_server);
 
     int port = 0;

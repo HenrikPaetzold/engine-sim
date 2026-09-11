@@ -117,6 +117,7 @@ namespace config {
         protected:
             void buildSchema();
             void registerReadRoutes(void *handle);
+            void registerSessionRoutes(void *handle);
             void registerWriteRoutes(void *handle);
             void writeValues(std::ostream &out) const;
             void writeAdaptiveFlags(std::ostream &out) const;
