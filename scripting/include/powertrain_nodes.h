@@ -399,12 +399,16 @@ namespace es_script {
         double getPedalTimeConstant() const { return m_pedalTimeConstant; }
         double getClutchTimeConstant() const { return m_clutchTimeConstant; }
         double getClutchPedalRate() const { return m_clutchPedalRate; }
+        double getRecordInterval() const { return m_recordInterval; }
+        double getRecordTolerance() const { return m_recordTolerance; }
 
     protected:
         virtual void registerInputs() override {
             addInput("pedal_time_constant", &m_pedalTimeConstant);
             addInput("clutch_time_constant", &m_clutchTimeConstant);
             addInput("clutch_pedal_rate", &m_clutchPedalRate);
+            addInput("record_interval", &m_recordInterval);
+            addInput("record_tolerance", &m_recordTolerance);
 
             ObjectReferenceNode<DriverNode>::registerInputs();
         }
@@ -417,6 +421,8 @@ namespace es_script {
         double m_pedalTimeConstant = 1.0 / (60.0 * 0.6931471805599453);
         double m_clutchTimeConstant = 0.001;
         double m_clutchPedalRate = 0.2;
+        double m_recordInterval = 0.02;
+        double m_recordTolerance = 0.01;
     };
 
     class AdaptationNode : public ObjectReferenceNode<AdaptationNode> {

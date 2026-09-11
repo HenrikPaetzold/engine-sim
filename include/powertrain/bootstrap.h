@@ -37,6 +37,8 @@ namespace powertrain {
         double driverPedalTimeConstant = -1.0;
         double driverClutchTimeConstant = -1.0;
         double driverClutchPedalRate = -1.0;
+        double recordInterval = -1.0;
+        double recordTolerance = -1.0;
         std::string defaultMode;
         std::vector<std::pair<std::string, double>> parameterOverrides;
         std::vector<AdaptiveOverride> adaptiveOverrides;

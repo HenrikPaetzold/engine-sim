@@ -156,6 +156,8 @@ public node driver => __engine_sim__driver {
     input pedal_time_constant [float]: 0.024;
     input clutch_time_constant [float]: 0.001;
     input clutch_pedal_rate [float]: 0.2;
+    input record_interval [float]: 0.02;
+    input record_tolerance [float]: 0.01;
 
     alias output __out [driver_channel];
 }

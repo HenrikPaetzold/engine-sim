@@ -641,6 +641,8 @@ void EngineSimApplication::loadScript() {
     double driverPedalTimeConstant = -1.0;
     double driverClutchTimeConstant = -1.0;
     double driverClutchPedalRate = -1.0;
+    double recordInterval = -1.0;
+    double recordTolerance = -1.0;
     config::DriveModeSet driveModes;
     std::vector<powertrain::Manoeuvre> manoeuvres;
     std::string defaultMode;
@@ -667,6 +669,8 @@ void EngineSimApplication::loadScript() {
         driverPedalTimeConstant = output.driverPedalTimeConstant;
         driverClutchTimeConstant = output.driverClutchTimeConstant;
         driverClutchPedalRate = output.driverClutchPedalRate;
+        recordInterval = output.recordInterval;
+        recordTolerance = output.recordTolerance;
         driveModes = output.driveModes;
         defaultMode = output.defaultMode;
         parameterOverrides = output.parameterOverrides;
@@ -721,6 +725,8 @@ void EngineSimApplication::loadScript() {
         bootstrapInputs.driverPedalTimeConstant = driverPedalTimeConstant;
         bootstrapInputs.driverClutchTimeConstant = driverClutchTimeConstant;
         bootstrapInputs.driverClutchPedalRate = driverClutchPedalRate;
+        bootstrapInputs.recordInterval = recordInterval;
+        bootstrapInputs.recordTolerance = recordTolerance;
         bootstrapInputs.defaultMode = defaultMode;
         bootstrapInputs.parameterOverrides = parameterOverrides;
         bootstrapInputs.adaptiveOverrides = adaptiveOverrides;

@@ -25,6 +25,8 @@ namespace es_script {
             double driverPedalTimeConstant = 1.0 / (60.0 * 0.6931471805599453);
             double driverClutchTimeConstant = 0.001;
             double driverClutchPedalRate = 0.2;
+            double recordInterval = 0.02;
+            double recordTolerance = 0.01;
             config::DriveModeSet driveModes;
             std::string defaultMode;
 

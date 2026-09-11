@@ -59,6 +59,12 @@ powertrain::BootstrapResult powertrain::installPowertrain(
     if (inputs.driverClutchPedalRate >= 0.0) {
         systemParams.clutchPedalRate = inputs.driverClutchPedalRate;
     }
+    if (inputs.recordInterval >= 0.0) {
+        systemParams.recordInterval = inputs.recordInterval;
+    }
+    if (inputs.recordTolerance >= 0.0) {
+        systemParams.recordTolerance = inputs.recordTolerance;
+    }
 
     system.initialize(systemParams);
     system.setController(result.controller);

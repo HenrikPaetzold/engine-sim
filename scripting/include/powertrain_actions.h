@@ -157,6 +157,10 @@ namespace es_script {
                     m_driver->getClutchTimeConstant();
                 Compiler::output()->driverClutchPedalRate =
                     m_driver->getClutchPedalRate();
+                Compiler::output()->recordInterval =
+                    m_driver->getRecordInterval();
+                Compiler::output()->recordTolerance =
+                    m_driver->getRecordTolerance();
             }
 
             delete Compiler::output()->powertrain;

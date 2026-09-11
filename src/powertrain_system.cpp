@@ -187,6 +187,14 @@ void PowertrainSystem::registerParameters(config::ParameterRegistry *registry) {
         &m_params.clutchPedalRate);
     registry->registerScalar(
         config::describeScalar(
+            "record.interval", 0.0, 1.0, m_params.recordInterval, "s"),
+        &m_params.recordInterval);
+    registry->registerScalar(
+        config::describeScalar(
+            "record.tolerance", 0.0, 0.5, m_params.recordTolerance, ""),
+        &m_params.recordTolerance);
+    registry->registerScalar(
+        config::describeScalar(
             "control.telemetry_frequency", 1.0, 200.0, m_params.telemetryFrequency, "Hz"),
         &m_params.telemetryFrequency);
     registry->registerScalar(

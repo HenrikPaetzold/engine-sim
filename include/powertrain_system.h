@@ -30,6 +30,9 @@ class PowertrainSystem {
             double clutchTimeConstant = 0.001;
             double clutchPedalRate = 0.2;
             double shiftWindow = 1.5;
+
+            double recordInterval = 0.02;
+            double recordTolerance = 0.01;
         };
 
     public:
@@ -132,7 +135,11 @@ class PowertrainSystem {
         bool startManoeuvre(const std::string &name);
         void stopManoeuvre() { m_player.stop(); }
 
-        void startRecording() { m_recorder.start(m_time); }
+        void startRecording() {
+            m_recorder.setInterval(m_params.recordInterval);
+            m_recorder.setTolerance(m_params.recordTolerance);
+            m_recorder.start(m_time);
+        }
         void stopRecording() { m_recorder.stop(); }
         void republishRecording() { m_publishedSamples = -1; }
         inline powertrain::ManoeuvreRecorder &getRecorder() { return m_recorder; }
