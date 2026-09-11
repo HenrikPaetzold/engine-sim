@@ -112,6 +112,15 @@ void Transmission::setEngagement(powertrain::GateEngagement range) {
     m_engagement = range;
 }
 
+double Transmission::getOutputTorque() const {
+    double torque = 0.0;
+    for (int i = 0; i < ClutchCount; ++i) {
+        torque += m_ratioClutch[i].getTorque();
+    }
+
+    return torque + m_lockupClutch.getTorque();
+}
+
 double Transmission::getParkLockTorque() const {
     return m_parkLockTorque;
 }

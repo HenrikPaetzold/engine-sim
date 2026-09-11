@@ -92,6 +92,7 @@ void powertrain::PowertrainUnit::fillTelemetry(config::TelemetrySample *sample) 
 
     sample->shiftState = shiftStateName(m_tcu.getShiftState());
     sample->shiftBlock = shiftBlockName(m_tcu.getShiftBlock());
+    sample->lastShiftDuration = m_tcu.getLastShiftDuration();
     sample->range = m_tcu.getPosition().name;
     sample->parkLock = m_tcu.getEngagement() == powertrain::GateEngagement::Park;
     sample->shiftIterations = m_tcu.getEngageProfile().getIterationCount();
@@ -133,6 +134,8 @@ void powertrain::PowertrainUnit::fillChannels(config::ChannelTable *table) const
     table->set("tcu.pedal_rate", m_tcu.getPedalRate());
     table->set("tcu.shifting", m_tcu.isShifting() ? 1.0 : 0.0);
     table->set("tcu.shift_block", (double)(int)m_tcu.getShiftBlock());
+    table->set("tcu.shift_elapsed", m_tcu.isShifting() ? m_tcu.getShiftElapsed() : 0.0);
+    table->set("tcu.last_shift_duration", m_tcu.getLastShiftDuration());
     table->set("tcu.gear_count", m_tcu.getParameters().gearCount);
     table->set("tcu.gears_requested", m_tcu.getRequestedGearCount());
 }

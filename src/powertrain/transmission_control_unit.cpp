@@ -577,6 +577,7 @@ void powertrain::TransmissionControlUnit::advanceClutchOverlap(
     m_secondaryPressure = (target == 1) ? 1.0 : 0.0;
 
     m_bus.torqueReductionRequest = 0.0;
+    m_lastShiftDuration = m_shiftTimer.getElapsed();
     m_shiftState = ShiftState::Idle;
     m_gearTimer.reset();
     ++m_completedShifts;
@@ -605,6 +606,7 @@ void powertrain::TransmissionControlUnit::advanceClutchEngage(
 
     m_clutchPressure = 1.0;
     m_bus.torqueReductionRequest = 0.0;
+    m_lastShiftDuration = m_shiftTimer.getElapsed();
     m_shiftState = ShiftState::Idle;
     m_gearTimer.reset();
     ++m_completedShifts;

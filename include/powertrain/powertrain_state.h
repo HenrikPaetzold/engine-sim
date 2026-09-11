@@ -18,6 +18,7 @@ namespace powertrain {
         double intakeAfr = 0.0;
         double exhaustO2 = 0.0;
         double indicatedTorque = 0.0;
+        double outputTorque = 0.0;
         double timingAdvance = 0.0;
 
         double coolantTemperature = 0.0;

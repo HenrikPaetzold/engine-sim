@@ -18,6 +18,7 @@ namespace powertrain {
             IntakeAfr,
             ExhaustO2,
             IndicatedTorque,
+            OutputTorque,
             TimingAdvance,
             CoolantTemperature,
             OilTemperature,

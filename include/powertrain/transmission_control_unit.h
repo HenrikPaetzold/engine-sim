@@ -144,6 +144,8 @@ namespace powertrain {
             inline GateEngagement getEngagement() const { return getPosition().engagement; }
             inline bool wasPositionRefused() const { return m_positionRefused; }
             inline ShiftBlock getShiftBlock() const { return m_shiftBlock; }
+            inline double getShiftElapsed() const { return m_shiftTimer.getElapsed(); }
+            inline double getLastShiftDuration() const { return m_lastShiftDuration; }
             inline const std::string &getRequestedMode() const { return m_requestedMode; }
             bool positionAllowed(
                 int from,
@@ -268,6 +270,7 @@ namespace powertrain {
             int m_gateIndex;
             bool m_positionRefused;
             ShiftBlock m_shiftBlock = ShiftBlock::None;
+            double m_lastShiftDuration = 0.0;
             std::string m_requestedMode;
             control::StateTimer m_shiftTimer;
             control::StateTimer m_gearTimer;

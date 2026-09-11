@@ -18,6 +18,7 @@ namespace config {
                 double torqueRequest = 0.0;
                 double torqueReduction = 0.0;
                 double clutchSlip = 0.0;
+            double outputTorque = 0.0;
             };
 
             struct Recording {

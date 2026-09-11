@@ -82,6 +82,7 @@ class Transmission {
         inline int getPreselectedGear() const { return m_preselectedGear; }
         inline void setLockupPressure(double pressure) { m_lockupPressure = pressure; }
         inline double getLockupPressure() const { return m_lockupPressure; }
+        double getOutputTorque() const;
 
         inline Type getType() const { return m_type; }
         inline bool supportsPreselect() const { return m_type == Type::DualClutch; }

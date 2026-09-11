@@ -134,6 +134,7 @@ void config::ShiftRecorder::serializeJson(std::ostream &out) const {
                 << ',' << s.torqueRequest
                 << ',' << s.torqueReduction
                 << ',' << s.clutchSlip
+                << ',' << s.outputTorque
                 << ']';
         }
 

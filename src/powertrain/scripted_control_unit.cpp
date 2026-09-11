@@ -17,6 +17,7 @@ namespace {
         "intake_afr",
         "exhaust_o2",
         "indicated_torque",
+        "output_torque",
         "timing_advance",
         "coolant_temperature",
         "oil_temperature",
@@ -291,6 +292,7 @@ void powertrain::sampleSignalTable(
     table.set(signals::IntakeAfr, state.intakeAfr);
     table.set(signals::ExhaustO2, state.exhaustO2);
     table.set(signals::IndicatedTorque, state.indicatedTorque);
+    table.set(signals::OutputTorque, state.outputTorque);
     table.set(signals::TimingAdvance, state.timingAdvance);
     table.set(signals::CoolantTemperature, state.coolantTemperature);
     table.set(signals::OilTemperature, state.oilTemperature);
